@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.aion/
+*.egg-info/
+build/
+dist/
+.venv/
+ledger.jsonl

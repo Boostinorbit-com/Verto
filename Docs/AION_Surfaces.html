@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AION — Surfaces &amp; Delivery</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+      --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+      --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+    --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+    --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .layout{display:grid; grid-template-columns:270px 1fr; max-width:1240px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);}
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:19px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-radius:7px; border-left:2px solid transparent;}
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:32px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:72ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{font-size:23px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  section > h2 .when{font-size:12px; font-weight:700; padding:2px 9px; border-radius:20px; vertical-align:middle; margin-left:10px;}
+  .v0{background:var(--accent-soft); color:var(--accent);} .v1{background:#fef3c7; color:#92400e;} .v2{background:#e0e7ff; color:#3730a3;} .vis{background:var(--card); color:var(--muted); border:1px solid var(--line);}
+  @media (prefers-color-scheme: dark){ .v1{background:#3a2f10; color:#fbbf24;} .v2{background:#1e2149; color:#a5b4fc;} }
+  h3{font-size:16px; margin:22px 0 8px; color:var(--accent);}
+  p{max-width:80ch;} li{max-width:78ch;}
+  a{color:var(--accent);}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.86em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.5;}
+  pre code{background:none; padding:0;}
+  pre.diagram{background:var(--diagram-bg); color:var(--diagram-fg); border:none;}
+  pre.diagram code{color:var(--diagram-fg);}
+  .scroll{overflow-x:auto;}
+  table{border-collapse:collapse; width:100%; margin:14px 0; font-size:13.5px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0; font-weight:600;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  .ok{color:var(--ok); font-weight:700;} .muted{color:var(--muted);}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+    nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+    main{padding:28px 20px 80px;}
+    header.doc h1{font-size:25px;}
+  }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">AI<span>ON</span> · Surfaces</div>
+    <div class="tagline">How AION is delivered: CLI, CI, IDE, dashboard, network — thin clients over one engine.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li class="num"><a href="#s1">The one principle</a></li>
+      <li class="num"><a href="#s2">Staged overview</a></li>
+      <li class="num"><a href="#s3">CLI (v0)</a></li>
+      <li class="num"><a href="#s4">CI action (v1)</a></li>
+      <li class="num"><a href="#s5">VS Code / IDE (v1)</a></li>
+      <li class="num"><a href="#s6">Web dashboard (v2)</a></li>
+      <li class="num"><a href="#s7">Network service (vision)</a></li>
+      <li class="num"><a href="#s8">SDK / library (optional)</a></li>
+      <li class="num"><a href="#s9">Cross-surface guarantees</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc">
+      <h1>Surfaces &amp; Delivery</h1>
+      <p class="lede"><b>How AION reaches a user</b> — the CLI, the CI action, the IDE extension, and beyond.</p>
+      <p style="color:var(--muted); font-size:14px; max-width:80ch;">This document owns the <em>surface specs</em>. It does <b>not</b> own the Engine API those surfaces call — that lives in <code>AION_Architecture</code>. For the <em>concepts</em> behind the work each surface triggers, see <code>AION.md</code>. One fact, one home.</p>
+      <div class="callout"><b>Scope note:</b> v0 targets <b>C++</b>. Multiple languages (Python → Rust / Java / Go / JS) are <b>Axis A</b> (<code>AION.md</code> §12) — planned and architected for, but not yet built. Everything below is C++ today.</div>
+    </header>
+
+    <section id="s1">
+      <h2><span class="n">1</span>The one principle</h2>
+      <p>Every surface is a <b>thin client over one Engine API.</b> A surface does exactly three things: (1) collect the user's intent (which files, which flags), (2) call the Engine API, (3) render the structured result it gets back. It contains <b>no optimization logic, no verification, and no LLM calls</b> — all of that lives in the engine, behind the API.</p>
+      <p>Every surface calls the same three operations:</p>
+      <ul>
+        <li><b><code>analyze</code></b> — find hotspots and candidate transforms and explain them; changes nothing.</li>
+        <li><b><code>optimize</code></b> — propose → verify (correct AND faster) → optionally apply; returns a list of <code>Verdict</code>s.</li>
+        <li><b><code>report</code></b> — read the Ledger; summarise what's been accepted/rejected and the measured gains.</li>
+      </ul>
+      <div class="scroll"><pre class="diagram"><code>   CLI        VS Code ext      CI action      Web dashboard      SDK
+    │             │               │                │              │
+    └─────────────┴───────┬───────┴────────────────┴──────────────┘
+                          ▼
+             Engine API  (analyze · optimize · report)   ← spec'd in AION_Architecture
+                          ▼
+                 Orchestrator → the four-stage loop</code></pre></div>
+      <p><b>Why this matters, concretely:</b> the same <code>reserve()</code> finding shows up as a CLI table row, a PR comment, and an editor hint — because all three call <code>optimize()</code> and render the <em>same</em> <code>Verdict</code> payload. Build the engine once and every surface inherits it; the dangerous parts (the trusted gate, the sandbox) live in one audited place instead of being re-implemented — and mis-implemented — per UI.</p>
+      <p><b>Consequence:</b> the engine is built once; each new surface is a few days of glue, not a rebuild. No optimization logic ever lives in a surface.</p>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>Staged overview</h2>
+      <table>
+        <tr><th>Surface</th><th>What it is</th><th>When</th><th>Why</th></tr>
+        <tr><td><b>CLI</b> (<code>aion analyze / optimize --apply / report</code>)</td><td>terminal tool</td><td><span class="ok">v0</span></td><td>simplest; proves the engine end-to-end</td></tr>
+        <tr><td><b>CI action</b> (GitHub Action / GitLab CI)</td><td>runs on a PR, comments verified findings; also <b>prevention mode</b> (contracts-in-CI)</td><td>v1</td><td>highest leverage; matches Codeflash's GH Action</td></tr>
+        <tr><td><b>VS Code / IDE extension</b></td><td>inline verified suggestions, one-click apply</td><td>v1</td><td>where developers live; matches Codeflash's VS Code plugin</td></tr>
+        <tr><td><b>Web dashboard</b></td><td>team view of where code is slow, trends over time</td><td>v2</td><td>reads the Ledger; a team/management surface</td></tr>
+        <tr><td><b>Network service</b></td><td>shared verified-transform backend (Axis E)</td><td>vision</td><td>the flywheel</td></tr>
+        <tr><td><b>SDK / library</b></td><td>embed the engine programmatically</td><td>optional</td><td>for power users / integration</td></tr>
+      </table>
+      <div class="callout"><b>Build discipline:</b> only the <b>CLI</b> ships in v0. Everything else is designed as a client of the same API, but built later — the engine must work before any surface is worth polishing.</div>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>CLI — fully specified<span class="when v0">v0</span></h2>
+      <p>The reference surface. Every other surface mirrors its verbs and its JSON output.</p>
+      <h3>Commands</h3>
+      <pre><code>aion analyze  &lt;path&gt; [-p compile_commands.json] [--profile FILE] [--json]
+    Non-destructive. Detect hotspots + candidate transforms and explain them.
+    Writes nothing. The "what would you do?" command.
+
+aion optimize &lt;path&gt; [-p compile_commands.json] [--apply] [--min-rung N] [--profile FILE] [--json]
+    Propose → verify (correct AND faster) → keep only what passes the gate.
+    without --apply : dry-run; prints the diffs it WOULD write.
+    with    --apply : writes the accepted diffs to your source.
+
+aion report   [--since DATE] [--json]
+    Read the Ledger; show accepted/rejected episodes, rungs, and measured gains.
+
+# -p / --compile-commands is REQUIRED for C++ — AION cannot compile a file without
+# its exact build flags. Generate via CMake: -DCMAKE_EXPORT_COMPILE_COMMANDS=ON.</code></pre>
+      <h3>Conventions</h3>
+      <p>AION uses <b>GNU/POSIX-style flags as the base, with LLVM-friendly affordances</b> — familiar to <code>git</code>/<code>cargo</code> users <em>and</em> to <code>clang-tidy</code> users. (AION has subcommands and a Python engine, where <code>llvm::cl</code>'s single-dash-long style fights the grain; but the audience is LLVM-native, so we adopt its habits where they help.)</p>
+      <ul>
+        <li><b>Long options</b> are double-dash and canonical: <code>--min-rung</code>, <code>--compile-commands</code>.</li>
+        <li><b>Short options</b> for the common few: <code>-p</code>, <code>-j</code>, <code>-v</code>.</li>
+        <li><b>Values</b> accept either form: <code>--min-rung 3</code> <b>or</b> <code>--min-rung=3</code> (LLVM users reflexively type <code>=</code>).</li>
+        <li><b>Booleans</b> pair with a negation: <code>--sandbox</code> / <code>--no-sandbox</code>.</li>
+        <li><b>List flags</b> take comma-separated values or repeat: <code>--transforms reserve,unordered-map</code> or <code>--transforms reserve --transforms unordered-map</code>.</li>
+        <li><b>Forgiving:</b> a single dash on a long option is accepted (<code>-min-rung</code>, like <code>llvm::cl</code>), but double-dash is the documented form.</li>
+      </ul>
+      <p><b>Raw compiler flags pass through after <code>--</code></b> — the clean way to stay LLVM-native without polluting AION's own namespace:</p>
+      <pre><code>aion optimize hist.cpp -p build/ --min-rung 3 -- -O3 -std=c++20 -Iinclude -DNDEBUG
+                                                └──────── verbatim to clang ────────┘</code></pre>
+      <p><b>Flag names mirror <code>clang-tidy</code></b> where they overlap, so muscle memory transfers:</p>
+      <table>
+        <tr><th>AION</th><th>clang-tidy analog</th><th>shared idea</th></tr>
+        <tr><td><code>-p, --compile-commands</code></td><td><code>-p</code></td><td>compilation database</td></tr>
+        <tr><td><code>--transforms</code> / <code>--list-transforms</code></td><td><code>--checks</code> / <code>--list-checks</code></td><td>select what runs</td></tr>
+        <tr><td><code>--apply</code></td><td><code>--fix</code></td><td>write changes to source</td></tr>
+        <tr><td><code>--export FILE</code> / <code>--apply-from FILE</code></td><td><code>--export-fixes</code> / clang-apply-replacements</td><td>decouple propose &amp; apply</td></tr>
+        <tr><td><code>--config-file .aion.toml</code></td><td><code>--config-file .clang-tidy</code></td><td>project config</td></tr>
+        <tr><td><code>--format</code></td><td><code>--format-style</code></td><td>reformat after edit</td></tr>
+        <tr><td><code>--quiet</code></td><td><code>--quiet</code></td><td>suppress noise</td></tr>
+      </table>
+
+      <h3>Flags</h3>
+      <p>Grouped by concern. <span class="ok">v0</span> ships first; the rest are planned (v1/later) but pre-designed so they slot in without a redesign. Each flag maps to a parameter of the Engine API (spec'd in <code>AION_Architecture</code>).</p>
+
+      <p style="margin:18px 0 4px"><b>Target selection</b></p>
+      <table>
+        <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
+        <tr><td><code>&lt;path&gt;</code></td><td>file or directory to work on</td><td class="ok">v0</td></tr>
+        <tr><td><code>--function NAME</code></td><td>limit to one function</td><td class="ok">v0</td></tr>
+        <tr><td><code>--all</code></td><td>whole codebase</td><td class="ok">v0</td></tr>
+        <tr><td><code>-p, --compile-commands PATH</code></td><td><b><code>compile_commands.json</code> — required to compile C++ correctly</b></td><td class="ok">v0</td></tr>
+        <tr><td><code>--changed [--base REF]</code></td><td>only git-changed code (the CI workhorse)</td><td class="muted">v1</td></tr>
+        <tr><td><code>--include</code> / <code>--exclude GLOB</code></td><td>scope by path glob</td><td class="muted">v1</td></tr>
+        <tr><td><code>--line-filter</code></td><td>restrict to <code>file:line</code> ranges</td><td class="muted">later</td></tr>
+      </table>
+
+      <p style="margin:18px 0 4px"><b>Evidence / profiling</b></p>
+      <table>
+        <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
+        <tr><td><code>--profile FILE</code></td><td>runtime profile to guide selection</td><td class="ok">v0</td></tr>
+        <tr><td><code>--profiler perf|gbench|xray</code></td><td>which profiler produced it</td><td class="ok">v0</td></tr>
+        <tr><td><code>--top N</code> / <code>--min-hotspot PCT</code></td><td>only touch the hottest code; ignore cold</td><td class="ok">v0</td></tr>
+        <tr><td><code>--no-profile</code></td><td>static facts only (no runtime)</td><td class="ok">v0</td></tr>
+      </table>
+
+      <p style="margin:18px 0 4px"><b>Proposal / model</b></p>
+      <table>
+        <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
+        <tr><td><code>--model NAME</code></td><td>LLM backend (frontier now, local later)</td><td class="ok">v0</td></tr>
+        <tr><td><code>--candidates N</code></td><td>try N proposals per hotspot; keep the best <b>verified</b> one</td><td class="ok">v0</td></tr>
+        <tr><td><code>--transforms GLOB</code> / <code>--list-transforms</code></td><td>enable/disable transforms</td><td class="ok">v0</td></tr>
+        <tr><td><code>--offline</code></td><td>rules-only, no LLM (deterministic; good for CI)</td><td class="muted">v1</td></tr>
+        <tr><td><code>--budget TOKENS|$|TIME</code></td><td>hard cost cap on exploration</td><td class="muted">v1</td></tr>
+      </table>
+
+      <p style="margin:18px 0 4px"><b>Correctness rigor</b> <span class="muted">— AION-specific, the differentiator</span></p>
+      <table>
+        <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
+        <tr><td><code>--min-rung N</code></td><td>auto-apply only at correctness Rung ≥ N (default 3)</td><td class="ok">v0</td></tr>
+        <tr><td><code>--sanitizers address,undefined,thread</code></td><td>which sanitizers the gate runs (Rung 3)</td><td class="ok">v0</td></tr>
+        <tr><td><code>--fuzz-inputs N</code></td><td>held-out inputs for the differential test</td><td class="ok">v0</td></tr>
+        <tr><td><code>--seed N</code></td><td>reproducible fuzzing / benchmarking</td><td class="ok">v0</td></tr>
+      </table>
+
+      <p style="margin:18px 0 4px"><b>Performance gate</b> <span class="muted">— the Performance Vector, made controllable</span></p>
+      <table>
+        <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
+        <tr><td><code>--min-speedup PCT</code></td><td>reject gains below threshold (kills noise)</td><td class="ok">v0</td></tr>
+        <tr><td><code>--reps N</code> / <code>--warmup N</code></td><td>benchmark repetitions / warmup</td><td class="ok">v0</td></tr>
+        <tr><td><code>--objectives p50,p99,memory,size</code></td><td>which Performance-Vector dimensions count</td><td class="ok">v0</td></tr>
+        <tr><td><code>--allow-regression mem=5%</code></td><td>per-dimension Pareto budget</td><td class="muted">v1</td></tr>
+        <tr><td><code>--significance 0.01</code></td><td>required statistical confidence</td><td class="muted">v1</td></tr>
+        <tr><td><code>--baseline FILE</code></td><td>compare against a saved baseline</td><td class="muted">v1</td></tr>
+      </table>
+
+      <p style="margin:18px 0 4px"><b>Apply / output</b></p>
+      <table>
+        <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
+        <tr><td><code>--apply</code> / <code>--dry-run</code></td><td>write accepted diffs / preview only</td><td class="ok">v0</td></tr>
+        <tr><td><code>--diff</code> / <code>--json</code></td><td>patch output / machine schema</td><td class="ok">v0</td></tr>
+        <tr><td><code>--export FILE</code></td><td>write proposed patches to a file (review/CI)</td><td class="muted">v1</td></tr>
+        <tr><td><code>--apply-from FILE</code></td><td>apply a previously exported/reviewed set</td><td class="muted">v1</td></tr>
+        <tr><td><code>--format</code></td><td>run clang-format on applied changes</td><td class="muted">v1</td></tr>
+        <tr><td><code>--interactive</code></td><td>confirm each change</td><td class="muted">later</td></tr>
+      </table>
+
+      <p style="margin:18px 0 4px"><b>CI / automation</b></p>
+      <table>
+        <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
+        <tr><td><code>--fail-on left-on-table|regression|contract-violation</code></td><td>control CI failure</td><td class="muted">v1</td></tr>
+        <tr><td><code>--mode optimize|prevent</code></td><td>prevention mode (contracts-in-CI)</td><td class="muted">v1</td></tr>
+        <tr><td><code>--comment</code></td><td>post PR comments</td><td class="muted">v1</td></tr>
+        <tr><td><code>--no-color</code></td><td>plain CI logs</td><td class="muted">v1</td></tr>
+      </table>
+
+      <p style="margin:18px 0 4px"><b>Config / setup / safety</b></p>
+      <table>
+        <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
+        <tr><td><code>--config-file .aion.toml</code> / <code>--config KEY=VAL</code></td><td>reproducible config</td><td class="ok">v0</td></tr>
+        <tr><td><code>--verify-setup</code></td><td>check the toolchain is present (clang, sanitizers, profiler, benchmark)</td><td class="ok">v0</td></tr>
+        <tr><td><code>--sandbox</code> / <code>--no-sandbox</code>, <code>--no-network</code></td><td>isolate verification runs</td><td class="ok">v0</td></tr>
+        <tr><td><code>--cache</code> / <code>--no-cache</code></td><td>reuse expensive LLM/build results</td><td class="muted">v1</td></tr>
+        <tr><td><code>--timeout SEC</code>, <code>--max-changes N</code>, <code>--jobs N</code>, <code>--quiet</code>, <code>-v/-vv</code></td><td>limits &amp; noise control</td><td class="ok">v0</td></tr>
+      </table>
+      <h3>Exit codes (so CI can branch on them)</h3>
+      <table>
+        <tr><th>Code</th><th>Meaning</th></tr>
+        <tr><td><code>0</code></td><td>success — at least one verified change found (or applied)</td></tr>
+        <tr><td><code>1</code></td><td>ran fine, but <b>no verified opportunity</b> found</td></tr>
+        <tr><td><code>2</code></td><td>error (build failure, missing tool, bad path)</td></tr>
+        <tr><td><code>3</code></td><td>candidates found but <b>all rejected</b> by the gate</td></tr>
+      </table>
+      <h3>Output — human and machine</h3>
+      <ul>
+        <li><b>Human</b> (default): a per-hotspot block — the finding, the proposed diff, and the <b>verification box</b> (rung + speedup vector).</li>
+        <li><b>Machine</b> (<code>--json</code>): an array of <code>Verdict</code> objects (schema owned by <code>AION_Architecture</code>).</li>
+        <li><b>Every surface emits this same <code>Verdict</code> JSON</b> — the CI comment, the IDE hint, and the dashboard all render the same underlying data.</li>
+      </ul>
+      <h3>Example session</h3>
+      <pre><code>$ aion optimize packet_stats.cpp --profile perf.data
+
+  build_histogram()  — 79% runtime, 2.3M calls
+  proposal: reserve(n) before the push_back loop        [contract: bound loop-invariant ✓]
+  ┌ verification ─────────────────────────────────────────────┐
+  │ correctness:  1000 held-out inputs identical · UBSan clean │  Rung 3 ✓
+  │ performance:  3.9 ms → 2.4 ms  (−38%)  · p99 ✓ · mem ✓      │  Pareto ✓
+  └────────────────────────────────────────────────────────────┘
+  ACCEPT — run with --apply to write the diff</code></pre>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>CI action — GitHub Action / GitLab CI<span class="when v1">v1</span></h2>
+      <p>Runs AION automatically on every pull request, so optimization becomes part of code review instead of a separate chore.</p>
+      <h3>How it works, step by step</h3>
+      <ol>
+        <li>The PR triggers the action.</li>
+        <li>It runs <code>aion optimize --changed --base &lt;target-branch&gt; -p compile_commands.json --json</code> — scoped to the files the PR touched.</li>
+        <li>It parses the returned <code>Verdict</code> JSON and acts on it per the mode.</li>
+        <li>It branches the build on the CLI's exit code.</li>
+      </ol>
+      <h3>Two modes</h3>
+      <ul>
+        <li><b><code>comment</code> (default, non-blocking):</b> posts each <em>verified</em> finding as a PR review comment — the diff, the measured gain, and the rung. Informational; never fails the build.</li>
+        <li><b><code>prevent</code> (blocking):</b> runs the <b>contracts as checks</b>. If new code re-introduces a pattern AION already fixed — e.g. a hot <code>push_back</code> loop with no <code>reserve</code> — the check <b>fails the build</b> (<code>--fail-on contract-violation</code>). The optimizer becomes a regression <em>preventer</em>, the stickiest use.</li>
+      </ul>
+      <h3>What the developer sees</h3>
+      <pre><code>🟢 AION — verified optimization in build_histogram()
+   reserve(n) before the push_back loop
+   −38% (3.9 → 2.4 ms) · p99 ✓ · mem ✓ · Rung 3 (UBSan clean)
+   [ Apply suggestion ]   contract: loop bound is invariant</code></pre>
+      <ul>
+        <li><b>Setup</b> (once): add the workflow YAML, commit a <code>compile_commands.json</code> (CMake <code>-DCMAKE_EXPORT_COMPILE_COMMANDS=ON</code>), set <code>min-rung</code>.</li>
+        <li><b>Tech:</b> a thin YAML action wrapping the CLI — no engine logic; it just runs <code>aion</code> and renders <code>--json</code>.</li>
+        <li><b>Why first among v1:</b> highest leverage, zero new UI, the surface Codeflash leads with.</li>
+      </ul>
+      <pre><code># .github/workflows/aion.yml (sketch)
+- uses: aion/optimize-action@v1
+  with:
+    paths: ${{ changed_files }}
+    compile-commands: build/compile_commands.json
+    min-rung: 3
+    mode: comment        # or: prevent  (fails the build on regressions)</code></pre>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>VS Code / IDE extension<span class="when v1">v1</span></h2>
+      <p>Brings verified suggestions into the editor, where developers already work.</p>
+      <h3>The experience, end to end</h3>
+      <ol>
+        <li>You open (or save) a C++ file.</li>
+        <li>In the background, AION analyses it and marks hot regions with a <b>gutter icon</b>.</li>
+        <li>You hover the icon → a card shows the <b>proposed diff</b> and the <b>verification box</b> (rung + speedup vector) — exactly what the CLI prints.</li>
+        <li>You click <b>Apply</b> → the change is written and (optionally) reformatted with clang-format.</li>
+      </ol>
+      <p><b>Only verified suggestions ever appear.</b> If a proposal fails the gate (wrong output, UB, or not actually faster), the developer never sees it — no raw LLM guesses, unlike a generic code assistant.</p>
+      <h3>How it's built</h3>
+      <ul>
+        <li>The extension is <b>thin TypeScript</b> — pure presentation.</li>
+        <li>It talks to a <b>local <code>aion</code> daemon</b> over an LSP-style JSON-RPC protocol.</li>
+        <li>The daemon runs the engine (which needs the toolchain + <code>compile_commands.json</code>). The extension never invokes clang or an LLM itself.</li>
+      </ul>
+      <ul>
+        <li><b>Latency:</b> analysis and verification (build + benchmark) take seconds, so they run <b>asynchronously</b> — results stream in as they're verified; typing is never blocked.</li>
+        <li><b>Config:</b> reads the project's <code>.aion.toml</code>, so editor and CLI behave identically.</li>
+        <li><b>Why:</b> developers live in the editor; parity with Codeflash's VS Code plugin.</li>
+      </ul>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">6</span>Web dashboard<span class="when v2">v2</span></h2>
+      <p>A bird's-eye, read-only view for leads and performance teams — a reporting surface, not a coding tool.</p>
+      <p><b>Where the data comes from:</b> it reads the <b>Ledger</b>, the append-only log every surface already writes to. Because every accept and reject from the CLI, CI, and IDE is recorded there, the dashboard needs <b>no new engine work</b> — it's a view over data that already exists.</p>
+      <h3>What it shows</h3>
+      <ul>
+        <li><b>Hotspot map</b> — where the codebase spends time, and where verified opportunities still remain.</li>
+        <li><b>Trend</b> — cumulative time / latency / memory saved, week over week.</li>
+        <li><b>Per-PR / per-author</b> — which verified optimizations landed and their measured gains.</li>
+        <li><b>Transform effectiveness</b> — which transforms produce the biggest verified wins (guides where to invest next).</li>
+      </ul>
+      <ul>
+        <li><b>Tech:</b> a web app over a read-only API on the Ledger store (SQLite → Postgres as it grows).</li>
+        <li><b>Audience:</b> engineering leads / management — the "is this paying off?" surface.</li>
+        <li><b>Why v2:</b> only useful once the Ledger is populated — after the engine + CLI/CI are in real use.</li>
+      </ul>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">7</span>Network service<span class="when vis">vision</span></h2>
+      <p>The backend for <b>Axis E</b> — a shared store of verified <code>(transform, contract, rung)</code> tuples that makes every AION instance smarter.</p>
+      <h3>The flywheel</h3>
+      <ol>
+        <li>When any instance verifies and accepts a change, it can (opt-in) submit an <b>anonymized</b> tuple: the <em>pattern</em> it matched → the <em>transform</em>, its <em>precondition</em>, the <em>measured gain</em>, and the <em>rung</em>.</li>
+        <li>Other instances <b>query the network as priors</b> — a fix proven on one codebase is proposed faster, more confidently, on the next.</li>
+        <li>More users → more verified transforms → better proposals → more users. The moat a static compiler can never have.</li>
+      </ol>
+      <p><b>Why sharing is safe here</b> (and wouldn't be for a raw-LLM optimizer): what's shared is a <b>contract-checked, rung-graded transform</b>, not a code snippet. The precondition means another codebase can reuse it <b>only where its legality provably holds</b> — the network never lowers anyone's correctness bar.</p>
+      <ul>
+        <li><b>Privacy:</b> submissions are anonymized <em>patterns</em>, not your source; opt-in; enterprises can run a <b>private, on-prem</b> network.</li>
+        <li><b>Surface role:</b> a submit/query API; each engine's Ledger syncs to it.</li>
+      </ul>
+      <pre><code>POST /transforms   { pattern, transform, precondition, gain, rung }   # contribute
+GET  /transforms?pattern=vector-grow-no-reserve                       # query as priors</code></pre>
+      <p><b>Why last:</b> trustworthy only once contracts + rungs are solid, and valuable only with many users. It is the moat — built after everything else works.</p>
+    </section>
+
+    <section id="s8">
+      <h2><span class="n">8</span>SDK / library<span class="when vis">optional</span></h2>
+      <p>The engine, importable — for when you want AION inside your own program instead of behind a CLI.</p>
+      <p><b>What you get:</b> the same <code>analyze</code> / <code>optimize</code> / <code>report</code> operations as functions, returning <code>Verdict</code> objects you can inspect and act on programmatically.</p>
+      <pre><code>from aion import Engine
+
+eng = Engine(compile_commands="build/compile_commands.json", min_rung=3)
+
+report = eng.analyze("hist.cpp")            # non-destructive: hotspots + candidates
+for v in eng.optimize("hist.cpp", apply=False):
+    print(v.transform, v.rung, v.perf.p50_delta)   # inspect each Verdict</code></pre>
+      <ul>
+        <li><b>Who uses it:</b> custom pipelines, research harnesses, and — notably — the <b>Wedge Test judge</b>, which drives the engine's verification stage over competitors' outputs.</li>
+        <li><b>Note:</b> no new capability — the same Engine API every surface calls, exposed as a library instead of a CLI.</li>
+      </ul>
+    </section>
+
+    <section id="s9">
+      <h2><span class="n">9</span>Cross-surface guarantees</h2>
+      <p>Because every surface is a thin client of one engine, these hold everywhere — behavior never diverges between them:</p>
+      <ul>
+        <li><b>One data contract.</b> Every surface renders the same <code>Verdict</code> JSON (transform, rung, perf-vector, diff). The CLI table, the PR comment, and the IDE hint are three <em>views</em> of one payload — a finding reads identically wherever you see it.</li>
+        <li><b>One gate.</b> No surface can bypass the Invariant Gate or silently lower the correctness rung. <code>--min-rung</code> is explicit and logged — an IDE can't quietly ship a Rung-1 change dressed up as verified.</li>
+        <li><b>One Ledger.</b> Every accept/reject from every surface is recorded once, so <code>aion report</code> and the web dashboard always agree.</li>
+        <li><b>One config.</b> <code>.aion.toml</code> is the single source for profile source, min-rung, budgets, and enabled transforms — change it once and every surface follows.</li>
+        <li><b>One engine version.</b> All surfaces run the same engine build, so a correctness or performance fix propagates everywhere at once.</li>
+      </ul>
+      <p class="foot">Surface specs live here; the Engine API they all call is specified in <code>AION_Architecture</code>; the concepts behind the work are in <code>AION.md</code>. One fact, one home.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('aion-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('aion-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        if(map[en.target.id]) map[en.target.id].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

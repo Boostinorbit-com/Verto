@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aion"
+version = "0.0.1"
+description = "AION — a verified, profile-guided, source-level optimizer (v0: C++)"
+requires-python = ">=3.11"
+dependencies = [
+    # engine core uses only the stdlib. Optional per-adapter deps:
+    # "libclang",         # C++ sensor/mutator
+    # "anthropic",        # frontier proposer
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+aion = "aion.surfaces.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["aion*"]
