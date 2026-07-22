@@ -1,23 +1,23 @@
-# AION — The Wedge Test
+# VERTO — The Wedge Test
 
-**A pre-registered, head-to-head benchmark that isolates where AION structurally beats the existing AI code optimizers — and, honestly, where it does not.**
+**A pre-registered, head-to-head benchmark that isolates where VERTO structurally beats the existing AI code optimizers — and, honestly, where it does not.**
 
-Companion to [AION.md](AION.md) §14.
+Companion to [VERTO.md](VERTO.md) §14.
 That section admits the core loop (LLM proposes → verify correct → verify faster → accept) is **not novel**: Codeflash ships it, Google's ECO runs it at scale, CompilerGPT does it for C++.
-This document defines the experiment that turns AION's *claimed* differentiation into a *measured, falsifiable* one — or kills the claim.
+This document defines the experiment that turns VERTO's *claimed* differentiation into a *measured, falsifiable* one — or kills the claim.
 
-> **The rule of this document:** a "win" must be **structural** — something a competitor cannot do *even in principle*, because of how it is built — not a lucky run. And the suite deliberately includes cases AION should **tie or lose**, so the result is credible to a hostile reviewer.
+> **The rule of this document:** a "win" must be **structural** — something a competitor cannot do *even in principle*, because of how it is built — not a lucky run. And the suite deliberately includes cases VERTO should **tie or lose**, so the result is credible to a hostile reviewer.
 
 ---
 
 ## 1. The hypothesis (pre-registered, falsifiable)
 
-> On C++, AION wins **specifically and only** where a change requires **(A)** a structural/algorithmic swap, **(B)** knowing the *true* runtime hotspot, **(C)** rigor to be *safe*, or **(D)** trading off multiple objectives — because the competitors are structurally blind to exactly those four things. On everything else, AION ties or loses.
+> On C++, VERTO wins **specifically and only** where a change requires **(A)** a structural/algorithmic swap, **(B)** knowing the *true* runtime hotspot, **(C)** rigor to be *safe*, or **(D)** trading off multiple objectives — because the competitors are structurally blind to exactly those four things. On everything else, VERTO ties or loses.
 
 **Falsification conditions (state them before running):**
-- If AION does **not** win **Category C (safety)**, the core thesis — *rigor is the differentiator* — is **disproven**. Category C is the make-or-break.
-- If AION wins any **Control** case, the harness is **rigged** and every other result is void.
-- If AION's wins in A/B/D vanish once the competitor is given its *best* configuration, the wedge is **narrower than claimed** and must be re-scoped.
+- If VERTO does **not** win **Category C (safety)**, the core thesis — *rigor is the differentiator* — is **disproven**. Category C is the make-or-break.
+- If VERTO wins any **Control** case, the harness is **rigged** and every other result is void.
+- If VERTO's wins in A/B/D vanish once the competitor is given its *best* configuration, the wedge is **narrower than claimed** and must be re-scoped.
 
 ---
 
@@ -25,20 +25,20 @@ This document defines the experiment that turns AION's *claimed* differentiation
 
 | Tool | In the ring for C++? | Structural limits under test |
 |---|---|---|
-| **AION** (this project) | yes | — (system under test) |
+| **VERTO** (this project) | yes | — (system under test) |
 | **CompilerGPT** (LLNL, open-source) | **yes — the real C++ rival** | driven by compiler **static reports**, not a runtime profile; correctness = **user test harness** (no sanitizers, no contracts) |
 | **Codeflash** (commercial) | **no — Python/JS/TS/Java only** | tested *structurally* on Python equivalents: **refuses to change architecture**; correctness = generated/existing **tests only** |
 | **`clang -O3`** | yes (control/baseline) | meaning-preserving; cannot make semantic changes |
 
 **Honest note:** because Codeflash does not do C++, its column is *conceptual/structural*, demonstrated on Python twins (same optimization, showing it won't swap data structures and won't run a sanitizer).
-The **runnable** head-to-head is **AION vs CompilerGPT vs `-O3`** on C++.
+The **runnable** head-to-head is **VERTO vs CompilerGPT vs `-O3`** on C++.
 
 ---
 
 ## 3. The judge — one independent harness grades everyone the same way
 
 No tool grades its own homework.
-Every tool emits an optimized variant; the **judge** — which is literally AION's Verification stage (§8–9 of AION.md), run neutrally — evaluates *all* variants identically:
+Every tool emits an optimized variant; the **judge** — which is literally VERTO's Verification stage (§8–9 of VERTO.md), run neutrally — evaluates *all* variants identically:
 
 ```
 JUDGE(original, variant):
@@ -59,7 +59,7 @@ JUDGE(original, variant):
 ```
 
 The **`UNSAFE`** verdict is the whole point of Category C: a change a tests-only tool *accepted* that the judge's held-out inputs or sanitizers *fail*.
-That is a demonstrated correctness win for AION's approach.
+That is a demonstrated correctness win for VERTO's approach.
 
 ---
 
@@ -109,7 +109,7 @@ for (std::size_t i = 0; i < N; ++i) out.push_back(f(i));
 // ...19 other cold loops the vectorization report loves to mention...
 ```
 Optimal: fix the hot one (`reserve`).
-CompilerGPT chases report-flagged (cold) loops; AION's profiler goes straight to the 80%.
+CompilerGPT chases report-flagged (cold) loops; VERTO's profiler goes straight to the 80%.
 
 **W-B2 — hot tiny helper the static report ignores**
 A 3-line helper called 50M times dominates; no optimization report fires on it.
@@ -118,7 +118,7 @@ Profile-guided selection finds it; report-driven does not.
 ### Category C — requires rigor to be SAFE (the crown jewel)
 
 Each C-case ships a **plausible-but-wrong "optimization"** — the kind an LLM confidently proposes and a tests-only gate waves through.
-AION must **reject** it (and, ideally, find a safe alternative).
+VERTO must **reject** it (and, ideally, find a safe alternative).
 
 **W-C1 — signed-overflow UB (passes small-input tests)**
 ```cpp
@@ -129,7 +129,7 @@ int sum = 0;  for (int i = 0; i < (int)n; ++i)     sum += a[i];   // UB when sum
 ```
 Small test arrays pass.
 Judge's max-size input overflows → **UBSan fires**.
-AION rejects (Rung 3); CompilerGPT/Codeflash-class → `UNSAFE`.
+VERTO rejects (Rung 3); CompilerGPT/Codeflash-class → `UNSAFE`.
 
 **W-C2 — off-by-one out-of-bounds read (benign on test inputs)**
 ```cpp
@@ -145,7 +145,7 @@ for (int i = 0; i < n; ++i)
 ```
 Legal *only if* `scale` is pure and `cfg` is not mutated in the loop.
 If `scale` has observable side effects (or `cfg` changes), hoisting changes behavior.
-AION's contract precondition **fails → reject**; a naive tool hoists and is wrong on inputs where `cfg` mutates.
+VERTO's contract precondition **fails → reject**; a naive tool hoists and is wrong on inputs where `cfg` mutates.
 
 **W-C4 — data race from naive parallelization**
 ```cpp
@@ -154,7 +154,7 @@ for (int i = 0; i < n; ++i) hist[data[i]]++;   // races on shared buckets
 ```
 Judge's **TSan** fires.
 Tests-only may pass on a lucky schedule and ship a race.
-AION rejects (or requires an atomic/privatized reduction that passes TSan).
+VERTO rejects (or requires an atomic/privatized reduction that passes TSan).
 
 **W-C5 — float reassociation that breaks on edge values**
 ```cpp
@@ -169,28 +169,28 @@ Judge's held-out FP edge cases catch the divergence → `UNSAFE` for a tool that
 ```cpp
 // add a cache → median −30%, but peak memory 3×, and p99 worse (cache pressure)
 ```
-Single-metric tools accept (it's "faster"); AION's Performance Vector rejects the **Pareto-loser**.
+Single-metric tools accept (it's "faster"); VERTO's Performance Vector rejects the **Pareto-loser**.
 
 **W-D2 — benchmark-local win, cross-ISA / size regression**
 A rewrite tuned to the bench CPU that regresses on a second machine or bloats binary size.
 Held-out machine + size budget catch it.
 
-### Controls — AION must NOT uniquely win these
+### Controls — VERTO must NOT uniquely win these
 
 **W-Ctrl1 (expected TIE)** — within-structure micro-op: `std::endl` → `'\n'`, or hoist a genuinely-invariant constant.
-All tools should get it; AION has no edge.
+All tools should get it; VERTO has no edge.
 
 **W-Ctrl2 (expected NOBODY WINS)** — dead code / constant folding that `clang -O3` already removes.
-No tool may claim a win; verifies AION doesn't take credit for the compiler.
+No tool may claim a win; verifies VERTO doesn't take credit for the compiler.
 
-**W-Ctrl3 (expected AION LOSES)** — a compiler-report-driven vectorization CompilerGPT lands but AION's v0 transform set does not target.
+**W-Ctrl3 (expected VERTO LOSES)** — a compiler-report-driven vectorization CompilerGPT lands but VERTO's v0 transform set does not target.
 Reported honestly as a loss.
 
 ---
 
 ## 5. Pre-registered predictions (commit before running)
 
-| Case | AION | CompilerGPT | Codeflash-class | `clang -O3` |
+| Case | VERTO | CompilerGPT | Codeflash-class | `clang -O3` |
 |---|---|---|---|---|
 | W-A1 map→umap | **WIN** | MISS | won't (arch) | can't |
 | W-A2 O(n²)→O(n) | **WIN** | MISS | won't (arch) | can't |
@@ -214,7 +214,7 @@ Reported honestly as a loss.
 
 ## 6. The headline number (what you get to claim, if earned)
 
-> Across the pre-registered C++ suite, **AION produced _N_ judge-verified speedups (correct ∧ safe ∧ faster) that CompilerGPT could not — _M_ of them because CompilerGPT's *accepted* change failed the judge's safety gate (`UNSAFE`), and _K_ because the fix required a structural/algorithmic change or the true hotspot the static report missed — while tying on every control and honestly losing W-Ctrl3.**
+> Across the pre-registered C++ suite, **VERTO produced _N_ judge-verified speedups (correct ∧ safe ∧ faster) that CompilerGPT could not — _M_ of them because CompilerGPT's *accepted* change failed the judge's safety gate (`UNSAFE`), and _K_ because the fix required a structural/algorithmic change or the true hotspot the static report missed — while tying on every control and honestly losing W-Ctrl3.**
 
 Specific, falsifiable, and survives a reviewer re-running the search.
 Infinitely stronger than "unique and better than them all."
@@ -227,16 +227,16 @@ Infinitely stronger than "unique and better than them all."
 2. **Best-config opponent**: give CompilerGPT its strongest setup (best model, its recommended prompts, user selects the right region). Beating a hobbled rival proves nothing.
 3. **Same judge for all**: identical held-out inputs, identical sanitizer flags, identical benchmark protocol.
 4. **Report every cell**: publish MISS, UNSAFE, SLOWER, LOSS — not just WINs.
-5. **Separate the two AION claims**: *speed* wins (A/B/D) and *safety* wins (C) are reported separately; the safety wins are the load-bearing ones.
+5. **Separate the two VERTO claims**: *speed* wins (A/B/D) and *safety* wins (C) are reported separately; the safety wins are the load-bearing ones.
 
 ---
 
 ## 8. How to actually run it
 
-**Prerequisite — the minimum AION build:** the trusted judge/gate (differential test + ASan/UBSan/TSan + perf vector) and **~6 transforms** covering A1–A3, B1, plus the *rejection* logic for C1–C5 and D1.
-This is essentially v0 (AION.md §13) plus a handful of transforms — building the wedge test and building AION's core are the **same work**.
+**Prerequisite — the minimum VERTO build:** the trusted judge/gate (differential test + ASan/UBSan/TSan + perf vector) and **~6 transforms** covering A1–A3, B1, plus the *rejection* logic for C1–C5 and D1.
+This is essentially v0 (VERTO.md §13) plus a handful of transforms — building the wedge test and building VERTO's core are the **same work**.
 
-**Missing tooling to install first** (from AION.md §13): a runtime profiler (`perf`/Google Benchmark) for Category B; sanitizers ship with Clang 19 already (Category C is reachable now).
+**Missing tooling to install first** (from VERTO.md §13): a runtime profiler (`perf`/Google Benchmark) for Category B; sanitizers ship with Clang 19 already (Category C is reachable now).
 
 **Procedure:**
 1. Freeze the 15 cases as compilable C++ projects, each with a hidden held-out input generator.
@@ -246,5 +246,5 @@ This is essentially v0 (AION.md §13) plus a handful of transforms — building 
 
 ---
 
-*This test is designed to be able to embarrass AION.
+*This test is designed to be able to embarrass VERTO.
 That is the point: a wedge you can only pass by cheating is worthless, and a wedge you might fail is the only kind worth running.*

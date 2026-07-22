@@ -4,13 +4,13 @@ Usage:  PYTHONPATH=. python3 -m wedge.run
 """
 from __future__ import annotations
 
-from aion.adapters.domain.performance.correctness import PerfCorrectnessOracle
-from aion.adapters.domain.performance.inputs import HeldOutInputs
-from aion.adapters.domain.performance.performance import PerformanceOracleImpl
-from aion.engine.api import Engine
-from aion.engine.config import Config
-from aion.engine.gate import InvariantGate
-from aion.engine.models import Candidate, Contract, Target, Variant
+from verto.adapters.domain.performance.correctness import PerfCorrectnessOracle
+from verto.adapters.domain.performance.inputs import HeldOutInputs
+from verto.adapters.domain.performance.performance import PerformanceOracleImpl
+from verto.engine.api import Engine
+from verto.engine.config import Config
+from verto.engine.gate import InvariantGate
+from verto.engine.models import Candidate, Contract, Target, Variant
 
 from .cases import CASES, Case
 
@@ -32,7 +32,7 @@ def _run_pipeline(case: Case) -> tuple[bool, str]:
     v = verdicts[-1]
     if case.expect == "accept":
         chosen = getattr(v.candidate.transform, "target_func", None) if v.candidate else None
-        actual = f"accept:{chosen}" if chosen else "accept"
+        actual = (f"accept:{chosen}" if chosen else "accept") if v.accepted else f"reject:{v.reason}"
         ok = v.accepted and (not case.expect_symbol or chosen == case.expect_symbol)
         return ok, actual
     actual = "accept" if v.accepted else f"reject:{v.reason}"
@@ -51,8 +51,8 @@ def _run_gate(case: Case) -> tuple[bool, str]:
 
 
 def main() -> int:
-    print(f"\n{BOLD}AION — Wedge Test scorecard{RST}")
-    print("AION is the judge; competitors (Codeflash / CompilerGPT) compared structurally.\n")
+    print(f"\n{BOLD}VERTO — Wedge Test scorecard{RST}")
+    print("VERTO is the judge; competitors (Codeflash / CompilerGPT) compared structurally.\n")
     header = f"  {'CASE':16} {'EXPECT':7} {'ACTUAL':22} {'RESULT':7} WHY IT'S A WEDGE"
     print(header)
     print("  " + "-" * (len(header) + 20))

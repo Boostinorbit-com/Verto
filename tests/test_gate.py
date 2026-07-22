@@ -1,11 +1,11 @@
 """Gate tests — the trusted core. The invariant: accept ⟺ correct ∧ faster.
 
-These pin the ONE behavior that must never regress (AION.md §7). As the real
+These pin the ONE behavior that must never regress (VERTO.md §7). As the real
 oracles land (v0 step 3), extend these to prove the gate REJECTS a UB rewrite.
 """
-from aion.engine.config import Config
-from aion.engine.gate import InvariantGate
-from aion.engine.models import (
+from verto.engine.config import Config
+from verto.engine.gate import InvariantGate
+from verto.engine.models import (
     Candidate, Contract, CorrectnessVerdict, PerfVerdict, Target, Variant, Witness,
 )
 

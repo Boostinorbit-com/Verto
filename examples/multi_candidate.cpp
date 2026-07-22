@@ -1,5 +1,5 @@
 // Category B (profile-guided selection).
-// TWO reserve candidates. cold_path barely runs (8 iterations); hot_path runs n
+// Multiple reserve candidates. cold_path barely runs (8 iterations); hot_path runs n
 // times. A static-report tool might optimize the FIRST match (cold_path) — a
 // pointless change. AION times each candidate and optimizes hot_path — the real
 // hotspot — where reserve() is a genuine win.
@@ -15,6 +15,63 @@ std::vector<int> cold_path(std::size_t n) {    // defined FIRST, but negligible
 }
 
 std::vector<int> hot_path(std::size_t n) {     // the real hotspot
+    std::vector<int> out;
+    for (std::size_t i = 0; i < n; ++i)
+        out.push_back((int)(i * 3));
+    return out;
+}
+
+
+std::vector<int> hot_path_1(std::size_t n) {     // the real hotspot
+    std::vector<int> out;
+    for (std::size_t i = 0; i < n; ++i)
+        out.push_back((int)(i * 3));
+    return out;
+}
+
+
+std::vector<int> hot_path_2(std::size_t n) {     // the real hotspot
+    std::vector<int> out;
+    for (std::size_t i = 0; i < n; ++i)
+        out.push_back((int)(i * 3));
+    return out;
+}
+
+
+std::vector<int> hot_path_3(std::size_t n) {     // the real hotspot
+    std::vector<int> out;
+    for (std::size_t i = 0; i < n; ++i)
+        out.push_back((int)(i * 3));
+    return out;
+}
+
+
+
+std::vector<int> hot_path_4(std::size_t n) {     // the real hotspot
+    std::vector<int> out;
+    for (std::size_t i = 0; i < n; ++i)
+        out.push_back((int)(i * 3));
+    return out;
+}
+
+
+std::vector<int> hot_path_5(std::size_t n) {     // the real hotspot
+    std::vector<int> out;
+    for (std::size_t i = 0; i < n; ++i)
+        out.push_back((int)(i * 3));
+    return out;
+}
+
+
+std::vector<int> hot_path_6(std::size_t n) {     // the real hotspot
+    std::vector<int> out;
+    for (std::size_t i = 0; i < n; ++i)
+        out.push_back((int)(i * 3));
+    return out;
+}
+
+
+std::vector<int> hot_path_7(std::size_t n) {     // the real hotspot
     std::vector<int> out;
     for (std::size_t i = 0; i < n; ++i)
         out.push_back((int)(i * 3));

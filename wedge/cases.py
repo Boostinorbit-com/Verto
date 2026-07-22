@@ -1,9 +1,9 @@
 """Pre-registered Wedge cases (WEDGE_TEST.md). Committed BEFORE running.
 
 Two kinds:
-  - "pipeline": run `aion optimize <file>` and check the verdict (does AION find
+  - "pipeline": run `verto optimize <file>` and check the verdict (does VERTO find
     and verify the optimization, or correctly find nothing / reject it?).
-  - "gate": feed AION's trusted gate an (original, plausible-but-wrong variant)
+  - "gate": feed VERTO's trusted gate an (original, plausible-but-wrong variant)
     pair — the kind a tests-only tool would accept — and check it REJECTS.
   - "pending": a category the engine doesn't implement yet; shown honestly.
 """
@@ -26,7 +26,7 @@ class Case:
     symbol: str = ""          # gate cases: function under test
     variant: str = ""         # gate cases: the bad-optimization source
     reason: str = ""          # expected reject-reason substring
-    expect_symbol: str = ""   # pipeline: the function AION should choose (profile-guided)
+    expect_symbol: str = ""   # pipeline: the function VERTO should choose (profile-guided)
     note: str = ""            # pending cases
 
 
@@ -85,15 +85,23 @@ CASES: list[Case] = [
          file=f"{EX}/packet_stats.cpp", symbol="build_histogram", variant=_UB_WRITE,
          reason="unsafe"),
 
-    # ---- Controls: AION must NOT win ----
+    # ---- Controls: VERTO must NOT win ----
     Case("Ctrl-optimal", "Control", "pipeline", "none",
-         "already optimal (unordered_map + reserved) — AION must claim NO win (no false positive)",
+         "already optimal (unordered_map + reserved) — VERTO must claim NO win (no false positive)",
          file=f"{WD}/already_optimal.cpp"),
 
     # ---- Category B: profile-guided selection ----
     Case("B1-hotspot", "B profile", "pipeline", "accept",
          "profile-guided: optimizes hot_path (the true hotspot), not the first match — beats CompilerGPT (static-report-driven)",
          file=f"{EX}/multi_candidate.cpp", expect_symbol="hot_path"),
+
+    # ---- Harness generation (verify-or-skip across signatures) ----
+    Case("H1-new-signature", "Harness", "pipeline", "accept",
+         "generates a harness from the REAL signature (vector→vector), not just f(size_t)",
+         file=f"{EX}/squares_of.cpp", expect_symbol="squares_of"),
+    Case("H2-skip-unsupported", "Harness", "pipeline", "none",
+         "honestly SKIPS a custom-type / pointer signature it can't verify — no false positive",
+         file=f"{WD}/unsupported.cpp"),
     Case("D1-mem-pareto", "D multi-obj", "gate", "reject",
          "faster (memoized, correct) but regresses peak memory past budget — a single-metric tool accepts it",
          file=f"{EX}/memo_expensive.cpp", symbol="transform_seq", variant=_MEMO,

@@ -3,9 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aion"
+name = "verto"
 version = "0.0.1"
-description = "AION — a verified, profile-guided, source-level optimizer (v0: C++)"
+description = "VERTO — a verified, profile-guided, source-level optimizer (v0: C++)"
 requires-python = ">=3.11"
 dependencies = [
     # The engine core uses only the stdlib. The C++ Language adapter uses libclang
@@ -21,7 +21,7 @@ llm-openai = ["openai>=1.0"]
 llm-anthropic = ["anthropic>=0.30"]
 
 [project.scripts]
-aion = "aion.surfaces.cli:main"
+verto = "verto.surfaces.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["aion*"]
+include = ["verto*"]
