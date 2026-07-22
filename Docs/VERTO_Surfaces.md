@@ -62,20 +62,26 @@ The reference surface. Every other surface mirrors its verbs and its JSON output
 ### Commands
 
 ```
-verto analyze  <path> [-p compile_commands.json] [--profile FILE] [--json]
+verto analyze  <path> [-p DB] [--all] [--min-rung N] [--offline] [--json]
     Non-destructive. Detect hotspots + candidate transforms and explain them.
     Writes nothing. The "what would you do?" command.
 
-verto optimize <path> [-p compile_commands.json] [--apply] [--min-rung N] [--profile FILE] [--json]
+verto optimize <path> [-p DB] [--all] [--min-rung N] [--fast] [--offline] [--json] [--apply]
     Propose → verify (correct AND faster) → keep only what passes the gate.
-    without --apply : dry-run; prints the diffs it WOULD write.
-    with    --apply : writes the accepted diffs to your source.
+    default        : dry-run; prints the diffs it WOULD write.
+    with --apply   : writes the accepted diffs to your source. (planned)
 
-verto report   [--since DATE] [--json]
+verto report   [--json]
     Read the Ledger; show accepted/rejected episodes, rungs, and measured gains.
 
-# -p / --compile-commands is REQUIRED for C++ — VERTO cannot compile a file without its
-# exact build flags. Generate it via CMake: -DCMAKE_EXPORT_COMPILE_COMMANDS=ON.
+verto serve    [--stop]
+    Run a warm background daemon (Python + libclang loaded once) so later
+    optimize/analyze calls skip startup. --stop stops it; pass --no-daemon to
+    any call to bypass it.
+
+# -p / --compile-commands supplies the compilation database (a compile_commands.json or a
+# build dir). Required to compile real multi-file C++. Generate via CMake:
+# -DCMAKE_EXPORT_COMPILE_COMMANDS=ON. A self-contained single file needs no -p.
 ```
 
 ### Conventions
@@ -96,7 +102,7 @@ verto optimize hist.cpp -p build/ --min-rung 3 -- -O3 -std=c++20 -Iinclude -DNDE
                                                 └──────── verbatim to clang ────────┘
 ```
 
-**Flag names mirror `clang-tidy`** where they overlap, so muscle memory transfers:
+**Flag names mirror `clang-tidy`** where they overlap, so muscle memory transfers (this shows *naming intent*; see the Flags table below for what's actually built — several are still planned):
 
 | VERTO | clang-tidy analog | shared idea |
 |---|---|---|
@@ -110,16 +116,16 @@ verto optimize hist.cpp -p build/ --min-rung 3 -- -O3 -std=c++20 -Iinclude -DNDE
 
 ### Flags
 
-Grouped by concern. **✅ = v0**; the rest are planned (v1/later) but pre-designed so they slot in without a redesign. Each flag maps to a parameter of the Engine API (spec'd in `VERTO_Architecture`).
+Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (settable in `.verto.toml` today, no CLI flag yet) · ⚠️ flag present but not yet functional · **v1** / **later** planned. `VERTO_Flags.md` (generated from the parser) is the exact ✅ set; this table is the fuller roadmap. Each flag maps to a parameter of the Engine API (spec'd in `VERTO_Architecture`).
 
 **Target selection**
 
 | Flag | Meaning | Stage |
 |---|---|---|
 | `<path>` | file or directory to work on | ✅ |
-| `--function NAME` | limit to one function | ✅ |
-| `--all` | whole codebase | ✅ |
-| `-p, --compile-commands PATH` | **`compile_commands.json` — required to compile C++ correctly** | ✅ |
+| `--all` | whole codebase (every TU in the database) | ✅ |
+| `-p, --compile-commands PATH` | **`compile_commands.json` (or build dir) — required to compile real C++** | ✅ |
+| `--function NAME` | limit to one function (hotspot is auto-selected today) | v1 |
 | `--changed [--base REF]` | only git-changed code (the CI workhorse) | v1 |
 | `--include` / `--exclude GLOB` | scope by path glob | v1 |
 | `--line-filter` | restrict to `file:line` ranges | later |
@@ -128,19 +134,19 @@ Grouped by concern. **✅ = v0**; the rest are planned (v1/later) but pre-design
 
 | Flag | Meaning | Stage |
 |---|---|---|
-| `--profile FILE` | runtime profile to guide selection | ✅ |
-| `--profiler perf\|gbench\|xray` | which profiler produced it | ✅ |
-| `--top N` / `--min-hotspot PCT` | only touch the hottest code; ignore cold | ✅ |
-| `--no-profile` | static facts only (no runtime) | ✅ |
+| `--profile FILE` | runtime profile to guide selection | ⚠️ |
+| `--profiler perf\|gbench\|xray` | which profiler produced it | v1 |
+| `--top N` / `--min-hotspot PCT` | only touch the hottest code; ignore cold | v1 |
+| `--no-profile` | static facts only (no runtime) | v1 |
 
 **Proposal / model**
 
 | Flag | Meaning | Stage |
 |---|---|---|
 | `--model NAME` | LLM backend (frontier now, local later) | ✅ |
-| `--candidates N` | try N proposals per hotspot; keep the best **verified** one | ✅ |
-| `--transforms GLOB` / `--list-transforms` | enable/disable transforms | ✅ |
-| `--offline` | rules-only, no LLM (deterministic; good for CI) | v1 |
+| `--offline` | rules-only, no LLM (deterministic; good for CI) | ✅ |
+| `--candidates N` | try N proposals per hotspot; keep the best **verified** one | ⚙️ |
+| `--transforms GLOB` (`--list-transforms` planned) | enable/disable transforms | ⚙️ |
 | `--budget TOKENS\|$\|TIME` | hard cost cap on exploration | v1 |
 
 **Correctness rigor** *(VERTO-specific — this is the differentiator)*
@@ -148,18 +154,19 @@ Grouped by concern. **✅ = v0**; the rest are planned (v1/later) but pre-design
 | Flag | Meaning | Stage |
 |---|---|---|
 | `--min-rung N` | auto-apply only at correctness Rung ≥ N (default 3) | ✅ |
-| `--sanitizers address,undefined,thread` | which sanitizers the gate runs (Rung 3) | ✅ |
-| `--fuzz-inputs N` | held-out inputs for the differential test | ✅ |
-| `--seed N` | reproducible fuzzing / benchmarking | ✅ |
+| `--fast` | skip the Rung-3 sanitizer for speed — **UNSOUND**, verdict labeled | ✅ |
+| `--fuzz-inputs N` | held-out inputs for the differential test | ⚙️ |
+| `--seed N` | reproducible fuzzing / benchmarking | ⚙️ |
+| `--sanitizers address,undefined,thread` | which sanitizers the gate runs (auto-detected today) | v1 |
 
 **Performance gate** *(the Performance Vector, made controllable)*
 
 | Flag | Meaning | Stage |
 |---|---|---|
-| `--min-speedup PCT` | reject gains below threshold (kills noise) | ✅ |
-| `--reps N` / `--warmup N` | benchmark repetitions / warmup | ✅ |
-| `--objectives p50,p99,memory,size` | which Performance-Vector dimensions count | ✅ |
-| `--allow-regression mem=5%` | per-dimension Pareto budget | v1 |
+| `--min-speedup PCT` | reject gains below threshold (kills noise) | ⚙️ |
+| `--reps N` (`--warmup N` planned) | benchmark repetitions | ⚙️ |
+| `--objectives p50,p99,memory,size` | which Performance-Vector dimensions count | ⚙️ |
+| `--allow-regression mem=5%` | per-dimension Pareto budget | ⚙️ |
 | `--significance 0.01` | required statistical confidence | v1 |
 | `--baseline FILE` | compare against a saved baseline | v1 |
 
@@ -167,8 +174,9 @@ Grouped by concern. **✅ = v0**; the rest are planned (v1/later) but pre-design
 
 | Flag | Meaning | Stage |
 |---|---|---|
-| `--apply` / `--dry-run` | write accepted diffs / preview only | ✅ |
-| `--diff` / `--json` | patch output / machine schema | ✅ |
+| `--json` | machine schema (array of `Verdict`) | ✅ |
+| `--apply` | write accepted diffs (default is dry-run/preview) | ⚠️ |
+| `--diff` | emit patch output | v1 |
 | `--export FILE` | write proposed patches to a file (review/CI) | v1 |
 | `--apply-from FILE` | apply a previously exported/reviewed set | v1 |
 | `--format` | run clang-format on applied changes | v1 |
@@ -181,17 +189,20 @@ Grouped by concern. **✅ = v0**; the rest are planned (v1/later) but pre-design
 | `--fail-on left-on-table\|regression\|contract-violation` | control CI failure | v1 |
 | `--mode optimize\|prevent` | prevention mode (contracts-in-CI) | v1 |
 | `--comment` | post PR comments | v1 |
-| `--no-color` | plain CI logs | v1 |
+| `--no-color` | plain CI logs (the `NO_COLOR` env var is already honored) | v1 |
 
 **Config / setup / safety**
 
 | Flag | Meaning | Stage |
 |---|---|---|
-| `--config-file .verto.toml` / `--config KEY=VAL` | reproducible config | ✅ |
-| `--verify-setup` | check the toolchain is present (clang, sanitizers, profiler, benchmark) | ✅ |
-| `--sandbox` / `--no-sandbox`, `--no-network` | isolate verification runs | ✅ |
-| `--cache` / `--no-cache` | reuse expensive LLM/build results | v1 |
-| `--timeout SEC`, `--max-changes N`, `--jobs N`, `--quiet`, `-v/-vv` | limits & noise control | ✅ |
+| `--config-file .verto.toml` | reproducible config | ✅ |
+| `--no-daemon` | run in-process, ignore a warm `verto serve` daemon | ✅ |
+| `-V, --version` | print the VERTO version | ✅ |
+| `--sandbox` / `--no-sandbox` | isolate verification runs | ⚙️ |
+| `--timeout SEC` | per-run time limit | ⚙️ |
+| `--config KEY=VAL` | inline config override | v1 |
+| `--verify-setup` | check the toolchain is present (clang, sanitizers, profiler, benchmark) | v1 |
+| `--no-network`, `--cache` / `--no-cache`, `--max-changes N`, `--jobs N`, `--quiet`, `-v/-vv` | isolation, caching, limits & noise | v1 |
 
 ### Exit codes (so CI can branch on them)
 

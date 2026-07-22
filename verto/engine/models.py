@@ -125,3 +125,4 @@ class VerifyCtx:
     data holder — the engine creates it without importing any adapter."""
     workdir: str
     cache: dict = field(default_factory=dict)
+    extra_cflags: tuple = ()           # codebase mode: -I/-D/-std from compile_commands.json

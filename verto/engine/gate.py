@@ -30,7 +30,8 @@ class InvariantGate:
 
     def decide(self, orig: Target, var: Variant, candidate: Candidate, inputs: object) -> Verdict:
         with tempfile.TemporaryDirectory(prefix="verto-verify-") as wd:
-            ctx = VerifyCtx(workdir=wd)      # shared build cache for both oracles
+            # codebase mode threads the TU's -I/-D/-std to the harness compiles
+            ctx = VerifyCtx(workdir=wd, extra_cflags=tuple(orig.build.get("compile_flags", ())))
 
             # --- correctness (may not be lowered silently) ---
             cv = self._correctness.equivalent(orig, var, inputs, ctx=ctx)

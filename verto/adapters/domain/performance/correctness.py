@@ -57,10 +57,11 @@ class PerfCorrectnessOracle:
                 san_future = None
                 if tc is not None:
                     san_cxx, san_std = tc
+                    extra = list(getattr(ctx, "extra_cflags", ()) or [])  # codebase -I/-D
                     san_future = ex.submit(
                         compile_program, make_program(var_src, func), f"{wd}/var_san",
                         flags=[san_std, "-O1", "-fsanitize=address,undefined",
-                               "-fno-omit-frame-pointer"], workdir=wd, cxx=san_cxx)
+                               "-fno-omit-frame-pointer", *extra], workdir=wd, cxx=san_cxx)
 
                 # --- Rung 1: differential test (shared build; check mode) ---
                 a, b = get_or_build_pair(ctx, wd, make_program(orig_src, func), "orig",

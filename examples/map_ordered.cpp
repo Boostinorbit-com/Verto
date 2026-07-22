@@ -1,7 +1,7 @@
 // UNSAFE case for map -> unordered_map.
 // The output is the distinct keys IN ITERATION ORDER. std::map iterates in
 // sorted key order; std::unordered_map does not — so the output ORDER is
-// observed and the swap is ILLEGAL. AION's order-sensitive differential test
+// observed and the swap is ILLEGAL. VERTO's order-sensitive differential test
 // sees the changed sequence and REJECTS it — the contract enforced by measurement.
 #include <map>
 #include <vector>

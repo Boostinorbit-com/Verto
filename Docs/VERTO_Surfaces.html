@@ -147,20 +147,26 @@
       <h2><span class="n">3</span>CLI — fully specified<span class="when v0">v0</span></h2>
       <p>The reference surface. Every other surface mirrors its verbs and its JSON output.</p>
       <h3>Commands</h3>
-      <pre><code>verto analyze  &lt;path&gt; [-p compile_commands.json] [--profile FILE] [--json]
+      <pre><code>verto analyze  &lt;path&gt; [-p DB] [--all] [--min-rung N] [--offline] [--json]
     Non-destructive. Detect hotspots + candidate transforms and explain them.
     Writes nothing. The "what would you do?" command.
 
-verto optimize &lt;path&gt; [-p compile_commands.json] [--apply] [--min-rung N] [--profile FILE] [--json]
+verto optimize &lt;path&gt; [-p DB] [--all] [--min-rung N] [--fast] [--offline] [--json] [--apply]
     Propose → verify (correct AND faster) → keep only what passes the gate.
-    without --apply : dry-run; prints the diffs it WOULD write.
-    with    --apply : writes the accepted diffs to your source.
+    default      : dry-run; prints the diffs it WOULD write.
+    with --apply : writes the accepted diffs to your source. (planned)
 
-verto report   [--since DATE] [--json]
+verto report   [--json]
     Read the Ledger; show accepted/rejected episodes, rungs, and measured gains.
 
-# -p / --compile-commands is REQUIRED for C++ — VERTO cannot compile a file without
-# its exact build flags. Generate via CMake: -DCMAKE_EXPORT_COMPILE_COMMANDS=ON.</code></pre>
+verto serve    [--stop]
+    Run a warm background daemon (Python + libclang loaded once) so later
+    optimize/analyze calls skip startup. --stop stops it; pass --no-daemon to
+    any call to bypass it.
+
+# -p / --compile-commands supplies the compilation database (a compile_commands.json or a
+# build dir). Required to compile real multi-file C++. Generate via CMake:
+# -DCMAKE_EXPORT_COMPILE_COMMANDS=ON. A self-contained single file needs no -p.</code></pre>
       <h3>Conventions</h3>
       <p>VERTO uses <b>GNU/POSIX-style flags as the base, with LLVM-friendly affordances</b> — familiar to <code>git</code>/<code>cargo</code> users <em>and</em> to <code>clang-tidy</code> users. (VERTO has subcommands and a Python engine, where <code>llvm::cl</code>'s single-dash-long style fights the grain; but the audience is LLVM-native, so we adopt its habits where they help.)</p>
       <ul>
@@ -174,7 +180,7 @@ verto report   [--since DATE] [--json]
       <p><b>Raw compiler flags pass through after <code>--</code></b> — the clean way to stay LLVM-native without polluting VERTO's own namespace:</p>
       <pre><code>verto optimize hist.cpp -p build/ --min-rung 3 -- -O3 -std=c++20 -Iinclude -DNDEBUG
                                                 └──────── verbatim to clang ────────┘</code></pre>
-      <p><b>Flag names mirror <code>clang-tidy</code></b> where they overlap, so muscle memory transfers:</p>
+      <p><b>Flag names mirror <code>clang-tidy</code></b> where they overlap, so muscle memory transfers (this shows <em>naming intent</em>; see the Flags table below for what's actually built — several are still planned):</p>
       <table>
         <tr><th>VERTO</th><th>clang-tidy analog</th><th>shared idea</th></tr>
         <tr><td><code>-p, --compile-commands</code></td><td><code>-p</code></td><td>compilation database</td></tr>
@@ -187,15 +193,15 @@ verto report   [--since DATE] [--json]
       </table>
 
       <h3>Flags</h3>
-      <p>Grouped by concern. <span class="ok">v0</span> ships first; the rest are planned (v1/later) but pre-designed so they slot in without a redesign. Each flag maps to a parameter of the Engine API (spec'd in <code>VERTO_Architecture</code>).</p>
+      <p>Grouped by concern. <b>Status:</b> <span class="ok">✅ wired</span> (v0 CLI flag) · <span class="muted">⚙️ config-only</span> (settable in <code>.verto.toml</code> today, no CLI flag yet) · <span class="muted">⚠️ present but not yet functional</span> · <span class="muted">v1</span>/<span class="muted">later</span> planned. <code>VERTO_Flags.md</code> (generated from the parser) is the exact ✅ set; this table is the fuller roadmap. Each flag maps to a parameter of the Engine API (spec'd in <code>VERTO_Architecture</code>).</p>
 
       <p style="margin:18px 0 4px"><b>Target selection</b></p>
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
-        <tr><td><code>&lt;path&gt;</code></td><td>file or directory to work on</td><td class="ok">v0</td></tr>
-        <tr><td><code>--function NAME</code></td><td>limit to one function</td><td class="ok">v0</td></tr>
-        <tr><td><code>--all</code></td><td>whole codebase</td><td class="ok">v0</td></tr>
-        <tr><td><code>-p, --compile-commands PATH</code></td><td><b><code>compile_commands.json</code> — required to compile C++ correctly</b></td><td class="ok">v0</td></tr>
+        <tr><td><code>&lt;path&gt;</code></td><td>file or directory to work on</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--all</code></td><td>whole codebase (every TU in the database)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>-p, --compile-commands PATH</code></td><td><b><code>compile_commands.json</code> (or build dir) — required to compile real C++</b></td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--function NAME</code></td><td>limit to one function (hotspot is auto-selected today)</td><td class="muted">v1</td></tr>
         <tr><td><code>--changed [--base REF]</code></td><td>only git-changed code (the CI workhorse)</td><td class="muted">v1</td></tr>
         <tr><td><code>--include</code> / <code>--exclude GLOB</code></td><td>scope by path glob</td><td class="muted">v1</td></tr>
         <tr><td><code>--line-filter</code></td><td>restrict to <code>file:line</code> ranges</td><td class="muted">later</td></tr>
@@ -204,38 +210,39 @@ verto report   [--since DATE] [--json]
       <p style="margin:18px 0 4px"><b>Evidence / profiling</b></p>
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
-        <tr><td><code>--profile FILE</code></td><td>runtime profile to guide selection</td><td class="ok">v0</td></tr>
-        <tr><td><code>--profiler perf|gbench|xray</code></td><td>which profiler produced it</td><td class="ok">v0</td></tr>
-        <tr><td><code>--top N</code> / <code>--min-hotspot PCT</code></td><td>only touch the hottest code; ignore cold</td><td class="ok">v0</td></tr>
-        <tr><td><code>--no-profile</code></td><td>static facts only (no runtime)</td><td class="ok">v0</td></tr>
+        <tr><td><code>--profile FILE</code></td><td>runtime profile to guide selection</td><td class="muted">⚠️ stub</td></tr>
+        <tr><td><code>--profiler perf|gbench|xray</code></td><td>which profiler produced it</td><td class="muted">v1</td></tr>
+        <tr><td><code>--top N</code> / <code>--min-hotspot PCT</code></td><td>only touch the hottest code; ignore cold</td><td class="muted">v1</td></tr>
+        <tr><td><code>--no-profile</code></td><td>static facts only (no runtime)</td><td class="muted">v1</td></tr>
       </table>
 
       <p style="margin:18px 0 4px"><b>Proposal / model</b></p>
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
-        <tr><td><code>--model NAME</code></td><td>LLM backend (frontier now, local later)</td><td class="ok">v0</td></tr>
-        <tr><td><code>--candidates N</code></td><td>try N proposals per hotspot; keep the best <b>verified</b> one</td><td class="ok">v0</td></tr>
-        <tr><td><code>--transforms GLOB</code> / <code>--list-transforms</code></td><td>enable/disable transforms</td><td class="ok">v0</td></tr>
-        <tr><td><code>--offline</code></td><td>rules-only, no LLM (deterministic; good for CI)</td><td class="muted">v1</td></tr>
+        <tr><td><code>--model NAME</code></td><td>LLM backend (frontier now, local later)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--offline</code></td><td>rules-only, no LLM (deterministic; good for CI)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--candidates N</code></td><td>try N proposals per hotspot; keep the best <b>verified</b> one</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--transforms GLOB</code> (<code>--list-transforms</code> planned)</td><td>enable/disable transforms</td><td class="muted">⚙️ config</td></tr>
         <tr><td><code>--budget TOKENS|$|TIME</code></td><td>hard cost cap on exploration</td><td class="muted">v1</td></tr>
       </table>
 
       <p style="margin:18px 0 4px"><b>Correctness rigor</b> <span class="muted">— VERTO-specific, the differentiator</span></p>
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
-        <tr><td><code>--min-rung N</code></td><td>auto-apply only at correctness Rung ≥ N (default 3)</td><td class="ok">v0</td></tr>
-        <tr><td><code>--sanitizers address,undefined,thread</code></td><td>which sanitizers the gate runs (Rung 3)</td><td class="ok">v0</td></tr>
-        <tr><td><code>--fuzz-inputs N</code></td><td>held-out inputs for the differential test</td><td class="ok">v0</td></tr>
-        <tr><td><code>--seed N</code></td><td>reproducible fuzzing / benchmarking</td><td class="ok">v0</td></tr>
+        <tr><td><code>--min-rung N</code></td><td>auto-apply only at correctness Rung ≥ N (default 3)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--fast</code></td><td>skip the Rung-3 sanitizer for speed — <b>UNSOUND</b>, verdict labeled</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--fuzz-inputs N</code></td><td>held-out inputs for the differential test</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--seed N</code></td><td>reproducible fuzzing / benchmarking</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--sanitizers address,undefined,thread</code></td><td>which sanitizers the gate runs (auto-detected today)</td><td class="muted">v1</td></tr>
       </table>
 
       <p style="margin:18px 0 4px"><b>Performance gate</b> <span class="muted">— the Performance Vector, made controllable</span></p>
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
-        <tr><td><code>--min-speedup PCT</code></td><td>reject gains below threshold (kills noise)</td><td class="ok">v0</td></tr>
-        <tr><td><code>--reps N</code> / <code>--warmup N</code></td><td>benchmark repetitions / warmup</td><td class="ok">v0</td></tr>
-        <tr><td><code>--objectives p50,p99,memory,size</code></td><td>which Performance-Vector dimensions count</td><td class="ok">v0</td></tr>
-        <tr><td><code>--allow-regression mem=5%</code></td><td>per-dimension Pareto budget</td><td class="muted">v1</td></tr>
+        <tr><td><code>--min-speedup PCT</code></td><td>reject gains below threshold (kills noise)</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--reps N</code> (<code>--warmup N</code> planned)</td><td>benchmark repetitions</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--objectives p50,p99,memory,size</code></td><td>which Performance-Vector dimensions count</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--allow-regression mem=5%</code></td><td>per-dimension Pareto budget</td><td class="muted">⚙️ config</td></tr>
         <tr><td><code>--significance 0.01</code></td><td>required statistical confidence</td><td class="muted">v1</td></tr>
         <tr><td><code>--baseline FILE</code></td><td>compare against a saved baseline</td><td class="muted">v1</td></tr>
       </table>
@@ -243,8 +250,9 @@ verto report   [--since DATE] [--json]
       <p style="margin:18px 0 4px"><b>Apply / output</b></p>
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
-        <tr><td><code>--apply</code> / <code>--dry-run</code></td><td>write accepted diffs / preview only</td><td class="ok">v0</td></tr>
-        <tr><td><code>--diff</code> / <code>--json</code></td><td>patch output / machine schema</td><td class="ok">v0</td></tr>
+        <tr><td><code>--json</code></td><td>machine schema (array of <code>Verdict</code>)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--apply</code></td><td>write accepted diffs (default is dry-run/preview)</td><td class="muted">⚠️ stub</td></tr>
+        <tr><td><code>--diff</code></td><td>emit patch output</td><td class="muted">v1</td></tr>
         <tr><td><code>--export FILE</code></td><td>write proposed patches to a file (review/CI)</td><td class="muted">v1</td></tr>
         <tr><td><code>--apply-from FILE</code></td><td>apply a previously exported/reviewed set</td><td class="muted">v1</td></tr>
         <tr><td><code>--format</code></td><td>run clang-format on applied changes</td><td class="muted">v1</td></tr>
@@ -257,17 +265,20 @@ verto report   [--since DATE] [--json]
         <tr><td><code>--fail-on left-on-table|regression|contract-violation</code></td><td>control CI failure</td><td class="muted">v1</td></tr>
         <tr><td><code>--mode optimize|prevent</code></td><td>prevention mode (contracts-in-CI)</td><td class="muted">v1</td></tr>
         <tr><td><code>--comment</code></td><td>post PR comments</td><td class="muted">v1</td></tr>
-        <tr><td><code>--no-color</code></td><td>plain CI logs</td><td class="muted">v1</td></tr>
+        <tr><td><code>--no-color</code></td><td>plain CI logs (the <code>NO_COLOR</code> env var is already honored)</td><td class="muted">v1</td></tr>
       </table>
 
       <p style="margin:18px 0 4px"><b>Config / setup / safety</b></p>
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
-        <tr><td><code>--config-file .verto.toml</code> / <code>--config KEY=VAL</code></td><td>reproducible config</td><td class="ok">v0</td></tr>
-        <tr><td><code>--verify-setup</code></td><td>check the toolchain is present (clang, sanitizers, profiler, benchmark)</td><td class="ok">v0</td></tr>
-        <tr><td><code>--sandbox</code> / <code>--no-sandbox</code>, <code>--no-network</code></td><td>isolate verification runs</td><td class="ok">v0</td></tr>
-        <tr><td><code>--cache</code> / <code>--no-cache</code></td><td>reuse expensive LLM/build results</td><td class="muted">v1</td></tr>
-        <tr><td><code>--timeout SEC</code>, <code>--max-changes N</code>, <code>--jobs N</code>, <code>--quiet</code>, <code>-v/-vv</code></td><td>limits &amp; noise control</td><td class="ok">v0</td></tr>
+        <tr><td><code>--config-file .verto.toml</code></td><td>reproducible config</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--no-daemon</code></td><td>run in-process, ignore a warm <code>verto serve</code> daemon</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>-V, --version</code></td><td>print the VERTO version</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--sandbox</code> / <code>--no-sandbox</code></td><td>isolate verification runs</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--timeout SEC</code></td><td>per-run time limit</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--config KEY=VAL</code></td><td>inline config override</td><td class="muted">v1</td></tr>
+        <tr><td><code>--verify-setup</code></td><td>check the toolchain is present (clang, sanitizers, profiler, benchmark)</td><td class="muted">v1</td></tr>
+        <tr><td><code>--no-network</code>, <code>--cache</code> / <code>--no-cache</code>, <code>--max-changes N</code>, <code>--jobs N</code>, <code>--quiet</code>, <code>-v/-vv</code></td><td>isolation, caching, limits &amp; noise</td><td class="muted">v1</td></tr>
       </table>
       <h3>Exit codes (so CI can branch on them)</h3>
       <table>

@@ -19,7 +19,12 @@ else:                                     # system Python is 3.8 (see §16.6) �
 class Config:
     # gate policy
     min_rung: int = 3                     # auto-apply only at correctness Rung >= 3 (UBSan)
-    objectives: tuple[str, ...] = ("p50", "p99", "peak_memory", "binary_size")
+    # NOTE: binary_size is measured & REPORTED but NOT a default hard gate. It's the
+    # size of VERTO's synthetic harness binary (driver+STL dominated), and it proved
+    # LINKER-dependent — the same map→unordered swap read +8% under bfd ld but +27%
+    # under gold. Unreliable to gate on, and code size rarely justifies rejecting a
+    # −90% speedup. It returns as a gate once we measure the REAL project binary.
+    objectives: tuple[str, ...] = ("p50", "p99", "peak_memory")
     # Regression budgets (§9.3). peak_memory=0.12: a data-structure swap that trades
     # a little memory for a large speedup (map→unordered_map, ~7% RSS on a tiny
     # baseline) is a core Category-A win and must clear the budget, while an

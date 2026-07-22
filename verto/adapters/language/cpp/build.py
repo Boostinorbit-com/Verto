@@ -11,6 +11,7 @@ auto-detects a toolchain whose -fsanitize actually links (clang++, else g++).
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -31,6 +32,26 @@ def _ccache() -> list[str]:
     return ["ccache"] if shutil.which("ccache") else []
 
 
+@lru_cache(maxsize=8)
+def _fast_linker(cxx: str) -> tuple[str, ...]:
+    """Fastest linker the compiler can drive (mold > lld > gold > default).
+
+    Linking is the UNCACHED part of a warm build — ccache serves the object file
+    in ~10ms but the link still runs every time (~60ms with GNU ld). A fast linker
+    cuts that directly. gold ships with binutils (~2x); mold (`apt install mold`)
+    is ~6-8x and auto-activates here once present."""
+    probe = "int main(){return 0;}"
+    for ld in ("mold", "lld", "gold"):
+        with tempfile.TemporaryDirectory(prefix="verto-ld-") as wd:
+            src = Path(wd) / "p.cpp"
+            src.write_text(probe, encoding="utf-8")
+            r = sandbox.run([cxx, f"-fuse-ld={ld}", str(src), "-o", str(Path(wd) / "p")],
+                            timeout_sec=30)
+            if r.ok:
+                return (f"-fuse-ld={ld}",)
+    return ()
+
+
 @dataclass
 class Artifact:
     binary_path: str
@@ -38,16 +59,37 @@ class Artifact:
     stderr: str = ""
 
 
-def compile_program(source_code: str, out_path: str, *, flags: list[str],
-                    workdir: str, cxx: str = CXX) -> Artifact:
+def _exe_place(cached: str, out_path: str) -> None:
+    """Put a cached binary at out_path — hardlink (instant) or copy across FS."""
+    try:
+        if os.path.lexists(out_path):
+            os.unlink(out_path)
+        os.link(cached, out_path)
+    except OSError:
+        shutil.copy2(cached, out_path)
+
+
+def _exe_store(binary_path: str, cached: str) -> None:
+    """Atomically add a freshly built binary to the exe cache (best-effort)."""
+    tmp = f"{cached}.{os.getpid()}.tmp"
+    try:
+        shutil.copy2(binary_path, tmp)
+        os.replace(tmp, cached)                      # atomic; safe under concurrency
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
+def _build_program(source_code: str, out_path: str, flags: list[str],
+                   workdir: str, cxx: str) -> Artifact:
     cc = _ccache()
     if cc:
         # ccache only caches compile-to-object (-c), never a combined compile+link,
-        # so split the two. The -c step (STL template instantiation + codegen — the
-        # expensive part) is compiled from a CONTENT-ADDRESSED stable path so the
-        # source's location doesn't leak into the preprocessed output and bust the
-        # cache; identical source => same path => ccache hit on every repeat run.
-        # The link step is cheap and left uncached.
+        # so split the two. The -c step is compiled from a CONTENT-ADDRESSED stable
+        # path so the source's location doesn't leak into the preprocessed output and
+        # bust the cache. The link step (fast linker) is cheap and left uncached.
         h = hashlib.sha1(source_code.encode("utf-8")).hexdigest()[:16]
         srcdir = Path(tempfile.gettempdir()) / "verto-ccsrc"
         srcdir.mkdir(exist_ok=True)
@@ -56,15 +98,38 @@ def compile_program(source_code: str, out_path: str, *, flags: list[str],
             src.write_text(source_code, encoding="utf-8")
         obj = f"{out_path}.o"
         r = sandbox.run([*cc, cxx, *flags, "-c", str(src), "-o", obj], timeout_sec=120)
-        if r.ok:
-            r = sandbox.run([cxx, *flags, obj, "-o", out_path], timeout_sec=120)
+        if r.ok:   # fast linker only on the (uncached) link step; ignored on -c
+            r = sandbox.run([cxx, *flags, *_fast_linker(cxx), obj, "-o", out_path], timeout_sec=120)
         return Artifact(binary_path=out_path, build_ok=r.ok, stderr=r.stderr)
 
     # no ccache: one compile+link step (splitting would only add overhead here)
     src = Path(workdir) / (Path(out_path).name + ".cpp")
     src.write_text(source_code, encoding="utf-8")
-    res = sandbox.run([cxx, *flags, str(src), "-o", out_path], timeout_sec=120)
+    res = sandbox.run([cxx, *flags, *_fast_linker(cxx), str(src), "-o", out_path], timeout_sec=120)
     return Artifact(binary_path=out_path, build_ok=res.ok, stderr=res.stderr)
+
+
+def compile_program(source_code: str, out_path: str, *, flags: list[str],
+                    workdir: str, cxx: str = CXX) -> Artifact:
+    """Compile+link `source_code` to out_path.
+
+    An EXECUTABLE cache short-circuits the whole build: identical
+    (source, flags, compiler) => reuse the prior binary, skipping compile AND link
+    (a repeat run becomes ~a hardlink). On a miss, ccache still serves the object
+    and the fast linker links; then the finished binary is cached for next time.
+    Deterministic builds make this safe — same inputs, byte-equivalent behaviour."""
+    key = hashlib.sha1(("\0".join((cxx, *flags)) + "\0" + source_code).encode("utf-8")).hexdigest()
+    cache_dir = Path(tempfile.gettempdir()) / "verto-exe"
+    cache_dir.mkdir(exist_ok=True)
+    cached = cache_dir / key
+    if cached.exists():
+        _exe_place(str(cached), out_path)
+        return Artifact(binary_path=out_path, build_ok=True)
+
+    art = _build_program(source_code, out_path, flags, workdir, cxx)
+    if art.build_ok and os.path.exists(out_path):
+        _exe_store(out_path, str(cached))
+    return art
 
 
 def compile_pair(a: dict, b: dict) -> tuple[Artifact, Artifact]:

@@ -11,23 +11,23 @@ from verto.engine.models import (
 
 
 class _OK:
-    def equivalent(self, o, v, i):
+    def equivalent(self, o, v, i, ctx=None):
         return CorrectnessVerdict(rung=3, passed=True, witness=Witness())
 
 
 class _Unsafe:
-    def equivalent(self, o, v, i):
+    def equivalent(self, o, v, i, ctx=None):
         return CorrectnessVerdict(rung=1, passed=True,
                                   witness=Witness(sanitizer="ubsan:signed-overflow"))
 
 
 class _Faster:
-    def compare(self, o, v):
+    def compare(self, o, v, ctx=None):
         return PerfVerdict(vector={"p50": 2.35}, pareto_pass=True, samples=30)
 
 
 class _Slower:
-    def compare(self, o, v):
+    def compare(self, o, v, ctx=None):
         return PerfVerdict(vector={"p50": 9.0}, pareto_pass=False, samples=30)
 
 

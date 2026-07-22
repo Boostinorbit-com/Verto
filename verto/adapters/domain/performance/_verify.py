@@ -15,14 +15,15 @@ OPT = ["-std=c++20", "-O2", "-march=native"]     # one flag set → cache is sha
 def get_or_build_pair(ctx, wd: str, prog_a: str, name_a: str,
                       prog_b: str, name_b: str) -> tuple[Artifact, Artifact]:
     cache = ctx.cache if ctx is not None else {}
+    flags = OPT + list(getattr(ctx, "extra_cflags", ()) or [])   # +codebase -I/-D/-std
     a, b = cache.get(prog_a), cache.get(prog_b)
     if a is None and b is None:                  # both missing → compile in parallel
         a, b = compile_pair(
-            dict(source_code=prog_a, out_path=f"{wd}/{name_a}", flags=OPT, workdir=wd),
-            dict(source_code=prog_b, out_path=f"{wd}/{name_b}", flags=OPT, workdir=wd))
+            dict(source_code=prog_a, out_path=f"{wd}/{name_a}", flags=flags, workdir=wd),
+            dict(source_code=prog_b, out_path=f"{wd}/{name_b}", flags=flags, workdir=wd))
     elif a is None:
-        a = compile_program(prog_a, f"{wd}/{name_a}", flags=OPT, workdir=wd)
+        a = compile_program(prog_a, f"{wd}/{name_a}", flags=flags, workdir=wd)
     elif b is None:
-        b = compile_program(prog_b, f"{wd}/{name_b}", flags=OPT, workdir=wd)
+        b = compile_program(prog_b, f"{wd}/{name_b}", flags=flags, workdir=wd)
     cache[prog_a], cache[prog_b] = a, b
     return a, b

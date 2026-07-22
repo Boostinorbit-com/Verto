@@ -72,6 +72,52 @@ def _render_json(verdicts: list) -> None:
     print(json.dumps([enc(v) for v in verdicts], default=enc, indent=2))
 
 
+def _render_codebase(results: list) -> None:
+    GRN, RED, DIM, RST = "\033[32m", "\033[31m", "\033[2m", "\033[0m"
+    n_files = n_cand = n_acc = 0
+    print(f"\n  codebase scan — {len(results)} translation unit(s)")
+    for path, verdicts, err in results:
+        rel = os.path.relpath(path)
+        if err:
+            print(f"\n  {rel}\n    {RED}error{RST}: {err}")
+            continue
+        if not verdicts:
+            print(f"\n  {rel}\n    {DIM}no verified opportunity{RST}")
+            continue
+        n_files += 1
+        print(f"\n  {rel}")
+        for v in verdicts:
+            n_cand += 1
+            name = v.candidate.transform.name if v.candidate else "?"
+            fn = getattr(v.candidate.transform, "target_func", None) if v.candidate else None
+            if v.accepted:
+                n_acc += 1
+                d = v.performance.vector.get("p50_delta_pct") if v.performance else None
+                delta = f"  (−{d:.1f}%)" if d else ""
+                print(f"    {GRN}ACCEPT{RST}  {name} [{fn}]{delta}")
+            else:
+                print(f"    {RED}REJECT{RST}  {name} [{fn}]  ({v.reason})")
+    print(f"\n  {'-' * 60}")
+    print(f"  {n_acc} accepted / {n_cand} candidate(s) across {n_files} file(s) with opportunities")
+
+
+def _render_codebase_json(results: list) -> None:
+    def enc(o):
+        if dataclasses.is_dataclass(o):
+            return dataclasses.asdict(o)
+        return getattr(o, "name", str(o))
+    payload = [{"file": f, "error": err, "verdicts": v} for f, v, err in results]
+    print(json.dumps(payload, default=enc, indent=2))
+
+
+def _codebase_exit(results: list) -> int:
+    if any(v.accepted for _, vs, _ in results for v in vs):
+        return 0
+    if any(vs for _, vs, _ in results):
+        return 3                       # candidates found but all rejected
+    return 1                           # nothing found
+
+
 def _exit_code(verdicts: list[Verdict]) -> int:
     if not verdicts:
         return 1
@@ -80,30 +126,87 @@ def _exit_code(verdicts: list[Verdict]) -> int:
     return 3
 
 
+def _common(sp, *, apply: bool = False) -> None:
+    """Flags shared by analyze/optimize, grouped by concern for a readable --help.
+    Per-flag help lives HERE (next to the flag) so it can't drift from behaviour;
+    only framing prose lives in _help.py."""
+    tgt = sp.add_argument_group("target selection")
+    tgt.add_argument("path", nargs="?",
+                     help="a source file (single-file mode); omit with --all")
+    tgt.add_argument("-p", "--compile-commands", dest="compile_commands", metavar="DB",
+                     help="compile_commands.json, or a build dir containing one — "
+                          "the compilation database (canonical source of flags)")
+    tgt.add_argument("--all", action="store_true",
+                     help="optimize every translation unit in the database (requires -p)")
+
+    pol = sp.add_argument_group("verification policy")
+    pol.add_argument("--min-rung", type=int, metavar="N",
+                     help="correctness rung required to accept (default 3 = sanitizers)")
+    pol.add_argument("--fast", action="store_true",
+                     help="skip the Rung-3 sanitizer for speed (UNSOUND — verdict is labeled)")
+    pol.add_argument("--offline", action="store_true",
+                     help="use the deterministic rule proposer (no model / API)")
+    pol.add_argument("--model", metavar="NAME",
+                     help="proposer model (frontier | local | rules)")
+
+    out = sp.add_argument_group("output & execution")
+    if apply:
+        out.add_argument("--apply", action="store_true",
+                         help="write accepted changes back to source (PLANNED — not yet implemented)")
+    out.add_argument("--json", action="store_true", help="machine-readable output")
+    out.add_argument("--no-daemon", action="store_true",
+                     help="run in-process even if a verto daemon is available")
+    out.add_argument("--config-file", metavar="FILE",
+                     help="project config (default .verto.toml)")
+    out.add_argument("--profile", metavar="FILE",
+                     help="profile data to guide hotspot selection (PLANNED — not yet consumed)")
+
+
+class _HelpFormatter(argparse.RawDescriptionHelpFormatter):
+    """Verbatim description/epilog (so our styled prose renders as written), plus
+    bold-uppercase section headings and a clean gh-style USAGE block — instead of
+    argparse's `usage: prog [-h] [-V] ...` boilerplate."""
+    def start_section(self, heading):
+        if heading:
+            from . import _help
+            heading = _help.section(heading)
+        super().start_section(heading)
+
+    def _format_usage(self, usage, actions, groups, prefix):
+        from . import _help
+        lines = [ln.strip() for ln in (usage or "").strip().splitlines() if ln.strip()]
+        body = "\n".join("  " + ln for ln in lines) if lines else "  verto <command>"
+        return f"{_help.section('usage')}\n{body}\n\n"
+
+
+def _version() -> str:
+    try:
+        from importlib.metadata import version
+        return version("verto")
+    except Exception:
+        return "0.1.0"
+
+
 def _parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="verto", description="VERTO — verified performance optimizer")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    from . import _help
+    fmt = _HelpFormatter
+    p = argparse.ArgumentParser(prog="verto", description=_help.DESCRIPTION, usage=_help.USAGE_MAIN,
+                                epilog=_help.MAIN_EPILOG, formatter_class=fmt)
+    p.add_argument("-V", "--version", action="version", version=f"verto {_version()}")
+    sub = p.add_subparsers(dest="cmd", required=True, metavar="<command>", title="commands")
 
-    def common(sp):
-        sp.add_argument("path")
-        sp.add_argument("-p", "--compile-commands", dest="compile_commands")
-        sp.add_argument("--profile")
-        sp.add_argument("--model")
-        sp.add_argument("--offline", action="store_true")
-        sp.add_argument("--fast", action="store_true",
-                        help="skip the Rung-3 sanitizer for speed (UNSOUND — verdict is labeled)")
-        sp.add_argument("--min-rung", type=int)
-        sp.add_argument("--config-file")
-        sp.add_argument("--json", action="store_true")
-        sp.add_argument("--no-daemon", action="store_true",
-                        help="run in-process even if an verto daemon is available")
+    a = sub.add_parser("analyze", help=_help.ANALYZE_DESC, description=_help.ANALYZE_DESC,
+                       usage=_help.USAGE_ANALYZE, epilog=_help.ANALYZE_EPILOG, formatter_class=fmt)
+    _common(a)
 
-    common(sub.add_parser("analyze", help="detect + explain; writes nothing"))
-    o = sub.add_parser("optimize", help="propose → verify → optionally apply")
-    common(o)
-    o.add_argument("--apply", action="store_true")
-    sub.add_parser("report", help="read the Ledger")
-    s = sub.add_parser("serve", help="run a warm daemon (skips per-call startup)")
+    o = sub.add_parser("optimize", help=_help.OPTIMIZE_DESC, description=_help.OPTIMIZE_DESC,
+                       usage=_help.USAGE_OPTIMIZE, epilog=_help.OPTIMIZE_EPILOG, formatter_class=fmt)
+    _common(o, apply=True)
+
+    sub.add_parser("report", help=_help.REPORT_DESC, description=_help.REPORT_DESC,
+                   usage="verto report", formatter_class=fmt)
+    s = sub.add_parser("serve", help=_help.SERVE_DESC, description=_help.SERVE_DESC,
+                       usage=_help.USAGE_SERVE, epilog=_help.SERVE_EPILOG, formatter_class=fmt)
     s.add_argument("--stop", action="store_true", help="stop a running daemon")
     return p
 
@@ -117,16 +220,67 @@ def _run_command(args) -> int:
             return 0
 
         engine = Engine(_build_config(args))
+
+        # --- codebase mode: path is a compile_commands.json / a dir holding one ---
+        cc = _codebase_db(args)
+        if cc is not None:
+            results = engine.optimize_codebase(cc, apply=getattr(args, "apply", False))
+            (_render_codebase_json if args.json else _render_codebase)(results)
+            return _codebase_exit(results)
+
+        # --- single file (optionally with flags looked up from -p's db) ---
+        if not args.path:
+            raise ValueError("no target: give a source <path>, or --all with -p")
+        build = _single_file_flags(args)
         if args.cmd == "analyze":
-            verdicts = engine.analyze(args.path)
+            verdicts = engine.analyze(args.path, build=build)
         else:
-            verdicts = engine.optimize(args.path, apply=args.apply)
+            verdicts = engine.optimize(args.path, apply=args.apply, build=build)
 
         (_render_json if args.json else _render_human)(verdicts)
         return _exit_code(verdicts)
     except (ValueError, NotImplementedError) as e:
         print(f"verto: error: {e}", file=sys.stderr)
         return 2
+
+
+def _codebase_db(args) -> str | None:
+    """Resolve a compile_commands.json for a whole-codebase run, or None for
+    single-file mode. Canonical form: `-p <db> --all`. Also accepted: `-p <db>`
+    with no source file, or a directory/.json given as the positional path."""
+    from ..adapters.language.cpp import compile_db
+
+    def _resolve(src: str) -> str:
+        db = compile_db.find(src)
+        if db is None:
+            raise ValueError(f"no compile_commands.json found at {src}")
+        return str(db)
+
+    if getattr(args, "all", False):                    # explicit whole-codebase
+        src = args.compile_commands or args.path
+        if not src:
+            raise ValueError("--all requires -p/--compile-commands DB (the compilation database)")
+        return _resolve(src)
+    if args.compile_commands and not args.path:        # `-p <db>` alone → whole codebase
+        return _resolve(args.compile_commands)
+    p = args.path                                      # convenience: dir/.json as the path
+    if p and (p.endswith(".json") or os.path.isdir(p)) and compile_db.find(p):
+        return str(compile_db.find(p))
+    return None
+
+
+def _single_file_flags(args) -> dict | None:
+    """When `-p` is given with a single source file, look up that file's flags in
+    the compile_commands.json so the one file parses/builds like the real project."""
+    cc = getattr(args, "compile_commands", None)
+    if not cc:
+        return None
+    from ..adapters.language.cpp import compile_db
+    want = os.path.abspath(args.path)
+    for tu in compile_db.load(cc):
+        if os.path.abspath(tu.file) == want:
+            return {"parse_flags": tu.flags, "compile_flags": tu.flags}
+    return None
 
 
 def handle_argv(argv: list[str], cwd: str | None = None) -> tuple[str, str, int]:

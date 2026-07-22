@@ -68,6 +68,16 @@ def _map_regex(source: str) -> MapSite | None:
 
 # --- public API: prefer the robust AST detector, fall back to regex ---
 
+def set_parse_flags(flags) -> None:
+    """Tell the libclang parser which compile_commands.json flags to use for the
+    next translation unit (include paths, defines, -std). No-op without libclang."""
+    try:
+        from ._ast import set_parse_args
+        set_parse_args(tuple(flags or ()))
+    except Exception:
+        pass
+
+
 def detect_growth(source: str) -> GrowthSite | None:
     try:
         from ._ast import growth_ast

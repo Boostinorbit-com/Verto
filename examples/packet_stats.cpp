@@ -1,4 +1,4 @@
-// Example target for AION — the canonical reserve() case (AION.md §3).
+// Example target for VERTO — the canonical reserve() case (VERTO.md §3).
 #include <vector>
 #include <cstddef>
 

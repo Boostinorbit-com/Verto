@@ -13,7 +13,7 @@ from pathlib import Path
 from ....engine.config import Config
 from ....engine.models import Evidence, Fact, Profile, Target
 from ...domain.performance.harness_gen import supported
-from ._detect import detect_all_growth, detect_all_map
+from ._detect import detect_all_growth, detect_all_map, set_parse_flags
 from .profiler import profile_functions
 
 
@@ -23,6 +23,9 @@ class CppSensor:
 
     def collect(self, target: Target) -> Evidence:
         source = Path(target.file).read_text(encoding="utf-8")
+        # codebase mode: parse this TU with its real compile_commands flags so
+        # includes/defines/-std resolve (single-file mode leaves this empty).
+        set_parse_flags(target.build.get("parse_flags"))
         growth = {s.func: s for s in detect_all_growth(source) if s.func}
         maps = {s.func: s for s in detect_all_map(source) if s.func}
         # only candidates VERTO can actually harness (verify) — skip the rest honestly

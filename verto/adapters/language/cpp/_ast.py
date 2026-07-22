@@ -19,6 +19,18 @@ import clang.cindex as cc
 from ._detect import GrowthSite, MapSite
 
 
+# Per-translation-unit flags from compile_commands.json (-I/-D/-std/…), set by the
+# Sensor before it parses. Parsing is always single-threaded (compile_pair only
+# threads the *compiler*, never libclang), so a module-level "current flags" is safe;
+# it is also folded into the _tu cache key so different TUs never collide.
+_EXTRA_ARGS: tuple[str, ...] = ()
+
+
+def set_parse_args(flags: tuple[str, ...]) -> None:
+    global _EXTRA_ARGS
+    _EXTRA_ARGS = tuple(flags or ())
+
+
 @functools.lru_cache(maxsize=1)
 def _parse_args() -> list[str]:
     """Discover the system C++ include search paths from clang++ and pass them to
@@ -46,11 +58,13 @@ def _parse_args() -> list[str]:
     return args
 
 
-@functools.lru_cache(maxsize=8)
-def _tu(source: str):
+@functools.lru_cache(maxsize=16)
+def _tu(source: str, extra: tuple[str, ...] = ()):
     # cached: the sensor + mutator parse the same source several times per optimize.
+    # `extra` = compile_commands flags (part of the key so per-TU flags don't collide).
     idx = cc.Index.create()
-    return idx.parse("in.cpp", args=_parse_args(), unsaved_files=[("in.cpp", source)])
+    return idx.parse("in.cpp", args=_parse_args() + list(extra),
+                     unsaved_files=[("in.cpp", source)])
 
 
 def _walk(node):
@@ -60,10 +74,27 @@ def _walk(node):
 
 
 def _funcs(tu):
-    for n in _walk(tu.cursor):
-        if n.kind == cc.CursorKind.FUNCTION_DECL and n.is_definition() and n.location.file:
-            if n.location.file.name == "in.cpp":       # skip anything from headers
-                yield n
+    """In-file function definitions. A translation unit is ~99.8% system-header
+    nodes (a `#include <map>` alone brings ~50k), so we PRUNE header subtrees
+    instead of walking the whole tree and filtering — the AST hot path. Only
+    descends into in-file (or location-less builtin) nodes."""
+    def infile(node):
+        for c in node.get_children():
+            lf = c.location.file
+            if lf is not None and lf.name != "in.cpp":
+                continue                                # skip the entire header subtree
+            if (c.kind == cc.CursorKind.FUNCTION_DECL and c.is_definition()
+                    and lf is not None and lf.name == "in.cpp"):
+                yield c
+            yield from infile(c)
+    yield from infile(tu.cursor)
+
+
+@functools.lru_cache(maxsize=16)
+def _infile_funcs(source: str, extra: tuple[str, ...] = ()):
+    """The in-file functions, walked ONCE per (source, flags). signature /
+    all_growth / all_map each need them; without this they'd re-walk ~12×."""
+    return tuple(_funcs(_tu(source, extra)))
 
 
 def _is_call_on(call, var: str, method: str) -> bool:
@@ -81,12 +112,33 @@ def _for_bound(for_stmt) -> str | None:
     return None
 
 
+def _clean_type(ct) -> str:
+    """A harness-classifier-friendly spelling: resolve typedefs (so a project
+    `using Count = int` → `int`, `std::size_t` → `unsigned long`) and normalize
+    containers/strings to their clean form — WITHOUT the allocator noise that raw
+    canonicalization adds (which would defeat the classifier's `std::vector<int>`
+    match). Peels a reference first so `const std::vector<int>&` is handled."""
+    t = ct
+    try:
+        if t.kind in (cc.TypeKind.LVALUEREFERENCE, cc.TypeKind.RVALUEREFERENCE):
+            t = t.get_pointee()
+        if "vector" in t.spelling and t.get_num_template_arguments() >= 1:
+            el = t.get_template_argument_type(0).get_canonical().spelling
+            return f"std::vector<{el}>"
+        canon = t.get_canonical().spelling
+        if "basic_string<char" in canon:
+            return "std::string"
+        return canon
+    except Exception:
+        return ct.spelling
+
+
 def signature(source: str, func: str) -> tuple[list[str], str] | None:
-    """(param type spellings, return type spelling) for `func`, or None."""
-    tu = _tu(source)
-    for fn in _funcs(tu):
+    """(param type spellings, return type spelling) for `func`, or None.
+    Typedefs are resolved so codebase code (project typedefs) classifies correctly."""
+    for fn in _infile_funcs(source, _EXTRA_ARGS):
         if fn.spelling == func:
-            return [a.type.spelling for a in fn.get_arguments()], fn.result_type.spelling
+            return [_clean_type(a.type) for a in fn.get_arguments()], _clean_type(fn.result_type)
     return None
 
 
@@ -147,8 +199,7 @@ def _growth_in_fn(fn, source: str) -> GrowthSite | None:
 
 
 def all_growth(source: str) -> list[GrowthSite]:
-    tu = _tu(source)
-    return [s for fn in _funcs(tu) if (s := _growth_in_fn(fn, source))]
+    return [s for fn in _infile_funcs(source, _EXTRA_ARGS) if (s := _growth_in_fn(fn, source))]
 
 
 def growth_ast(source: str) -> GrowthSite | None:
@@ -184,8 +235,7 @@ def _map_in_fn(fn, source: str) -> MapSite | None:
 
 
 def all_map(source: str) -> list[MapSite]:
-    tu = _tu(source)
-    return [s for fn in _funcs(tu) if (s := _map_in_fn(fn, source))]
+    return [s for fn in _infile_funcs(source, _EXTRA_ARGS) if (s := _map_in_fn(fn, source))]
 
 
 def map_ast(source: str) -> MapSite | None:
