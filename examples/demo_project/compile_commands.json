@@ -1,0 +1,12 @@
+[
+  {
+    "directory": ".",
+    "file": "src/histogram.cpp",
+    "command": "clang++ -std=c++17 -Iinclude -DNDEBUG -c src/histogram.cpp -o build/histogram.o"
+  },
+  {
+    "directory": ".",
+    "file": "src/report.cpp",
+    "command": "clang++ -std=c++17 -Iinclude -DNDEBUG -c src/report.cpp -o build/report.o"
+  }
+]
