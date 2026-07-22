@@ -24,6 +24,7 @@ class Config:
     allow_regression: dict[str, float] = field(
         default_factory=lambda: {"binary_size": 0.10, "peak_memory": 0.05})
     min_speedup_pct: float = 2.0          # reject gains below this (kills noise)
+    reps: int = 12                        # benchmark repetitions (deltas are large; 12 is plenty)
     # proposal
     model: str = "frontier"               # frontier | local | rules(--offline)
     candidates: int = 1

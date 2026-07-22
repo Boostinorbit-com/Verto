@@ -12,6 +12,7 @@ enforced by measurement.
 """
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
 
 from ...engine.models import Contract, Evidence
@@ -19,6 +20,13 @@ from ...engine.models import Contract, Evidence
 
 class Transform(ABC):
     name: str = "transform"
+    target_func: str | None = None      # scope edits to this function (profile-selected site)
+
+    def bind(self, func: str | None) -> "Transform":
+        """Return a copy of this transform scoped to a specific function."""
+        c = copy.copy(self)
+        c.target_func = func
+        return c
 
     @abstractmethod
     def contract(self) -> Contract: ...

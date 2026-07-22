@@ -33,11 +33,13 @@ class Mutator(Protocol):                      # language
 
 
 class CorrectnessOracle(Protocol):            # domain — TRUSTED
-    def equivalent(self, orig: Target, var: Variant, inputs: object) -> CorrectnessVerdict: ...
+    def equivalent(self, orig: Target, var: Variant, inputs: object,
+                   ctx: object | None = None) -> CorrectnessVerdict: ...
 
 
 class PerformanceOracle(Protocol):            # domain × language — TRUSTED
-    def compare(self, orig: Target, var: Variant) -> PerfVerdict: ...
+    def compare(self, orig: Target, var: Variant,
+                ctx: object | None = None) -> PerfVerdict: ...
 
 
 class Ledger(Protocol):                       # engine-provided

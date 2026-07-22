@@ -6,7 +6,7 @@ prior reserve leaves ~71% on the table that -O3 cannot recover.
 from __future__ import annotations
 
 from ...engine.models import Contract
-from ..language.cpp._detect import detect_growth
+from ..language.cpp._detect import detect_growth, detect_growth_in
 from .base import Transform
 
 
@@ -24,12 +24,15 @@ class ReserveBeforePushback(Transform):
             postcondition="output-equivalent",
         )
 
+    def _site(self, source: str):
+        return detect_growth_in(source, self.target_func) if self.target_func else detect_growth(source)
+
     def matches(self, source: str) -> bool:
-        s = detect_growth(source)
+        s = self._site(source)
         return s is not None and s.bound is not None
 
     def rewrite(self, source: str) -> tuple[str, str] | None:
-        s = detect_growth(source)
+        s = self._site(source)
         if s is None or not s.bound:
             return None
         new = source[:s.insert_at] + f"\n    {s.var}.reserve({s.bound});" + source[s.insert_at:]

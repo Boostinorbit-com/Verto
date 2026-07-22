@@ -10,7 +10,7 @@ measurement.
 from __future__ import annotations
 
 from ...engine.models import Contract
-from ..language.cpp._detect import detect_map
+from ..language.cpp._detect import detect_map, detect_map_in
 from .base import Transform
 
 
@@ -27,11 +27,14 @@ class MapToUnorderedMap(Transform):
             postcondition="output-equivalent (checked order-sensitively)",
         )
 
+    def _site(self, source: str):
+        return detect_map_in(source, self.target_func) if self.target_func else detect_map(source)
+
     def matches(self, source: str) -> bool:
-        return detect_map(source) is not None
+        return self._site(source) is not None
 
     def rewrite(self, source: str) -> tuple[str, str] | None:
-        s = detect_map(source)
+        s = self._site(source)
         if s is None:
             return None
         new = source[:s.type_start] + "std::unordered_map" + source[s.type_end:]

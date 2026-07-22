@@ -88,3 +88,53 @@ def detect_map(source: str) -> MapSite | None:
     except Exception:
         pass
     return _map_regex(source)
+
+
+# --- all-sites / function-scoped (for profile-guided selection across candidates) ---
+
+def detect_all_growth(source: str) -> list[GrowthSite]:
+    try:
+        from ._ast import all_growth
+        r = all_growth(source)
+        if r:
+            return r
+    except Exception:
+        pass
+    g = _growth_regex(source)
+    return [g] if g else []
+
+
+def detect_growth_in(source: str, func: str | None) -> GrowthSite | None:
+    try:
+        from ._ast import growth_in_ast
+        r = growth_in_ast(source, func) if func else None
+        if r is not None:
+            return r
+    except Exception:
+        pass
+    g = _growth_regex(source)
+    return g if (g and (func is None or g.func == func)) else None
+
+
+def detect_all_map(source: str) -> list[MapSite]:
+    try:
+        from ._ast import all_map
+        r = all_map(source)
+        if r:
+            return r
+    except Exception:
+        pass
+    m = _map_regex(source)
+    return [m] if m else []
+
+
+def detect_map_in(source: str, func: str | None) -> MapSite | None:
+    try:
+        from ._ast import map_in_ast
+        r = map_in_ast(source, func) if func else None
+        if r is not None:
+            return r
+    except Exception:
+        pass
+    m = _map_regex(source)
+    return m if (m and (func is None or m.func == func)) else None

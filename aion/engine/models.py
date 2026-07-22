@@ -90,6 +90,7 @@ class PerfVerdict:
     vector: dict[str, float] = field(default_factory=dict)  # {p50, p99, peak_memory, ...}
     pareto_pass: bool = False
     samples: int = 0
+    reason: str = ""                    # why Pareto failed (e.g. "peak_memory regressed …")
 
 
 @dataclass
@@ -115,3 +116,12 @@ class Priors:
     """Recalled from the Ledger to sharpen the next proposal."""
     accepted_transforms: list[str] = field(default_factory=list)
     rejected_transforms: list[str] = field(default_factory=list)
+
+
+@dataclass
+class VerifyCtx:
+    """A shared workdir + compile cache the gate hands to both oracles so the
+    original/variant are compiled once and reused (not once per oracle). A plain
+    data holder — the engine creates it without importing any adapter."""
+    workdir: str
+    cache: dict = field(default_factory=dict)

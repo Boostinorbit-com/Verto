@@ -16,13 +16,15 @@ class RuleProposer:
         self._config = config
 
     def propose(self, ev: Evidence, priors: Priors) -> Candidate | None:
+        func = ev.target.symbol          # the profile-selected hotspot (Sensor set this)
         for t in ALL:
             if t.name in priors.accepted_transforms:
                 continue
-            if t.matches(ev.source):
+            bound = t.bind(func)         # scope the edit to the chosen function
+            if bound.matches(ev.source):
                 return Candidate(
-                    transform=t,
-                    contract=t.contract(),
+                    transform=bound,
+                    contract=bound.contract(),
                     rationale=getattr(t, "rationale", t.name),
                 )
         return None

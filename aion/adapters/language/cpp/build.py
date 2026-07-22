@@ -36,6 +36,16 @@ def compile_program(source_code: str, out_path: str, *, flags: list[str],
     return Artifact(binary_path=out_path, build_ok=res.ok, stderr=res.stderr)
 
 
+def compile_pair(a: dict, b: dict) -> tuple[Artifact, Artifact]:
+    """Compile two programs concurrently (each blocks on its own subprocess).
+    Each dict is kwargs for compile_program (source_code, out_path, flags, workdir)."""
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        fa = ex.submit(compile_program, a.pop("source_code"), a.pop("out_path"), **a)
+        fb = ex.submit(compile_program, b.pop("source_code"), b.pop("out_path"), **b)
+        return fa.result(), fb.result()
+
+
 @lru_cache(maxsize=1)
 def sanitizer_toolchain() -> tuple[str, str] | None:
     """Return (cxx, std_flag) whose -fsanitize=address,undefined links, else None."""
