@@ -93,6 +93,8 @@ tests/               gate invariant tests
 | **[VERTO_Surfaces.md](Docs/VERTO_Surfaces.md)** · [html](Docs/VERTO_Surfaces.html) | The **surface specs** — how VERTO is delivered (CLI, CI action, IDE extension, dashboard, network, SDK), staged v0→vision. | What the user actually runs. |
 | **[WEDGE_TEST.md](Docs/WEDGE_TEST.md)** · [html](Docs/WEDGE_TEST.html) | The **pre-registered benchmark** — head-to-head vs Codeflash / CompilerGPT, the cases, the judge, honest predictions. | Proving (or disproving) VERTO's differentiation. |
 | **[VERTO_Architecture.md](Docs/VERTO_Architecture.md)** · [html](Docs/VERTO_Architecture.html) | The **engineering blueprint** — the language-agnostic engine core, abstract adapter contracts, multi-language support (universal vs per-language, the support matrix), **and the concrete C++ instance (v0)** inline in §16. | Understanding *and* building the engine. |
+| **[VERTO_Roadmap.md](Docs/VERTO_Roadmap.md)** · [html](Docs/VERTO_Roadmap.html) | The **state & build plan** — where VERTO is today, the complete ordered list of everything to build (Phase 1–4), the two-axis model, known boundaries. | Knowing what's done and what's next. |
+| **[VERTO_Refactor.md](Docs/VERTO_Refactor.md)** · [html](Docs/VERTO_Refactor.html) | The **refactoring plan** — organize by concern, split the few oversized files, make adding a transform cheap; sequenced, test-verified. | Paying down debt after Phase 1. |
 
 Every `.md` has a styled, self-contained `.html` twin (sidebar nav, light/dark) for reading in a browser.
 

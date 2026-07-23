@@ -38,6 +38,18 @@ class Profile:
 
 
 @dataclass
+class Skip:
+    """A candidate site VERTO saw but did NOT optimize, and why (Phase-1 item #4).
+
+    Surfaced so a real-repo scan is legible instead of a silent "nothing found".
+    `stage`: parse (TU wouldn't parse) | harness (opportunity found but its
+    signature can't be verified) | verify (original harness wouldn't build/link)."""
+    func: str
+    reason: str
+    stage: str = "harness"
+
+
+@dataclass
 class Evidence:
     """Sensor.collect() output — reasoning input for the Proposer."""
     target: Target
@@ -45,6 +57,7 @@ class Evidence:
     facts: list[Fact] = field(default_factory=list)
     profile: Profile | None = None
     hotspot_rank: int = 0
+    skips: list["Skip"] = field(default_factory=list)   # sites seen but not optimized (item #4)
 
 
 @dataclass
@@ -100,7 +113,10 @@ class Verdict:
     candidate: Candidate | None
     correctness: CorrectnessVerdict | None
     performance: PerfVerdict | None
-    reason: str                        # accepted | precondition_failed | unsafe | slower | build_failed
+    reason: str                        # accepted | precondition_failed | unsafe | slower | build_failed | tests_failed
+    diff: str = ""                     # unified diff this change would (or did) write
+    applied: bool = False              # True iff --apply actually wrote it to source
+    tests_confirmed: bool = False      # True iff the project's own test suite re-confirmed it (item #3)
 
 
 @dataclass
@@ -126,3 +142,5 @@ class VerifyCtx:
     workdir: str
     cache: dict = field(default_factory=dict)
     extra_cflags: tuple = ()           # codebase mode: -I/-D/-std from compile_commands.json
+    link_inputs: tuple = ()            # codebase mode: project archive to link the harness against
+    opt_flags: tuple = ()              # codebase mode: -O/-march/-f… so timing matches the real build (item #6)

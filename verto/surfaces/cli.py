@@ -11,11 +11,32 @@ import dataclasses
 import io
 import json
 import os
+import re
 import sys
 
 # NOTE: engine imports (Engine/Config) are deliberately LAZY — see _run_command.
 # They pull in libclang (~0.5s), and the daemon thin-client path must not pay that
 # just to connect. Only the in-process execution path imports them.
+
+
+_COLOR = "NO_COLOR" not in os.environ   # verdict-render color; --no-color turns it off
+
+
+def _col(text: str, code: str) -> str:
+    return f"\033[{code}m{text}\033[0m" if _COLOR else text
+
+
+def _coerce(cur, val: str):
+    """Coerce a KEY=VAL string to the type of the existing config field."""
+    if isinstance(cur, bool):
+        return val.lower() in ("1", "true", "yes", "on")
+    if isinstance(cur, int):
+        return int(val)
+    if isinstance(cur, float):
+        return float(val)
+    if isinstance(cur, (tuple, list)):
+        return tuple(x.strip() for x in val.split(",") if x.strip())
+    return val
 
 
 def _build_config(args):
@@ -33,17 +54,51 @@ def _build_config(args):
         cfg.reps = 6
     if getattr(args, "min_rung", None) is not None:
         cfg.min_rung = args.min_rung      # explicit --min-rung still wins
+    if getattr(args, "fp_tolerance", None) is not None:
+        cfg.fp_tolerance = args.fp_tolerance   # FP-tolerance compare (item #1b)
+    if getattr(args, "profile", None):
+        cfg.profile = args.profile        # real profile drives hotspot selection (item #5)
+    if getattr(args, "test_command", None):
+        cfg.test_command = args.test_command   # project's own tests re-confirm changes (item #3)
+    # selection & tuning knobs (config file covers the rest)
+    if getattr(args, "transforms", None):
+        cfg.transforms = tuple(g.strip() for g in args.transforms.split(",") if g.strip())
+    if getattr(args, "min_speedup", None) is not None:
+        cfg.min_speedup_pct = args.min_speedup
+    if getattr(args, "reps", None) is not None:
+        cfg.reps = args.reps
+    if getattr(args, "fuzz_inputs", None) is not None:
+        cfg.fuzz_inputs = args.fuzz_inputs     # item #7: wider seeded correctness inputs
+    if getattr(args, "seed", None) is not None:
+        cfg.seed = args.seed
+    if getattr(args, "objectives", None):
+        cfg.objectives = tuple(o.strip() for o in args.objectives.split(",") if o.strip())
+    for kv in getattr(args, "config", None) or []:        # --config KEY=VAL (repeatable)
+        if "=" not in kv:
+            raise ValueError(f"--config expects KEY=VAL, got {kv!r}")
+        k, val = (s.strip() for s in kv.split("=", 1))
+        if not hasattr(cfg, k):
+            raise ValueError(f"unknown config key {k!r}")
+        setattr(cfg, k, _coerce(getattr(cfg, k), val))
     return cfg
 
 
-def _render_human(verdicts: list) -> None:
+def _render_human(verdicts: list, *, quiet: bool = False, show_diff: bool = False,
+                  applying: bool = False) -> None:
     if not verdicts:
-        print("  no verified opportunity found.")
+        if not quiet:
+            print("  no verified opportunity found.")
         return
     for v in verdicts:
+        if quiet and not v.accepted:
+            continue
         name = v.candidate.transform.name if v.candidate else "?"
-        mark = "\033[32mACCEPT\033[0m" if v.accepted else f"\033[31mREJECT\033[0m ({v.reason})"
+        mark = _col("ACCEPT", "32") if v.accepted else f"{_col('REJECT', '31')} ({v.reason})"
         print(f"\n  {name}  →  {mark}")
+        if quiet:
+            if v.diff:
+                print("\n" + _indent(v.diff))
+            continue
         if v.candidate:
             print(f"    rationale: {v.candidate.rationale}")
         if v.correctness:
@@ -55,13 +110,28 @@ def _render_human(verdicts: list) -> None:
             else:
                 detail = w.sanitizer
             print(f"    correctness: Rung {v.correctness.rung} ({detail})")
+            if getattr(v, "tests_confirmed", False):
+                print(f"    {_col('✓ re-confirmed by the project’s own tests', '32')}")
             if w.sanitizer == "skipped(fast)" and v.accepted:
-                print("    \033[33m⚠ UNSOUND (--fast): sanitizer skipped — "
-                      "diff-tested only, not memory-safety verified\033[0m")
+                print("    " + _col("⚠ UNSOUND (--fast): sanitizer skipped — "
+                                    "diff-tested only, not memory-safety verified", "33"))
         if v.performance:
             d = v.performance.vector.get("p50_delta_pct")
             print(f"    performance: p50 {v.performance.vector.get('p50')} ms "
                   f"({'-%.1f%%' % d if d else 'n/a'})  pareto={v.performance.pareto_pass}")
+        if v.accepted:
+            if v.applied:
+                print(f"    {_col('✓ applied to source', '32')}")
+            elif applying:
+                print(f"    {_col('⚠ not applied', '33')}: unsound (--fast) — re-run with --force")
+            else:
+                print("    (dry run — re-run with --apply to write this change)")
+        if show_diff and v.diff:
+            print("\n" + _indent(v.diff))
+
+
+def _indent(text: str, pad: str = "    ") -> str:
+    return "\n".join(pad + ln for ln in text.rstrip("\n").splitlines())
 
 
 def _render_json(verdicts: list) -> None:
@@ -73,32 +143,51 @@ def _render_json(verdicts: list) -> None:
 
 
 def _render_codebase(results: list) -> None:
-    GRN, RED, DIM, RST = "\033[32m", "\033[31m", "\033[2m", "\033[0m"
-    n_files = n_cand = n_acc = 0
+    n_files = n_cand = n_acc = n_applied = n_skip = 0
+    skip_reasons: dict[str, int] = {}
     print(f"\n  codebase scan — {len(results)} translation unit(s)")
-    for path, verdicts, err in results:
+    for path, verdicts, err, skips in results:
         rel = os.path.relpath(path)
         if err:
-            print(f"\n  {rel}\n    {RED}error{RST}: {err}")
+            print(f"\n  {rel}\n    {_col('error', '31')}: {err}")
             continue
-        if not verdicts:
-            print(f"\n  {rel}\n    {DIM}no verified opportunity{RST}")
+        if not verdicts and not skips:
+            print(f"\n  {rel}\n    {_col('no opportunity found', '2')}")
             continue
-        n_files += 1
+        if verdicts:
+            n_files += 1
         print(f"\n  {rel}")
         for v in verdicts:
-            n_cand += 1
             name = v.candidate.transform.name if v.candidate else "?"
             fn = getattr(v.candidate.transform, "target_func", None) if v.candidate else None
             if v.accepted:
+                n_cand += 1
                 n_acc += 1
                 d = v.performance.vector.get("p50_delta_pct") if v.performance else None
                 delta = f"  (−{d:.1f}%)" if d else ""
-                print(f"    {GRN}ACCEPT{RST}  {name} [{fn}]{delta}")
+                tag = _col("✓ applied", "32") if v.applied else _col("ACCEPT", "32")
+                n_applied += bool(v.applied)
+                confirmed = _col("  ✓ tests", "32") if getattr(v, "tests_confirmed", False) else ""
+                print(f"    {tag}  {name} [{fn}]{delta}{confirmed}")
+            elif v.reason.startswith("skipped"):        # gate couldn't verify (item #1/#4)
+                n_skip += 1
+                skip_reasons[v.reason] = skip_reasons.get(v.reason, 0) + 1
+                print(f"    {_col('SKIP', '33')}    {name} [{fn}]  ({v.reason})")
             else:
-                print(f"    {RED}REJECT{RST}  {name} [{fn}]  ({v.reason})")
+                n_cand += 1
+                print(f"    {_col('REJECT', '31')}  {name} [{fn}]  ({v.reason})")
+        for s in skips:                                  # sensor-level skips (item #4)
+            n_skip += 1
+            skip_reasons[s.reason] = skip_reasons.get(s.reason, 0) + 1
+            print(f"    {_col('SKIP', '33')}    [{s.func}]  ({s.stage}: {s.reason})")
     print(f"\n  {'-' * 60}")
-    print(f"  {n_acc} accepted / {n_cand} candidate(s) across {n_files} file(s) with opportunities")
+    tail = f" · {n_applied} applied" if n_applied else ""
+    print(f"  {n_acc} accepted / {n_cand} candidate(s) across {n_files} file(s) "
+          f"with opportunities · {n_skip} skipped{tail}")
+    if skip_reasons:
+        print(f"  {_col('skipped breakdown', '2')}:")
+        for reason, count in sorted(skip_reasons.items(), key=lambda kv: -kv[1]):
+            print(f"    {count:>3} × {reason}")
 
 
 def _render_codebase_json(results: list) -> None:
@@ -106,14 +195,15 @@ def _render_codebase_json(results: list) -> None:
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
         return getattr(o, "name", str(o))
-    payload = [{"file": f, "error": err, "verdicts": v} for f, v, err in results]
+    payload = [{"file": f, "error": err, "verdicts": v, "skips": sk}
+               for f, v, err, sk in results]
     print(json.dumps(payload, default=enc, indent=2))
 
 
 def _codebase_exit(results: list) -> int:
-    if any(v.accepted for _, vs, _ in results for v in vs):
+    if any(v.accepted for _, vs, _, _ in results for v in vs):
         return 0
-    if any(vs for _, vs, _ in results):
+    if any(vs for _, vs, _, _ in results):
         return 3                       # candidates found but all rejected
     return 1                           # nothing found
 
@@ -149,17 +239,62 @@ def _common(sp, *, apply: bool = False) -> None:
     pol.add_argument("--model", metavar="NAME",
                      help="proposer model (frontier | local | rules)")
 
-    out = sp.add_argument_group("output & execution")
     if apply:
-        out.add_argument("--apply", action="store_true",
-                         help="write accepted changes back to source (PLANNED — not yet implemented)")
+        ap = sp.add_argument_group("apply")
+        ap.add_argument("--apply", action="store_true",
+                        help="write accepted, sound changes to source")
+        ap.add_argument("--dry-run", action="store_true", dest="dry_run",
+                        help="preview only — never write (the default)")
+        ap.add_argument("--backup", action="store_true",
+                        help="save <file>.bak before overwriting")
+        ap.add_argument("--force", action="store_true",
+                        help="apply even an unsound (--fast) result")
+        ap.add_argument("--export", metavar="FILE",
+                        help="write accepted diffs to FILE instead of applying")
+        ap.add_argument("--apply-from", metavar="FILE", dest="apply_from",
+                        help="apply a diff set written by --export (uses `patch`)")
+
+    tune = sp.add_argument_group("selection & tuning")
+    tune.add_argument("--transforms", metavar="GLOB",
+                      help="only run transforms matching GLOB (comma-separated globs)")
+    tune.add_argument("--list-transforms", action="store_true", dest="list_transforms",
+                      help="list the available transforms and exit")
+    tune.add_argument("--min-speedup", type=float, metavar="PCT", dest="min_speedup",
+                      help="reject gains below PCT%% (default 2)")
+    tune.add_argument("--changed", nargs="?", const="", metavar="REF",
+                      help="codebase mode: only verify TUs git changed vs REF (default: working tree)")
+    tune.add_argument("--jobs", "-j", type=int, metavar="N",
+                      help="codebase mode: process N translation units in parallel (default 1)")
+    tune.add_argument("--reps", type=int, metavar="N", help="benchmark repetitions")
+    tune.add_argument("--fp-tolerance", type=float, metavar="REL", dest="fp_tolerance",
+                      help="accept FP output within this relative tolerance (item #1b; default 0 = exact)")
+    tune.add_argument("--fuzz", type=int, metavar="N", dest="fuzz_inputs",
+                      help="seeded fuzzed correctness inputs beyond the fixed edge cases (default 1000)")
+    tune.add_argument("--seed", type=int, metavar="N",
+                      help="PRNG seed for fuzzed inputs — deterministic, reproducible verdicts (default 0)")
+    tune.add_argument("--objectives", metavar="LIST",
+                      help="comma-separated Pareto objectives to gate on (e.g. p50,p99,peak_memory)")
+    tune.add_argument("--config", metavar="KEY=VAL", action="append",
+                      help="inline config override (repeatable)")
+    tune.add_argument("--verify-setup", action="store_true", dest="verify_setup",
+                      help="check the toolchain (clang, sanitizers, ccache, linker) and exit")
+
+    out = sp.add_argument_group("output & execution")
+    out.add_argument("--diff", action="store_true",
+                     help="print the full unified diff of each accepted change")
     out.add_argument("--json", action="store_true", help="machine-readable output")
+    out.add_argument("--quiet", "-q", action="store_true",
+                     help="only print accepted changes (and their diffs)")
+    out.add_argument("--no-color", action="store_true", dest="no_color",
+                     help="disable colored output")
     out.add_argument("--no-daemon", action="store_true",
                      help="run in-process even if a verto daemon is available")
     out.add_argument("--config-file", metavar="FILE",
                      help="project config (default .verto.toml)")
     out.add_argument("--profile", metavar="FILE",
-                     help="profile data to guide hotspot selection (PLANNED — not yet consumed)")
+                     help="real profile (perf --stdio / gprof / json / 'symbol cost') to pick the hot function")
+    out.add_argument("--test-command", metavar="CMD", dest="test_command",
+                     help="build+run the project's own tests to re-confirm each accepted change (exit 0 = pass)")
 
 
 class _HelpFormatter(argparse.RawDescriptionHelpFormatter):
@@ -187,11 +322,43 @@ def _version() -> str:
         return "0.1.0"
 
 
+def _flag_spec(action) -> str:
+    """`-p, --compile-commands DB` / `--apply` / `<path>` — the invocation form."""
+    if not action.option_strings:
+        return f"<{action.dest}>"
+    opts = ", ".join(action.option_strings)
+    no_value = (argparse._StoreTrueAction, argparse._StoreFalseAction,
+                argparse._StoreConstAction, argparse._HelpAction)
+    if isinstance(action, no_value):
+        return opts
+    return f"{opts} {action.metavar or action.dest.upper()}"
+
+
+def _cheatsheet(sp) -> str:
+    """Build the top-level COMMON OPTIONS block FROM the parser — flag names AND
+    their descriptions come from the single source (the flags' own `help=`), so it
+    can never drift from `verto optimize --help`. Descriptions are trimmed of any
+    parenthetical for compactness."""
+    from . import _help
+    lines = [f"{_help.section('common options')} "
+             f"{_help.dim('(shared by analyze & optimize; `verto optimize --help` for full detail)')}"]
+    for group in sp._action_groups:
+        acts = [a for a in group._group_actions if not isinstance(a, argparse._HelpAction)]
+        if not acts or group.title in ("options", "positional arguments"):
+            continue
+        lines.append("  " + _help.bold(group.title))
+        for a in acts:
+            desc = re.sub(r"\s*\([^()]*\)\s*$", "", a.help or "")   # drop only a TRAILING (…)
+            desc = desc.replace("%%", "%").strip()
+            lines.append(f"    {_flag_spec(a):26} {_help.dim(desc)}")
+    return "\n".join(lines)
+
+
 def _parser() -> argparse.ArgumentParser:
     from . import _help
     fmt = _HelpFormatter
     p = argparse.ArgumentParser(prog="verto", description=_help.DESCRIPTION, usage=_help.USAGE_MAIN,
-                                epilog=_help.MAIN_EPILOG, formatter_class=fmt)
+                                formatter_class=fmt)
     p.add_argument("-V", "--version", action="version", version=f"verto {_version()}")
     sub = p.add_subparsers(dest="cmd", required=True, metavar="<command>", title="commands")
 
@@ -203,6 +370,10 @@ def _parser() -> argparse.ArgumentParser:
                        usage=_help.USAGE_OPTIMIZE, epilog=_help.OPTIMIZE_EPILOG, formatter_class=fmt)
     _common(o, apply=True)
 
+    # top-level epilog = a cheat-sheet GENERATED from the optimize flags + TAIL,
+    # so the flag list & descriptions can't drift (the drift `--apply` just hit).
+    p.epilog = f"{_cheatsheet(o)}\n\n{_help.MAIN_EPILOG_TAIL}"
+
     sub.add_parser("report", help=_help.REPORT_DESC, description=_help.REPORT_DESC,
                    usage="verto report", formatter_class=fmt)
     s = sub.add_parser("serve", help=_help.SERVE_DESC, description=_help.SERVE_DESC,
@@ -213,18 +384,38 @@ def _parser() -> argparse.ArgumentParser:
 
 def _run_command(args) -> int:
     """Execute a parsed command in THIS process, printing to stdout/stderr."""
-    from ..engine.api import Engine
+    global _COLOR
+    _COLOR = ("NO_COLOR" not in os.environ) and not getattr(args, "no_color", False)
     try:
+        # --- standalone actions (no target required) ---
+        if getattr(args, "list_transforms", False):
+            return _list_transforms()
+        if getattr(args, "verify_setup", False):
+            return _verify_setup()
+        if getattr(args, "apply_from", None):
+            return _apply_from(args.apply_from)
+
         if args.cmd == "report":
+            from ..engine.api import Engine
             print(json.dumps(Engine().report(), indent=2))
             return 0
 
+        from ..engine.api import Engine
         engine = Engine(_build_config(args))
+        do_apply = bool(getattr(args, "apply", False) and not getattr(args, "dry_run", False))
+        backup = bool(getattr(args, "backup", False))
+        force = bool(getattr(args, "force", False))
+        export = getattr(args, "export", None)
 
         # --- codebase mode: path is a compile_commands.json / a dir holding one ---
         cc = _codebase_db(args)
         if cc is not None:
-            results = engine.optimize_codebase(cc, apply=getattr(args, "apply", False))
+            results = engine.optimize_codebase(
+                cc, apply=do_apply, backup=backup, force=force,
+                changed=getattr(args, "changed", None),
+                jobs=getattr(args, "jobs", None) or 1)
+            if export:
+                return _export([v for _, vs, _, _ in results for v in vs], export)
             (_render_codebase_json if args.json else _render_codebase)(results)
             return _codebase_exit(results)
 
@@ -235,13 +426,79 @@ def _run_command(args) -> int:
         if args.cmd == "analyze":
             verdicts = engine.analyze(args.path, build=build)
         else:
-            verdicts = engine.optimize(args.path, apply=args.apply, build=build)
-
-        (_render_json if args.json else _render_human)(verdicts)
+            verdicts = engine.optimize(args.path, apply=do_apply, build=build,
+                                       backup=backup, force=force)
+        if export:
+            return _export(verdicts, export)
+        if args.json:
+            _render_json(verdicts)
+        else:
+            _render_human(verdicts, quiet=bool(getattr(args, "quiet", False)),
+                          show_diff=bool(getattr(args, "diff", False)), applying=do_apply)
         return _exit_code(verdicts)
     except (ValueError, NotImplementedError) as e:
         print(f"verto: error: {e}", file=sys.stderr)
         return 2
+
+
+def _list_transforms() -> int:
+    from ..adapters.transforms import ALL
+    print(_col("available transforms", "1") + ":")
+    for t in ALL:
+        print(f"  {t.name:28} {getattr(t, 'rationale', '')}")
+    return 0
+
+
+def _verify_setup() -> int:
+    import shutil as sh
+    from ..adapters.language.cpp.build import _ccache, _fast_linker, sanitizer_toolchain
+    san = sanitizer_toolchain()
+    rows = [
+        ("clang++", sh.which("clang++"), True),
+        ("g++", sh.which("g++"), True),
+        ("sanitizers (Rung 3)", f"{san[0]} {san[1]}" if san else None, True),
+        ("libclang (python)", "ok" if _has_libclang() else None, True),
+        ("ccache", (_ccache() or [None])[0], False),
+        ("fast linker", " ".join(_fast_linker("clang++")) or "default ld", False),
+    ]
+    print(_col("toolchain", "1") + ":")
+    ok = True
+    for name, val, required in rows:
+        mark = _col("✓", "32") if val else _col("✗", "31")
+        print(f"  {mark} {name:22} {val or 'MISSING'}")
+        ok = ok and (bool(val) or not required)
+    return 0 if ok else 2
+
+
+def _has_libclang() -> bool:
+    try:
+        import clang.cindex  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def _apply_from(path: str) -> int:
+    import shutil as sh
+    import subprocess
+    if not os.path.exists(path):
+        print(f"verto: error: no such file: {path}", file=sys.stderr)
+        return 2
+    if not sh.which("patch"):
+        print("verto: error: --apply-from needs the `patch` tool on PATH", file=sys.stderr)
+        return 2
+    r = subprocess.run(["patch", "-p1", "--backup", "-i", path])
+    if r.returncode == 0:
+        print(f"  applied diffs from {path}")
+    return 0 if r.returncode == 0 else 2
+
+
+def _export(verdicts: list, path: str) -> int:
+    diffs = [v.diff for v in verdicts if v.accepted and v.diff]
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("".join(diffs))
+    print(f"  wrote {len(diffs)} accepted diff(s) to {path}")
+    return 0 if diffs else 1
 
 
 def _codebase_db(args) -> str | None:

@@ -28,6 +28,7 @@ def _sgr(code: str):
 
 
 _B, _D, _ACCENT = _sgr("1"), _sgr("2"), _sgr("36")   # bold, dim, cyan
+bold, dim, accent = _B, _D, _ACCENT                  # public aliases (used by the cheat-sheet)
 
 
 def section(title: str) -> str:
@@ -59,69 +60,26 @@ ANALYZE_DESC = "Inspect optimization opportunities without changing anything."
 REPORT_DESC = "Review what's been accepted, rejected, and the gains so far."
 SERVE_DESC = "Run a warm background daemon so repeated runs are fast."
 
-# --- top-level footer ---
-MAIN_EPILOG = f"""\
-{_h('Getting started')}
-  {_ACCENT('verto optimize src/hot.cpp --offline')}     optimize one file (no model needed)
-  {_ACCENT('verto optimize -p build/ --all')}           optimize a whole codebase
-  {_ACCENT('verto serve')}                              start the daemon for fast repeat runs
-
-{_h('Common options')} {_D('(shared by analyze & optimize — run `verto optimize --help` for detail)')}
-  {_B('Target')}    <path>                      source file (single-file mode)
-            -p, --compile-commands DB   compilation database (a file or build dir)
-            --all                       every translation unit in the database
-  {_B('Policy')}    --min-rung N                correctness rung to accept (default 3)
-            --fast                      skip the sanitizer — UNSOUND, labeled
-            --offline                   deterministic rules, no model
-            --model NAME                proposer model
-  {_B('Output')}    --json                      machine-readable output
-            --config-file FILE          project config (.verto.toml)
-            --no-daemon                 run in-process, ignore the daemon
-  {_D('Planned')}   {_D('--apply')}                     {_D('write changes to source (not yet implemented)')}
-            {_D('--profile FILE')}              {_D('external profile input (not yet consumed)')}
-
+# --- top-level footer: the generated COMMON OPTIONS cheat-sheet (inserted by
+#     cli._parser(), built from the parser so it can't drift) followed by TAIL. ---
+MAIN_EPILOG_TAIL = f"""\
 {_h('Learn more')}
   {_ACCENT('verto <command> --help')}                   full, always-current help for a command
   {_ACCENT('Docs/VERTO_Flags.md')}                      generated flag reference (never drifts)
   Documentation                            {DOCS}
   Website                                  {WEBSITE}
 
-{_D('The promise: VERTO keeps a change only when it is proven both correct and faster.')}
-"""
+{_D('The promise: VERTO keeps a change only when it is proven both correct and faster.')}"""
 
 # --- per-command footers ---
-OPTIMIZE_EPILOG = f"""\
-{_h('Examples')}
-  {_D('# one self-contained file (deterministic, no model)')}
-  {_ACCENT('verto optimize src/hot.cpp --offline')}
-
-  {_D('# one file, using its real build flags from the project')}
-  {_ACCENT('verto optimize src/hot.cpp -p build/')}
-
-  {_D('# every translation unit in a codebase')}
-  {_ACCENT('verto optimize -p build/ --all')}
-
-  {_D('# machine-readable results for CI')}
-  {_ACCENT('verto optimize -p build/ --all --json')}
-
-{_h('Exit codes')}
-  {_B('0')}  a verified improvement was found      {_B('2')}  error
-  {_B('1')}  nothing to optimize                   {_B('3')}  candidates found, none passed
-
-{_D(f'Docs: {DOCS}/optimize')}
-"""
+OPTIMIZE_EPILOG = _D(f"Docs: {DOCS}/optimize")
 
 ANALYZE_EPILOG = f"""\
 {_D('analyze runs the FULL verification (compile + sanitizer + benchmark) but writes')}
 {_D('nothing and records nothing — the safe "what would you do?" command. Use optimize')}
 {_D('when you want to keep the changes.')}
 
-{_h('Examples')}
-  {_ACCENT('verto analyze src/hot.cpp')}          {_D('inspect one file')}
-  {_ACCENT('verto analyze -p build/ --all')}      {_D('inspect a whole codebase')}
-
-{_D(f'Docs: {DOCS}/analyze')}
-"""
+{_D(f'Docs: {DOCS}/analyze')}"""
 
 SERVE_EPILOG = f"""\
 {_D('The daemon loads Python + libclang once and keeps them warm, so later optimize/')}

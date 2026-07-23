@@ -14,6 +14,7 @@ import hashlib
 import os
 import shutil
 import tempfile
+import threading
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -71,7 +72,7 @@ def _exe_place(cached: str, out_path: str) -> None:
 
 def _exe_store(binary_path: str, cached: str) -> None:
     """Atomically add a freshly built binary to the exe cache (best-effort)."""
-    tmp = f"{cached}.{os.getpid()}.tmp"
+    tmp = f"{cached}.{os.getpid()}.{threading.get_ident()}.tmp"   # thread-unique (item #8)
     try:
         shutil.copy2(binary_path, tmp)
         os.replace(tmp, cached)                      # atomic; safe under concurrency
@@ -83,7 +84,7 @@ def _exe_store(binary_path: str, cached: str) -> None:
 
 
 def _build_program(source_code: str, out_path: str, flags: list[str],
-                   workdir: str, cxx: str) -> Artifact:
+                   workdir: str, cxx: str, link_inputs: list[str]) -> Artifact:
     cc = _ccache()
     if cc:
         # ccache only caches compile-to-object (-c), never a combined compile+link,
@@ -98,27 +99,38 @@ def _build_program(source_code: str, out_path: str, flags: list[str],
             src.write_text(source_code, encoding="utf-8")
         obj = f"{out_path}.o"
         r = sandbox.run([*cc, cxx, *flags, "-c", str(src), "-o", obj], timeout_sec=120)
-        if r.ok:   # fast linker only on the (uncached) link step; ignored on -c
-            r = sandbox.run([cxx, *flags, *_fast_linker(cxx), obj, "-o", out_path], timeout_sec=120)
+        if r.ok:   # fast linker only on the (uncached) link step; ignored on -c.
+            # link_inputs (the project archive) come AFTER our object so the linker
+            # pulls only the members that resolve its undefined symbols.
+            r = sandbox.run([cxx, *flags, *_fast_linker(cxx), obj, *link_inputs, "-o", out_path],
+                            timeout_sec=120)
         return Artifact(binary_path=out_path, build_ok=r.ok, stderr=r.stderr)
 
     # no ccache: one compile+link step (splitting would only add overhead here)
     src = Path(workdir) / (Path(out_path).name + ".cpp")
     src.write_text(source_code, encoding="utf-8")
-    res = sandbox.run([cxx, *flags, *_fast_linker(cxx), str(src), "-o", out_path], timeout_sec=120)
+    res = sandbox.run([cxx, *flags, *_fast_linker(cxx), str(src), *link_inputs, "-o", out_path],
+                      timeout_sec=120)
     return Artifact(binary_path=out_path, build_ok=res.ok, stderr=res.stderr)
 
 
 def compile_program(source_code: str, out_path: str, *, flags: list[str],
-                    workdir: str, cxx: str = CXX) -> Artifact:
+                    workdir: str, cxx: str = CXX, link_inputs: tuple = ()) -> Artifact:
     """Compile+link `source_code` to out_path.
 
+    `link_inputs` are extra link-step inputs (codebase mode: the project archive,
+    so the function can call into its real dependencies — Phase-1 item #1). Empty
+    in single-file mode, where the harness is fully self-contained.
+
     An EXECUTABLE cache short-circuits the whole build: identical
-    (source, flags, compiler) => reuse the prior binary, skipping compile AND link
-    (a repeat run becomes ~a hardlink). On a miss, ccache still serves the object
-    and the fast linker links; then the finished binary is cached for next time.
-    Deterministic builds make this safe — same inputs, byte-equivalent behaviour."""
-    key = hashlib.sha1(("\0".join((cxx, *flags)) + "\0" + source_code).encode("utf-8")).hexdigest()
+    (source, flags, compiler, link_inputs) => reuse the prior binary, skipping
+    compile AND link (a repeat run becomes ~a hardlink). On a miss, ccache still
+    serves the object and the fast linker links; then the finished binary is cached
+    for next time. Deterministic builds make this safe — same inputs, byte-
+    equivalent behaviour. (link_inputs paths are content-addressed archive names,
+    so including them in the key tracks their content.)"""
+    li = list(link_inputs)
+    key = hashlib.sha1(("\0".join((cxx, *flags, *li)) + "\0" + source_code).encode("utf-8")).hexdigest()
     cache_dir = Path(tempfile.gettempdir()) / "verto-exe"
     cache_dir.mkdir(exist_ok=True)
     cached = cache_dir / key
@@ -126,7 +138,7 @@ def compile_program(source_code: str, out_path: str, *, flags: list[str],
         _exe_place(str(cached), out_path)
         return Artifact(binary_path=out_path, build_ok=True)
 
-    art = _build_program(source_code, out_path, flags, workdir, cxx)
+    art = _build_program(source_code, out_path, flags, workdir, cxx, li)
     if art.build_ok and os.path.exists(out_path):
         _exe_store(out_path, str(cached))
     return art
@@ -145,12 +157,31 @@ def compile_pair(a: dict, b: dict) -> tuple[Artifact, Artifact]:
 @lru_cache(maxsize=1)
 def sanitizer_toolchain() -> tuple[str, str] | None:
     """Return (cxx, std_flag) whose -fsanitize=address,undefined links, else None."""
-    probe = "int main(){return 0;}"
+    return _probe_sanitizer("-fsanitize=address,undefined")
+
+
+@lru_cache(maxsize=1)
+def tsan_toolchain() -> tuple[str, str] | None:
+    """(cxx, std) whose -fsanitize=thread links (item #1a), else None. Threads need
+    -pthread; the probe includes it so we only return a toolchain that fully links."""
+    return _probe_sanitizer("-fsanitize=thread", "-pthread")
+
+
+@lru_cache(maxsize=1)
+def msan_toolchain() -> tuple[str, str] | None:
+    """(cxx, std) whose -fsanitize=memory links (item #1a), else None. MSan is
+    clang-only AND needs an instrumented libc++, so it is unavailable on most
+    stock toolchains — we probe and skip cleanly when it won't link."""
+    return _probe_sanitizer("-fsanitize=memory")
+
+
+def _probe_sanitizer(*san_flags: str) -> tuple[str, str] | None:
+    probe = "#include <thread>\nint main(){ std::thread t([]{}); t.join(); return 0; }"
     for cxx, std in ((CXX, "-std=c++20"), ("g++", "-std=c++2a"), ("g++", "-std=c++17")):
         with tempfile.TemporaryDirectory(prefix="verto-san-probe-") as wd:
             src = Path(wd) / "p.cpp"
             src.write_text(probe, encoding="utf-8")
-            r = sandbox.run([cxx, std, "-fsanitize=address,undefined",
+            r = sandbox.run([cxx, std, *san_flags, "-pthread",
                              str(src), "-o", str(Path(wd) / "p")], timeout_sec=60)
             if r.ok:
                 return (cxx, std)

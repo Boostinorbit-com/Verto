@@ -1,0 +1,5 @@
+[
+  {"directory": ".", "file": "geo.cpp",   "arguments": ["clang++", "-std=c++20", "-I.", "-c", "geo.cpp"]},
+  {"directory": ".", "file": "route.cpp", "arguments": ["clang++", "-std=c++20", "-I.", "-c", "route.cpp"]},
+  {"directory": ".", "file": "report.cpp", "arguments": ["clang++", "-std=c++20", "-I.", "-c", "report.cpp"]}
+]

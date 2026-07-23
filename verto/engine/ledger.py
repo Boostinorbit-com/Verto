@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import threading
 from pathlib import Path
 
 from .models import Episode, Evidence, Priors
@@ -15,6 +16,7 @@ from .models import Episode, Evidence, Priors
 class JsonlLedger:
     def __init__(self, path: str | Path = "ledger.jsonl") -> None:
         self.path = Path(path)
+        self._lock = threading.Lock()      # codebase mode may write from parallel workers (item #8)
 
     def record(self, ep: Episode) -> None:
         row = {
@@ -25,19 +27,20 @@ class JsonlLedger:
             "reason": ep.verdict.reason,
             "rung": ep.verdict.correctness.rung if ep.verdict.correctness else None,
         }
-        with self.path.open("a", encoding="utf-8") as f:
+        with self._lock, self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")
 
     def recall(self, ev: Evidence) -> Priors:
         acc: list[str] = []
         rej: list[str] = []
-        if self.path.exists():
-            for line in self.path.read_text(encoding="utf-8").splitlines():
-                try:
-                    row = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                (acc if row.get("accepted") else rej).append(row.get("transform", ""))
+        with self._lock:
+            text = self.path.read_text(encoding="utf-8") if self.path.exists() else ""
+        for line in text.splitlines():
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            (acc if row.get("accepted") else rej).append(row.get("transform", ""))
         return Priors(accepted_transforms=acc, rejected_transforms=rej)
 
 

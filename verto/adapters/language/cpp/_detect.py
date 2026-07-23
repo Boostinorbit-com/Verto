@@ -138,6 +138,50 @@ def detect_all_map(source: str) -> list[MapSite]:
     return [m] if m else []
 
 
+def detect_all_string_growth(source: str) -> list[GrowthSite]:
+    try:
+        from ._ast import all_string_growth
+        return all_string_growth(source)
+    except Exception:
+        return []
+
+
+def detect_string_growth_in(source: str, func: str | None) -> GrowthSite | None:
+    try:
+        from ._ast import string_growth_in_ast
+        return string_growth_in_ast(source, func) if func else None
+    except Exception:
+        return None
+
+
+def detect_parse_errors(source: str) -> list[str]:
+    """Error-severity libclang diagnostics for the current TU (item #4 skip log).
+    Empty without libclang — never raises."""
+    try:
+        from ._ast import parse_errors
+        return parse_errors(source)
+    except Exception:
+        return []
+
+
+def detect_side_effect_reason(source: str, func: str) -> str | None:
+    """Why `func` has un-modeled side effects (item #1c), or None. Never raises."""
+    try:
+        from ._ast import side_effect_reason
+        return side_effect_reason(source, func)
+    except Exception:
+        return None
+
+
+def detect_template_candidates(source: str) -> list[str]:
+    """In-file optimizable function templates to skip-with-reason (item #1d)."""
+    try:
+        from ._ast import template_candidates
+        return template_candidates(source)
+    except Exception:
+        return []
+
+
 def detect_map_in(source: str, func: str | None) -> MapSite | None:
     try:
         from ._ast import map_in_ast

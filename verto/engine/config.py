@@ -33,10 +33,17 @@ class Config:
     allow_regression: dict[str, float] = field(
         default_factory=lambda: {"binary_size": 0.10, "peak_memory": 0.12})
     min_speedup_pct: float = 2.0          # reject gains below this (kills noise)
+    fp_tolerance: float = 0.0             # >0 → compare FP output within this relative tol (item #1b)
     reps: int = 12                        # benchmark repetitions (upper bound when adaptive)
     reps_min: int = 5                     # adaptive floor — escalate to `reps` only if borderline
     adaptive: bool = True                 # stop early when the gain is unambiguous vs threshold
     fast: bool = False                    # --fast: skip Rung-3 sanitizer (UNSOUND — opt-in only)
+    # evidence
+    profile: str | None = None            # path to a real profile (perf/gprof/json) → hot-code selection (item #5)
+    # test-reuse oracle (item #3): confirm accepted changes against the project's OWN tests
+    test_command: str | None = None       # shell cmd that builds+runs the tests (exit 0 = pass)
+    test_dir: str | None = None           # cwd for test_command (default: the target file's dir)
+    test_timeout_sec: int = 600
     # proposal
     model: str = "frontier"               # frontier | local | rules(--offline)
     candidates: int = 1

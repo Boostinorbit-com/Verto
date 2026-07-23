@@ -3,16 +3,22 @@
 A real project's translation units aren't self-contained: they need include
 paths, defines and a language standard to even parse. `compile_commands.json`
 (emitted by CMake `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`, Bazel, or `bear`) records
-the exact compile command per file. We extract *only* the flags that tell the
-parser/harness where headers live and which dialect to use — `-I/-isystem/-iquote/
--idirafter/-D/-U/-std/-isysroot` — and drop everything else (`-c`, `-o`, `-O`,
-`-W`, `-g`, `-f…`, the source path). Those kept flags are safe for BOTH libclang
-parsing and compiling VERTO's self-contained verification harness.
+the exact compile command per file. We split its flags into two buckets:
+  * `flags` — where headers live and which dialect to use (`-I/-isystem/-iquote/
+    -idirafter/-D/-U/-std/-isysroot`), safe for BOTH libclang parsing and compiling
+    the harness; and
+  * `opt_flags` — the codegen/optimization flags (`-O`, `-march/-m*`, safe `-f…`,
+    `-pthread`) reused for the TIMED build so the measured speedup reflects the
+    REAL build, not a fixed `-O2` (item #6).
+Everything else (`-c`, `-o`, `-g`, `-W`, dep-gen, LTO/PCH/sanitizer/profile
+plumbing, the source path) is dropped.
 
-Scope (Level A): this lets VERTO PARSE real TUs and find/verify the functions its
-harness generator can extract. It does NOT yet link against the project's other
-object files — a function whose body calls into other TUs is honestly skipped
-(verify-or-skip), same as always.
+Scope: this lets VERTO PARSE real TUs and find/verify the functions its harness
+generator can extract. Linking against the project's other object files (so a
+function whose body calls into other TUs can be verified too) is handled by
+`link.py` (Phase-1 item #1), which compiles those TUs and archives them for the
+harness link step. A function whose dependencies still don't resolve is honestly
+skipped (verify-or-skip).
 """
 from __future__ import annotations
 
@@ -31,7 +37,32 @@ _PATH_FLAGS = ("-I", "-isystem", "-iquote", "-idirafter", "-isysroot")
 class TU:
     file: str                       # absolute source path
     directory: str
-    flags: list[str] = field(default_factory=list)   # -I/-D/-std/… for parse + harness
+    flags: list[str] = field(default_factory=list)     # -I/-D/-std/… for parse + harness
+    opt_flags: list[str] = field(default_factory=list)  # -O/-march/-f… for the TIMED build (item #6)
+
+
+# Codegen/optimization flags to reuse so the benchmark reflects the REAL build
+# (item #6). We keep -O (perf-meaningful levels only), -m arch/SIMD, safe -f
+# semantics flags, and -pthread; and DROP flags that break the harness or the
+# per-TU link model, or that only matter to the project's own build plumbing.
+_F_DENY = ("-fsanitize", "-flto", "-fsyntax-only", "-fmodules", "-fprofile",
+           "-fcs-profile", "-fprebuilt-module", "-finstrument", "-fdump", "-fplugin")
+
+
+def _extract_opt_flags(tokens: list[str]) -> list[str]:
+    out: list[str] = []
+    for t in tokens[1:]:                       # tokens[0] is the compiler
+        if t in ("-O0", "-Og"):                # debug: not a meaningful perf level →
+            continue                           # fall back to VERTO's -O2 default
+        if t.startswith("-O"):
+            out.append(t)
+        elif t.startswith("-m"):               # -march/-mtune/-msse/-mavx/-m64…
+            out.append(t)
+        elif t == "-pthread":
+            out.append(t)
+        elif t.startswith("-f") and not any(t.startswith(d) for d in _F_DENY):
+            out.append(t)                      # -fno-exceptions/-fno-rtti/-ffast-math…
+    return out
 
 
 def _abs(directory: str, p: str) -> str:
@@ -45,7 +76,11 @@ def _extract_flags(tokens: list[str], directory: str) -> list[str]:
         t = tokens[i]
         if t in _TWO_ARG:                      # separated form: "-I" "path" / "-D" "FOO"
             val = tokens[i + 1] if i + 1 < n else ""
-            flags += [t, _abs(directory, val) if t in _PATH_FLAGS else val]
+            # Emit the JOINED form ("-I/abs/path", "-DFOO") — NOT two tokens. A real
+            # CMake command repeats "-isystem" a dozen times; keeping the flag name as
+            # its own token let _dedup() collapse all but the first "-isystem",
+            # orphaning every path after it and breaking header resolution entirely.
+            flags.append(t + (_abs(directory, val) if t in _PATH_FLAGS else val))
             i += 2
             continue
         if t.startswith("-I"):                 # joined form "-Ipath"
@@ -100,5 +135,11 @@ def load(path: str) -> list[TU]:
             continue
         seen.add(af)
         toks = e.get("arguments") or (shlex.split(e["command"]) if e.get("command") else [])
-        tus.append(TU(file=af, directory=directory, flags=_dedup(_extract_flags(toks, directory))))
+        # The TU's own directory as an -I, so quoted includes (`#include "foo.hpp"`)
+        # resolve: libclang parses our in-memory buffer as a virtual "in.cpp", so
+        # the real source dir isn't on the quoted-include search path otherwise.
+        own = ["-I" + os.path.dirname(af)]
+        tus.append(TU(file=af, directory=directory,
+                      flags=_dedup(_extract_flags(toks, directory) + own),
+                      opt_flags=_dedup(_extract_opt_flags(toks))))
     return tus

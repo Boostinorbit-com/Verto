@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VERTO — State &amp; Build Plan</title>
+<style>
+  :root{ --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc; --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a; --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --th:#eef3f9; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23; --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --th:#182029; } }
+  :root[data-theme="light"]{ --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc; --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a; --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --th:#eef3f9; }
+  :root[data-theme="dark"]{ --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23; --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --th:#182029; }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .layout{display:grid; grid-template-columns:270px 1fr; max-width:1240px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);}
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:19px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-radius:7px; border-left:2px solid transparent;}
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:32px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:76ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{font-size:23px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  h3{font-size:16px; margin:24px 0 8px; color:var(--accent);}
+  p{max-width:82ch;} li{max-width:82ch; margin:6px 0;}
+  a{color:var(--accent);}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.84em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.55;}
+  table{border-collapse:collapse; width:100%; margin:14px 0; font-size:13.5px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0; font-weight:600;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  ol.build{padding-left:26px;} ol.build li{margin:10px 0;} ol.build .why{color:var(--muted); font-style:italic;} ol.build .f{color:var(--muted); font-size:.9em;}
+  p.reco{background:var(--accent-soft); border-left:3px solid var(--accent); border-radius:0 8px 8px 0; padding:9px 14px; font-size:14px; margin:10px 0 16px;}
+  .ok{color:var(--ok); font-weight:700;} .muted{color:var(--muted);} .bad{color:var(--bad); font-weight:700;} .warn{color:var(--warn); font-weight:700;}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  @media (max-width:900px){ .layout{grid-template-columns:1fr;} nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);} main{padding:28px 20px 80px;} header.doc h1{font-size:25px;} }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">VE<span>RTO</span> · Build Plan</div>
+    <div class="tagline">Where VERTO is, and the complete ordered list of everything to build to make it a real product.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li class="num"><a href="#s1">What VERTO is</a></li>
+      <li class="num"><a href="#s2">Where it is today</a></li>
+      <li class="num"><a href="#s3">The two axes</a></li>
+      <li class="num"><a href="#s4">The complete build plan</a></li>
+      <li class="num"><a href="#s5">The dependency picture</a></li>
+      <li class="num"><a href="#s6">Two paths &amp; first step</a></li>
+      <li class="num"><a href="#s7">Known boundaries</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc">
+      <h1>State &amp; Build Plan</h1>
+      <p class="lede"><b>Where VERTO is today, and the complete, ordered list of everything to build to make it a real product</b> — explained so you never have to ask "and then what?"</p>
+      <p style="color:var(--muted); font-size:14px; max-width:82ch;">Companion to <code>VERTO.md</code> (concept), <code>VERTO_Architecture.md</code> (blueprint), <code>VERTO_Surfaces.md</code> / <code>VERTO_Flags.md</code> (CLI), <code>WEDGE_TEST.md</code> (proof).</p>
+    </header>
+
+    <section id="s1">
+      <h2><span class="n">1</span>What VERTO is (one minute)</h2>
+      <p>VERTO is a <b>verified C++ optimizer</b>. It has two parts:</p>
+      <ul>
+        <li>A <b>proposer</b> suggests a change to your source code (today: hand-coded rules; later: an LLM). It is <b>untrusted</b> — it's allowed to be wrong.</li>
+        <li>A <b>trusted gate</b> accepts a change <em>only</em> if it <b>compiles, produces identical output on test inputs (differential test), passes sanitizers (no undefined behavior), and is measurably faster</b> — otherwise it rejects it.</li>
+      </ul>
+      <div class="callout"><b>The moat:</b> the gate <em>runs</em> real code to <em>prove</em> the change. A tests-only tool accepts changes that pass its tests but secretly rely on undefined behavior or change output order — VERTO rejects those. The compiler, meanwhile, can't make VERTO's changes (it can't prove a container's final size, and it won't swap a data structure). <b>VERTO lives in the gap between "what tests catch" and "what the compiler does."</b></div>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>Where it is today (honest, concrete)</h2>
+      <p><b>Done — Phase 1 complete (v0).</b> The gate is real (real <code>clang++</code>/<code>g++</code>, ASan/UBSan, benchmarks) and now works on <b>real projects</b>, not just self-contained toy files: it verifies a function that <b>calls into other translation units</b> (links against the real build), at the project's <b>actual compile flags</b>, <b>aimed by a real profiler</b>, checked on <b>~1000 seeded fuzzed inputs</b>, and optionally <b>re-confirmed by the project's own test suite</b>. It <b>parses real CMake projects</b> (the <code>-isystem</code>/header/<code>-fPIC</code> fixes), reports <b>skips with reasons</b>, <b>scales</b> with <code>--changed</code> + <code>--jobs</code>, and <b>applies transactionally</b> (atomic writes, all-or-nothing rollback). A warm <b>daemon</b> + caches keep it fast. Backed by <b>38 tests</b> and its falsifiable benchmark, <b class="ok">11/11</b>.</p>
+      <p><b>Not done — the honest boundary:</b></p>
+      <ul>
+        <li><b>Only 3 hand-coded transforms</b>, all targeting <code>std::</code> containers (<code>reserve</code>, string <code>reserve</code>, <code>map→unordered</code>). On code that uses <em>other</em> container types (e.g. Qt's <code>QString</code>/<code>QVector</code>), VERTO finds <b class="bad">0 opportunities</b> — <b>transform / container-type coverage is the top gap</b>, ahead of everything else.</li>
+        <li>The <b class="bad">LLM proposer is still a stub</b> — <code>frontier.py</code> raises <code>NotImplementedError</code>. The "AI" does not exist yet.</li>
+        <li>Input coverage for custom types is <b>synthesis only</b> (aggregate structs of primitive fields); <b>capturing real argument values</b> from a run is future work (#2-B2).</li>
+        <li>A real <b>test suite</b> exists (38 tests + the wedge), but there is <b>no CI</b> yet.</li>
+      </ul>
+      <blockquote><p>In one line: a real verification engine that works on real projects — but its 3 hand-coded transforms still only match <code>std::</code> containers, and the LLM proposer doesn't exist yet.</p></blockquote>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>The one idea that makes the whole plan obvious: two axes</h2>
+      <p>Almost every question about VERTO dissolves once you separate two <b>independent</b> things:</p>
+      <table>
+        <tr><th>Axis</th><th>Question it answers</th><th>Today</th><th>The upgrade</th></tr>
+        <tr><td><b>VERIFY</b></td><td>can the gate <em>check</em> a change on real code?</td><td><b>real projects</b> (Phase 1 ✅ done)</td><td>richer types / more coverage</td></tr>
+        <tr><td><b>PROPOSE</b></td><td><em>what</em> change should we try?</td><td>3 hand-coded rules (<code>std::</code> only)</td><td>more transforms, then the LLM → <b>Phase 2</b></td></tr>
+      </table>
+      <p>Think of it as an <b>idea generator</b> (PROPOSE — the LLM) and a <b>fact-checker</b> (VERIFY — the gate).</p>
+      <div class="callout"><b>The consequence — and why the plan is ordered the way it is:</b> a better idea generator is worthless if the fact-checker can't check ideas about real code. So <b>making VERIFY work on real projects comes first.</b> The LLM (a better PROPOSE) is only useful <em>after</em> that — otherwise it proposes changes the gate can't verify, and they're all thrown away. <b>The LLM is not what makes VERTO work on real projects; the harness is.</b></div>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>The complete build plan</h2>
+      <p>Everything to build, grouped into phases. Each item: what it is (plain English), why, and the file(s) it touches.</p>
+      <div class="callout">
+        <p style="margin-top:0"><b>How to read the numbers:</b> they are <b>grouping + rough priority, not a strict must-follow chain.</b></p>
+        <p>Only a few orderings are truly load-bearing:</p>
+        <ul>
+          <li><b>#1 is the sole hard prerequisite</b> — you can't verify real code without it.</li>
+          <li><b>All of Phase 1 must precede Phase 2</b> — a better proposer is useless if the gate can't check real code.</li>
+          <li><b>Sandbox hardening (#13) must land before running LLM-generated code (#10).</b></li>
+        </ul>
+        <p>Those hard edges are drawn in §5.</p>
+        <p style="margin-bottom:0"><b>Everything else inside a phase is a menu you order by impact</b> — e.g. #4 (log skips) is worth doing before #2 (capture &amp; replay , POD/aggregate slice) not because #2 depends on it, but because it cheaply tells you whether #2 is the biggest lever on <em>your</em> repo. Reorder freely within a phase; respect the §5 edges.</p>
+      </div>
+
+      <h3>Phase 1 — Make it work on real C++ <span class="muted" style="font-weight:400">(the foundation — nothing else matters without this)</span></h3>
+      <p class="reco"><b>Recommended order:</b> #1 ✅ → #4 ✅ (skip log) → #6 ✅ (real build flags) → #5 ✅ (aim at hot code) → #3 ✅ (test-reuse oracle) → #2.A ⏳ (capture &amp; replay — aggregate synthesis done; real-value capture remaining) +  #2.B ⏳ (POD/aggregate slice) → #7 ✅ (seeded fuzzed inputs) → #8 ✅ (scale: --changed + --jobs) → #9 ✅ (safe apply). <b>All Phase-1 items are done (v0).</b> <span class="muted">Next real lever is transform/container coverage (per the measure-first finding), then Phase 2.</span></p>
+      <p>The blocker: today VERTO can only build a test program for a <b>self-contained</b> function. Real functions call other code and use real types, so it skips them. Fix that:</p>
+      <ol class="build">
+        <li><b>Link-against-the-build</b> <span class="ok">✅ done (v0)</span> — instead of copying a function into a standalone test, compile the test and <b>link it with the project's real compiled code</b> (a cached static archive of the other TUs), so the function can call its real dependencies. <span class="why">Unblocks the biggest chunk of real functions. Proven on <code>examples/linked/</code>: a function calling into another TU → reserve accepted, −55.8%.</span> <span class="f">— <code>link.py</code>, <code>build.py</code>, <code>_verify.py</code>, <code>correctness.py</code> · v0 scope: other TUs built at their <code>-I/-D/-std</code> + <code>-O2</code> (exact <code>-O</code>/PCH parity is item #6)</span></li>
+        <li><b>Capture &amp; replay</b> <span class="ok">⏳ v0 slice done (aggregate synthesis)</span> — VERTO now <b>synthesizes inputs for functions taking a simple aggregate struct</b> (all public primitive fields; no user ctor / base / virtual) by brace-initializing it field-by-field. Sound for the differential test (the <em>same</em> synthesized input feeds orig + variant), with a size-vs-value heuristic so count fields stay large (reserve win measurable) and signed fields stay small (no overflow UB). Proven: <code>scaled_series(const Config&amp;)</code> flipped <b>SKIP → ACCEPT (−68%)</b>; a raw-pointer param stays an honest skip. <span class="why">Remaining — the "record real values" half: capture actual argument values from a real workload run, for types synthesis can't safely build (pointers / handles / invariants) and for representative perf.</span> <span class="f">— <code>_ast.py</code> (<code>aggregate_fields</code>), <code>harness_gen.py</code> (<code>_classify_param</code>); example <code>examples/linked/report.cpp</code></span></li>
+        <li><b>Test-reuse oracle</b> <span class="ok">✅ done (v0)</span> — <code>--test-command</code> runs the project's <b>own test suite</b> to re-confirm each accepted change (build the variant into the real source → run the tests → restore); honest verify-or-skip — if the original already fails its tests, the oracle stands down rather than blame the change. <span class="why">The project's real acceptance criteria catch what the synthetic harness's fixed inputs miss.</span> <span class="f">— <code>reuse.py</code> (<code>TestReuseOracle</code>), <code>gate.py</code>, <code>registry.py</code>, <code>config.py</code>, <code>cli.py</code>; example <code>examples/tested/</code> · v0: confirmatory gate on harnessed changes; verifying UN-harnessable functions via tests also needs a project-level perf signal (pairs with #2)</span></li>
+      </ol>
+      <div class="callout">
+        <p style="margin-top:0"><b>#2 / #3 are the big coverage lever — and the largest Phase-1 work.</b> Everything else in Phase 1 makes verification <em>real, honest, and targeted</em> on the functions VERTO can <b>already</b> harness. #2/#3 widen <b>what can be harnessed at all</b>. The crux: <b>C++ has no reflection</b>, so "capture the real arguments and replay them" means solving serialization for arbitrary types.</p>
+        <ul>
+          <li><b>A — Test-reuse oracle (#3) <span class="ok">✅ done (v0)</span>.</b> Runs the project's <em>own</em> tests against the variant. No serialization needed. Shipped as a <b>confirmatory</b> gate on harnessed changes; using it to verify <em>un-harnessable</em> functions still needs a project-level perf signal.</li>
+          <li><b>B1 — Aggregate synthesis (#2) <span class="ok">✅ done (v0)</span>.</b> Synthesize inputs for functions taking a simple aggregate struct (public primitive fields) by brace-initializing it — no run needed, sound for the differential test. Unblocks the custom-<em>data</em>-type skips.</li>
+          <li><b>B2 — Capture real values from a run (#2) — next.</b> Codegen a recorder that logs the actual argument bytes a function receives during a real workload run, and replay them. Needed for types synthesis can't safely build (pointers/handles/invariants) and for representative perf.</li>
+          <li><b>C — Capture &amp; replay, full (#2).</b> Recorders for arbitrary types (pointer graphs, resources). The real prize, and a multi-week research effort on its own.</li>
+        </ul>
+        <p style="margin-bottom:0"><b>Measure-first check — done, and it re-ranked the plan.</b> Running the item-#4 skip breakdown on real CMake/Qt repos showed VERTO couldn't even <em>parse</em> them: a <code>_dedup</code> bug orphaned every repeated <code>-isystem</code> path, quoted project headers weren't on the search path, and Qt's <code>-fPIC</code> guard tripped. <b>Fixed all three (12/12 TUs now parse).</b> After that, those GUI TUs yielded <b>0 candidate sites</b> — they use <code>QString</code>/<code>QVector</code>, not <code>std::</code> containers. <b>Conclusion: B2 is <em>not</em> the next lever.</b> The real levers are (1) parse robustness ✅ just fixed, and (2) <b>transform/container coverage</b> — recognizing the project's actual container types. B2 waits for a corpus where synthesis-blocked custom-type inputs actually dominate the skips (a std-heavy systems/DPDK repo, not GUI code).</p>
+      </div>
+      <ol class="build" start="4">
+        <li><b>See what's skipped</b> <span class="ok">✅ done (v0)</span> — a candidate site VERTO can't verify is now reported as a <b>SKIP with a reason</b> (unharnessable signature → <em>which parameter/return type</em>; TU parse errors) instead of being silently dropped; codebase mode prints a <b>scan summary + skipped-reason breakdown</b>. <span class="why">On a real repo you must know why 90% of files were skipped.</span> <span class="f">— <code>models.py</code> (<code>Skip</code>), <code>sensor.py</code>, <code>harness_gen.py</code> (<code>unsupported_reason</code>), <code>_ast.py</code> (<code>parse_errors</code>), <code>orchestrator.py</code>, <code>api.py</code>, <code>cli.py</code></span></li>
+        <li><b>Aim at the hot code</b> <span class="ok">✅ done (v0)</span> — <code>--profile FILE</code> now <b>consumes a real profile</b> (<code>perf report --stdio</code> / <code>gprof</code> / JSON / <code>symbol cost</code>), reduces each symbol to its leaf name, and selects the candidate actually hot in the user's workload — overriding the synthetic micro-benchmark. Proven: a profile that says the micro-bench's <em>cold</em> function dominates flips the selection. <span class="why">A real repo has thousands of functions; you can't try them all.</span> <span class="f">— <code>profile.py</code> (parser), <code>sensor.py</code>, <code>config.py</code>, <code>cli.py</code> · v0: selection among detected candidates; cold-function pruning + auto-running the profiler are follow-ons</span></li>
+        <li><b>Build like the real project</b> <span class="ok">✅ done (v0)</span> — the timed build now reuses the project's <b>actual codegen flags</b> (<code>-O</code> level, <code>-march</code>/SIMD, safe <code>-f…</code>, <code>-pthread</code>) from <code>compile_commands.json</code>, appended so they override VERTO's <code>-O2</code> default; defines/<code>-std</code> were already threaded. <span class="why">The measured speedup now reflects the real build.</span> <span class="f">— <code>compile_db.py</code> (<code>_extract_opt_flags</code>), <code>_verify.py</code>, <code>gate.py</code> · v0: <code>-O0</code>/<code>-Og</code> fall back to <code>-O2</code>; LTO/PCH/sanitizer/profile plumbing dropped</span></li>
+        <li><b>Stronger correctness</b> <span class="ok">✅ done (v0)</span> — the differential test keeps its hand-picked edge cases and adds <code>--fuzz N</code> (default 1000) <b>seeded</b> random sizes (the previously-dead <code>fuzz_inputs</code>/<code>seed</code> are wired), so it checks ~1000 points instead of 10. <b>Deterministic</b> (fixed seed → same inputs → reproducible verdict); <b>bounded</b> (mostly small where off-by-one bugs live — negligible runtime, compilation dominates). <span class="why">"Correct on 10 inputs" is thin for real code.</span> <span class="f">— <code>inputs.py</code>, <code>config.py</code>, <code>cli.py</code> (<code>--fuzz</code>/<code>--seed</code>) · the wedge's sanitizer-demo cases pin fuzz off so the "diff-test passes → sanitizer catches" scenario stays deterministic</span></li>
+        <li><b>Scale</b> <span class="ok">✅ done (v0)</span> — make VERTO fast enough to run on a <em>whole</em> real repo, not just a handful of files. Verifying one function is inherently slow (compile original + variant, sanitize, benchmark ≈ a few seconds); a real codebase has <b>thousands</b> of functions, so a naive full scan takes <b>hours</b>. Two parts, both shipped:
+          <ul>
+            <li><b>(a) <code>--changed [REF]</code></b> — restrict the run to the TUs git reports as modified vs REF (default: the working tree; plus untracked files). A 5-file PR checks 5 files, not 5,000 — also the natural shape for CI (item #18).</li>
+            <li><b>(b) <code>--jobs N</code></b> — process N translation units in parallel. Verification is subprocess-bound (clang/benchmark), so threads give real speedup — <b>measured 2.3× on a 3-TU example, identical results to sequential.</b> Required three thread-safety fixes: thread-local libclang parse flags (was a module global), thread-unique temp names (were pid-only → collided), and a locked ledger.</li>
+          </ul>
+          <span class="why">Default is <code>--jobs 1</code> (sequential, precise); parallelism is opt-in because benchmarking under load is noisier. A <b>throughput</b> item, not a capability one — on current evidence (parsing fixed, but 0 <code>std::</code>-container sites on the sampled GUI code) transform/container coverage still ranks ahead of more scale work.</span> <span class="f">— <code>cli.py</code> (<code>--changed</code>/<code>--jobs</code>), <code>api.py</code> (<code>_git_changed</code>, parallel <code>optimize_codebase</code>), <code>_ast.py</code>/<code>link.py</code>/<code>build.py</code>/<code>ledger.py</code> (thread-safety)</span></li>
+        <li><b>Safe apply</b> <span class="ok">✅ done (v0)</span> — make writing changes to a <em>whole codebase</em> trustworthy. Verifying a change proves it's correct; <b>applying</b> it across many files is a separate risk — a crash, a write error, or a file that drifted since it was verified can leave the tree half- or mis-edited. Shipped as an <code>ApplyTransaction</code>:
+          <ul>
+            <li><b>(a) transactional / all-or-nothing</b> — one transaction wraps a whole codebase <code>--apply</code>; every write is snapshotted and <b>atomic</b> (temp file + <code>os.replace</code>, so a reader never sees a half-written source). Any failure mid-run rolls back <em>all</em> files to their originals; clean completion commits. Thread-safe, so it holds under <code>--jobs</code> (item #8).</li>
+            <li><b>(b) anchored, refuse-to-mis-apply</b> — the mutator already splices at the exact AST byte offset, and the gate recompiles + re-runs every splice (a broken one is already rejected). Added on top: a <b>stale-file guard</b> that refuses to write when the file on disk no longer matches the exact source that was verified — <em>a correct transform applied to changed text is still a bug</em>.</li>
+          </ul>
+          <span class="why">Never leave a half-edited or mis-edited codebase — the moment a user can't trust <code>--apply</code>, they stop using it. v0 scope: the residual case (a splice that mis-lands but still compiles <em>and</em> passes — e.g. inside an inactive <code>#ifdef</code>) is backstopped by the gate's recompile; a dedicated macro/<code>#ifdef</code>-site refusal is a follow-on.</span> <span class="f">— <code>apply_txn.py</code> (<code>ApplyTransaction</code>), <code>orchestrator.py</code>, <code>api.py</code></span></li>
+      </ol>
+      <p class="ok">→ After Phase 1: VERTO finds and verifies real optimizations in a real repo, using the 3 rule transforms.</p>
+
+      <h3>Phase 1 must also close these — correctness &amp; coverage completeness <span class="ok">✅ done (v0)</span> <span class="muted" style="font-weight:400">(gaps in the safety guarantee, not polish)</span></h3>
+      <p>These closed the holes where the gate proved less than "same behavior":</p>
+      <ol class="build" style="list-style:none; padding-left:0;">
+        <li><b>1a · Thread-safety rung (TSan) <span class="ok">✅</span></b> — a data race is UB ASan+UBSan can't see, and it only surfaces under concurrency — so the harness gained a <b>concurrent "race" mode</b> (calls the fn from 4 threads) and the gate runs a <b>ThreadSanitizer</b> build. Gated on a <code>static</code> local in the variant (only a transform that adds shared mutable state can race), so pure functions pay nothing; TSan only <em>downgrades</em> a clean result. Verify-or-skip when no working TSan; MSan probed too (usually unavailable → skipped). <span class="f">— <code>correctness.py</code>, <code>build.py</code> (<code>tsan_toolchain</code>), <code>harness_gen.py</code> (race mode)</span></li>
+        <li><b>1b · Floating-point tolerance oracle <span class="ok">✅</span></b> — <code>--fp-tolerance REL</code> compares output <b>numerically within a relative tolerance</b> instead of byte-for-byte, so a legit FP-reordering transform is accepted; default 0 keeps the strict diff-test. Also <b>un-blocked <code>vector&lt;float/double&gt;</code> returns</b> (the harness prints values — tolerance-comparable and more reliable than hashing FP bits). <span class="f">— <code>correctness.py</code> (<code>_outputs_match</code>), <code>harness_gen.py</code>, <code>config.py</code>, <code>cli.py</code></span></li>
+        <li><b>1c · Side-effect refusal <span class="ok">✅</span></b> — VERTO now <b>refuses</b> (honest skip-with-reason) a function that touches a non-const <b>file-scope global</b> or does <b>I/O</b> — behaviour the stdout-only diff-test can't compare — rather than falsely calling it equivalent. Function-local statics are left to 1a/D. <span class="f">— <code>_ast.py</code> (<code>side_effect_reason</code>), <code>sensor.py</code></span></li>
+        <li><b>1d · Templates named <span class="ok">✅</span></b> — optimizable function <b>templates</b> (can't be harnessed without a concrete instantiation) are now reported as <b>skips with a reason</b> instead of silently ignored. <span class="f">— <code>_ast.py</code> (<code>template_candidates</code>), <code>sensor.py</code></span></li>
+      </ol>
+      <p class="muted" style="font-size:14px;"><em>Honest v0 boundary: on this machine TSan/MSan aren't installed, so 1a is wired + probed but skips (verify-or-skip) — same as ASan falling back to g++; the mechanism is tested where a working TSan exists. 1c refuses (doesn't yet capture/compare) side effects; full effect-diffing is a follow-on.</em></p>
+
+      <h3>Phase 2 — The AI / LLM <span class="muted" style="font-weight:400">(needs Phase 1 first)</span></h3>
+      <p class="reco"><b>Recommended order:</b> <b>#13</b> (sandbox hardening — a hard edge: it must land before any generated code runs) → <b>#10</b> (LLM proposer) → <b>#11</b> (multi-candidate) → <b>#12</b> (cost cap).</p>
+      <p>Now that the gate can verify real functions, add a proposer that suggests far more than 3 rules:</p>
+      <ol class="build" start="10">
+        <li><b>The LLM proposer</b> — implement <code>frontier.py</code> (a stub today): send the model the source + a compact summary of the code, and parse its reply into a change. <span class="why">Proposes arbitrary optimizations, not just the hand-coded ones.</span> <span class="f">— <code>frontier.py</code></span></li>
+        <li><b>Try several, keep the best verified</b> — ask the model for N proposals per hotspot, run each through the gate, keep the winner. <span class="why">The model is hit-or-miss; the gate is the filter.</span> <span class="f">— <code>orchestrator.py</code>, <code>config.py</code></span></li>
+        <li><b>Cost cap</b> — a <code>--budget</code> limit per hotspot. <span class="why">LLM calls cost money.</span> <span class="f">— <code>config.py</code>, <code>cli.py</code></span></li>
+        <li><b class="warn">⚠ Harden the sandbox — REQUIRED here</b> — you are now running <b>code the LLM wrote</b>. Today the sandbox is only a CPU limit. Add <b>filesystem + network isolation and a memory cap</b>. <span class="why">Untrusted generated code must not touch your machine or network.</span> <span class="f">— <code>sandbox.py</code></span></li>
+      </ol>
+      <p class="ok">→ After Phase 2: VERTO proposes optimizations beyond the hand-coded set — the actual "AI optimizer."</p>
+
+      <h3>Phase 3 — Product hardening <span class="muted" style="font-weight:400">(to ship it, free)</span></h3>
+      <p class="reco"><b>Recommended order:</b> <b>#15</b> (tests + CI — protects everything after it) → <b>#14</b> (more transforms, ongoing) → <b>#16</b> (packaging) → <b>#17</b> (launch).</p>
+      <ol class="build" start="14">
+        <li><b>More transforms</b> — 3 → ~8–10 hand-coded ones (map-lookup fusion is next, measured ~51%). <span class="why">Runs in parallel with Phase 2.</span></li>
+        <li><b>Tests + CI</b> — a real test suite + GitHub Actions so a change can't silently break the tool.</li>
+        <li><b>Packaging</b> — installs cleanly on a fresh machine; clear errors when a tool (clang, sanitizers) is missing.</li>
+        <li><b>README + demo + public launch.</b></li>
+      </ol>
+
+      <h3>Phase 4 — Commercial <span class="muted" style="font-weight:400">(to sell it)</span></h3>
+      <p class="reco"><b>Recommended order:</b> <b>#18</b> (CI / GitHub Action — the paid surface) → <b>#19</b> (hosted) → <b>#20</b> (billing) → <b>#21</b> (legal + security, running in parallel throughout).</p>
+      <ol class="build" start="18">
+        <li><b>CI / GitHub Action</b> — runs on every pull request and comments the verified findings. <span class="why">The paid surface.</span></li>
+        <li><b>Hosted / cloud</b> — no local setup for the user; needs a build farm + a shared cache of verified results.</li>
+        <li><b>Billing, accounts, dashboard</b> — open-core: the tool is free, the paid tier is CI + cloud + the AI proposer.</li>
+        <li><b>Legal + security review</b> — handling customers' private code (data policy, on-prem option).</li>
+      </ol>
+
+      <h3>Later</h3>
+      <ol class="build" start="22">
+        <li><b>Formal verification (Alive2)</b> — the strongest correctness rung.</li>
+        <li><b>Shared transform library</b> — the ledger becomes a growing library of proven optimizations (the flywheel).</li>
+      </ol>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>The dependency picture (why the order is fixed)</h2>
+      <pre><code>Phase 1   Verify on real code        ──►  MUST come first
+               │
+               ▼
+Phase 2   LLM proposes                     (useless before the gate can verify real code)
+   +      Sandbox hardening                (mandatory once running untrusted generated code)
+               │
+               ▼
+Phase 3   Harden + ship (free)
+               │
+               ▼
+Phase 4   Commercial surfaces + business</code></pre>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">6</span>Two paths, and the one thing to do first</h2>
+      <ul>
+        <li><b>Path A — verified-transform product (no LLM):</b> Phases 1 + 3 + 4. Sell <em>"the performance tool that never ships a regression or a UB bug."</em> ~4–6 months, low risk, plays to the moat.</li>
+        <li><b>Path B — AI optimizer:</b> add Phase 2. The marquee feature, but the hardest and longest. ~8–12 months.</li>
+        <li><b>Either way, Phase 1 is identical and comes first.</b></li>
+      </ul>
+      <blockquote><p>Task one is Phase-1 item #1: the link-against-the-build harness. It's what turns "0 functions verified on a real repo" into "N verified." The <b>LLM is item #10</b> — a multiplier that only pays off <em>after</em> Phase 1 makes the gate able to verify real code.</p></blockquote>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">7</span>Known boundaries (documented, not yet scheduled)</h2>
+      <p>Things a real user will hit that are deliberately out of scope for now — named here so they're conscious choices, not surprises:</p>
+      <ul>
+        <li><b>Function-local, not whole-program.</b> The gate proves the <em>harnessed function</em> is equivalent on its own I/O — it does <b>not</b> see effects observed elsewhere. Swapping a <em>member/global</em> <code>std::map</code> for <code>unordered_map</code> is only sound if <b>no other function relies on its order</b>; the same holds for any change to shared state. This <b>bounds the transform catalog</b>: only transforms whose entire effect is contained in the function's observed behavior are safe to auto-apply. A locally-green change can still be globally wrong.</li>
+        <li><b>Verdicts are only as representative as the inputs.</b> "Measurably faster" means <em>faster on the inputs tested</em> (today 10 fixed sizes); an optimization can win on those yet lose on the real production distribution or asymptotically. Capture-&amp;-replay (item 2) narrows this, but it never fully disappears.</li>
+        <li><b>Build systems.</b> Verification needs a <code>compile_commands.json</code> (CMake/Ninja emit it; Bazel via a converter). Plain Make and MSVC projects aren't supported without one.</li>
+        <li><b>Benchmark noise on shared/cloud hardware.</b> Wall-clock variance in CI can swamp a small win; the hosted tier (item 19) will need a deterministic proxy — <code>perf stat</code> instruction count / cachegrind — alongside wall-clock, or verdicts will flap.</li>
+        <li><b>Sending source to a frontier LLM.</b> Many enterprises won't allow proprietary code to leave their network, so the LLM tier (Phase 2) needs a <b>local-model or redaction path</b> — a technical requirement, not just the legal review in item 21.</li>
+        <li><b>Post-apply reality check.</b> Nothing yet confirms the promised speedup held in the customer's production build/hardware; a "did the win stick?" telemetry loop is what compounds trust over time.</li>
+      </ul>
+      <div class="foot">VERTO — State &amp; Build Plan · assessed from source · companion to VERTO.md, VERTO_Architecture.md, VERTO_Surfaces.md, VERTO_Flags.md, WEDGE_TEST.md</div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('verto-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('verto-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if(en.isIntersecting){ links.forEach(function(l){ l.classList.remove('active'); }); if(map[en.target.id]) map[en.target.id].classList.add('active'); } });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

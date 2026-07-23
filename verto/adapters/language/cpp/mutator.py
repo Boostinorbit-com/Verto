@@ -6,6 +6,7 @@ libclang source-location version (build step 5) makes edits robust.
 """
 from __future__ import annotations
 
+import difflib
 from pathlib import Path
 
 from ....engine.config import Config
@@ -22,5 +23,10 @@ class CppMutator:
         if result is None:
             name = getattr(transform, "name", "?")
             raise ValueError(f"mutator: {name} could not rewrite {target.file}")
-        new_source, patch = result
+        new_source, _ = result           # the transform's cosmetic patch is discarded
+        # a REAL unified diff — what `--apply` writes and the preview shows
+        rel = target.file
+        patch = "".join(difflib.unified_diff(
+            source.splitlines(keepends=True), new_source.splitlines(keepends=True),
+            fromfile=f"a/{rel}", tofile=f"b/{rel}", n=2))
         return Variant(target=target, patch=patch, source_after=new_source)

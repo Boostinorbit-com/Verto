@@ -74,6 +74,9 @@ CASES: list[Case] = [
     Case("A0-reserve", "A structural", "pipeline", "accept",
          "within-structure — weak wedge (both could), shown as a warm-up",
          file=f"{EX}/packet_stats.cpp"),
+    Case("A2-string-reserve", "A structural", "pipeline", "accept",
+         "std::string built by += reallocates ~log2(n)×; reserve() removes it — the compiler can't pre-size it",
+         file=f"{EX}/string_build.cpp"),
 
     # ---- Category C: safety (the crown jewel) ----
     Case("C1-oob-read", "C safety", "gate", "reject",

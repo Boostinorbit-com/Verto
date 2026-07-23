@@ -41,6 +41,13 @@ def _run_pipeline(case: Case) -> tuple[bool, str]:
 
 def _run_gate(case: Case) -> tuple[bool, str]:
     cfg = Config()
+    # The Category-C demonstrations turn on a change that PASSES the differential
+    # test so the SANITIZER is the discriminator. That scenario is only stable with
+    # the canonical fixed inputs — with fuzzing (item #7), an OOB *write*'s heap
+    # corruption can become output-observable at some random size (heap-layout
+    # dependent → flaky), which would catch it at Rung 1 instead. Fuzz off here so
+    # the sanitizer demonstration is deterministic; real optimize runs still fuzz.
+    cfg.fuzz_inputs = 0
     gate = InvariantGate(PerfCorrectnessOracle(cfg), PerformanceOracleImpl(cfg), cfg)
     orig = Target(file=case.file, symbol=case.symbol, line=0, language="cpp")
     var = Variant(target=orig, patch="", source_after=case.variant)

@@ -28,7 +28,7 @@ _STRING = {"std::string", "std::basic_string<char>", "std::__cxx11::basic_string
            "std::basic_string<char, std::char_traits<char>, std::allocator<char> >"}
 
 _PRELUDE = ("#include <cstdio>\n#include <cstdlib>\n#include <cstdint>\n"
-            "#include <chrono>\n#include <vector>\n#include <string>\n")
+            "#include <chrono>\n#include <vector>\n#include <string>\n#include <thread>\n")
 
 _TEMPLATE = """<<PRELUDE>>
 <<SOURCE>>
@@ -42,6 +42,17 @@ int main(int argc, char** argv) {
             auto r = <<CALL>>;
 <<SERIALIZE>>
         }
+        return 0;
+    }
+    if (mode[0] == 'r') {                                        // race (ThreadSanitizer, item #1a)
+        unsigned long N = argc > 2 ? std::strtoul(argv[2], nullptr, 10) : 4096UL;
+<<BUILD>>
+        const int NT = 4;                                       // call the fn concurrently:
+        std::thread th[NT];                                     // a transform that added shared
+        volatile long long sink = 0;                           // mutable state now races here
+        for (int t = 0; t < NT; ++t) th[t] = std::thread([&]{ auto r = <<CALL>>; sink += <<CONSUME>>; });
+        for (int t = 0; t < NT; ++t) th[t].join();
+        (void)sink;
         return 0;
     }
     unsigned long N = argc > 2 ? std::strtoul(argv[2], nullptr, 10) : 2000000UL;   // bench
@@ -86,7 +97,45 @@ def _classify(t: str):
     return None
 
 
-def _builder(cat: str, sub: str, name: str) -> str:
+def _classify_param(t: str, source: str):
+    """Classify a PARAMETER type — like _classify, but also resolves a simple
+    aggregate struct/class (all public primitive fields) to an ("aggregate", …)
+    spec whose values the harness synthesizes field-by-field (item #2). None if
+    the type can't be synthesized (pointer, non-aggregate class, aggregate with a
+    non-primitive field)."""
+    c = _classify(t)
+    if c is not None:
+        return c
+    fields = _ast.aggregate_fields(source, _norm(t))
+    if not fields:
+        return None
+    specs = []
+    for fname, ftype in fields:
+        fc = _classify(ftype)
+        if fc is None or fc[0] not in ("int", "float"):      # v0: primitive fields only
+            return None
+        specs.append((fname, fc))
+    return ("aggregate", _norm(t), specs)
+
+
+def _agg_field_expr(cat: str, sub: str, idx: int) -> str:
+    """A value expression for one aggregate FIELD. Unsigned/size types scale with N
+    (they're usually counts/sizes → keeps the reserve win measurable); signed ints
+    stay small (avoid signed-overflow UB that UBSan would rightly reject)."""
+    if cat == "float":
+        return f"({sub})((double)((N + {idx}) % 1000) * 0.001)"
+    if "unsigned" in sub or "size_t" in sub or sub in ("uint64_t", "std::uint64_t"):
+        return f"({sub})N"
+    return f"({sub})((long)(N % 128) + {idx})"
+
+
+def _builder(spec, name: str) -> str:
+    cat = spec[0]
+    if cat == "aggregate":
+        _, tyname, fields = spec
+        vals = ", ".join(_agg_field_expr(fc[0], fc[1], i) for i, (fn, fc) in enumerate(fields))
+        return f"            {tyname} {name}{{ {vals} }};"
+    sub = spec[1]
     if cat == "int":
         return f"            {sub} {name} = ({sub})N;"
     if cat == "float":
@@ -100,11 +149,17 @@ def _builder(cat: str, sub: str, name: str) -> str:
             f"{name}.push_back((char)('a' + (j % 26)));")
 
 
-def _serialize(cat: str) -> str:
+def _serialize(cat: str, sub: str = "") -> str:
     if cat == "int":
         return '            std::printf("%lld\\n", (long long)r);'
     if cat == "float":
         return '            std::printf("%.9g\\n", (double)r);'
+    if cat == "vector" and sub in _FLOAT:
+        # print the actual values (not a hash) so an FP-tolerance compare is possible
+        # (item #1b) — and it's more reliable than hashing FP bits anyway.
+        return ('            { std::printf("%zu", (size_t)r.size());\n'
+                '              for (auto x : r) std::printf(" %.9g", (double)x);\n'
+                '              std::printf("\\n"); }')
     elem = "(long long)x" if cat == "vector" else "(unsigned char)x"
     return ('            { unsigned long long h = 1469598103934665603ULL;\n'
             f'              for (auto x : r) {{ h ^= (unsigned long long)({elem}); h *= 1099511628211ULL; }}\n'
@@ -120,24 +175,38 @@ def generate(source: str, func: str) -> str | None:
     if sig is None:
         return None
     params, ret = sig
-    pcats = [_classify(p) for p in params]
+    pcats = [_classify_param(p, source) for p in params]
     rcat = _classify(ret)
     if any(c is None for c in pcats) or rcat is None:
         return None
     rc, rsub = rcat
-    if rc == "vector" and rsub in _FLOAT:            # FP-vector hashing is unreliable → skip
-        return None
 
     names = [f"a{i}" for i in range(len(params))]
-    build = "\n".join(_builder(cat, sub, names[i]) for i, (cat, sub) in enumerate(pcats))
+    build = "\n".join(_builder(spec, names[i]) for i, spec in enumerate(pcats))
     return (_TEMPLATE
             .replace("<<PRELUDE>>", _PRELUDE)
             .replace("<<SOURCE>>", source)
             .replace("<<BUILD>>", build)
             .replace("<<CALL>>", f"{func}(" + ", ".join(names) + ")")
-            .replace("<<SERIALIZE>>", _serialize(rc))
+            .replace("<<SERIALIZE>>", _serialize(rc, rsub))
             .replace("<<CONSUME>>", _consume(rc)))
 
 
 def supported(source: str, func: str) -> bool:
     return generate(source, func) is not None
+
+
+def unsupported_reason(source: str, func: str) -> str | None:
+    """Why `func`'s signature can't be harnessed (→ verify-or-skip), or None if it
+    can. Human-readable, for the skip log (Phase-1 item #4)."""
+    sig = _ast.signature(source, func)
+    if sig is None:
+        return "signature not resolvable (custom/templated types?)"
+    params, ret = sig
+    for i, p in enumerate(params):
+        if _classify_param(p, source) is None:
+            return f"parameter {i} type {p!r} can't be synthesized as an input"
+    rcat = _classify(ret)
+    if rcat is None:
+        return f"return type {ret!r} can't be checksummed"
+    return None

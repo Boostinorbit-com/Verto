@@ -146,7 +146,7 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | `--model NAME` | LLM backend (frontier now, local later) | ✅ |
 | `--offline` | rules-only, no LLM (deterministic; good for CI) | ✅ |
 | `--candidates N` | try N proposals per hotspot; keep the best **verified** one | ⚙️ |
-| `--transforms GLOB` (`--list-transforms` planned) | enable/disable transforms | ⚙️ |
+| `--transforms GLOB` / `--list-transforms` | select which transforms run / list them | ✅ |
 | `--budget TOKENS\|$\|TIME` | hard cost cap on exploration | v1 |
 
 **Correctness rigor** *(VERTO-specific — this is the differentiator)*
@@ -163,9 +163,9 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 
 | Flag | Meaning | Stage |
 |---|---|---|
-| `--min-speedup PCT` | reject gains below threshold (kills noise) | ⚙️ |
-| `--reps N` (`--warmup N` planned) | benchmark repetitions | ⚙️ |
-| `--objectives p50,p99,memory,size` | which Performance-Vector dimensions count | ⚙️ |
+| `--min-speedup PCT` | reject gains below threshold (kills noise) | ✅ |
+| `--reps N` (`--warmup N` planned) | benchmark repetitions | ✅ |
+| `--objectives p50,p99,memory,size` | which Performance-Vector dimensions count | ✅ |
 | `--allow-regression mem=5%` | per-dimension Pareto budget | ⚙️ |
 | `--significance 0.01` | required statistical confidence | v1 |
 | `--baseline FILE` | compare against a saved baseline | v1 |
@@ -175,10 +175,13 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | Flag | Meaning | Stage |
 |---|---|---|
 | `--json` | machine schema (array of `Verdict`) | ✅ |
-| `--apply` | write accepted diffs (default is dry-run/preview) | ⚠️ |
-| `--diff` | emit patch output | v1 |
-| `--export FILE` | write proposed patches to a file (review/CI) | v1 |
-| `--apply-from FILE` | apply a previously exported/reviewed set | v1 |
+| `--apply` | write accepted, **sound** changes to source | ✅ |
+| `--dry-run` | preview only — never write (the default) | ✅ |
+| `--backup` | save `<file>.bak` before overwriting | ✅ |
+| `--force` | apply even an unsound (`--fast`) result | ✅ |
+| `--diff` | print the unified diff of each change | ✅ |
+| `--export FILE` | write accepted diffs to a file (review/CI) | ✅ |
+| `--apply-from FILE` | apply a diff set from `--export` (uses `patch`) | ✅ |
 | `--format` | run clang-format on applied changes | v1 |
 | `--interactive` | confirm each change | later |
 
@@ -189,7 +192,7 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | `--fail-on left-on-table\|regression\|contract-violation` | control CI failure | v1 |
 | `--mode optimize\|prevent` | prevention mode (contracts-in-CI) | v1 |
 | `--comment` | post PR comments | v1 |
-| `--no-color` | plain CI logs (the `NO_COLOR` env var is already honored) | v1 |
+| `--no-color` | disable color (also honors the `NO_COLOR` env var) | ✅ |
 
 **Config / setup / safety**
 
@@ -200,9 +203,10 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | `-V, --version` | print the VERTO version | ✅ |
 | `--sandbox` / `--no-sandbox` | isolate verification runs | ⚙️ |
 | `--timeout SEC` | per-run time limit | ⚙️ |
-| `--config KEY=VAL` | inline config override | v1 |
-| `--verify-setup` | check the toolchain is present (clang, sanitizers, profiler, benchmark) | v1 |
-| `--no-network`, `--cache` / `--no-cache`, `--max-changes N`, `--jobs N`, `--quiet`, `-v/-vv` | isolation, caching, limits & noise | v1 |
+| `--config KEY=VAL` | inline config override | ✅ |
+| `--verify-setup` | check the toolchain is present (clang, sanitizers, ccache, linker) | ✅ |
+| `--quiet` | print only accepted changes (and their diffs) | ✅ |
+| `--no-network`, `--cache` / `--no-cache`, `--max-changes N`, `--jobs N`, `-v/-vv` | isolation, caching, limits & noise | v1 |
 
 ### Exit codes (so CI can branch on them)
 

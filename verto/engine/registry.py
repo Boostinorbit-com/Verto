@@ -46,7 +46,9 @@ def resolve(file: str, config: Config) -> AdapterSet:
     else:
         from ..adapters.model.frontier import FrontierProposer as ProposerCls
 
-    gate = InvariantGate(PerfCorrectnessOracle(config), PerformanceOracleImpl(config), config)
+    from ..adapters.domain.performance.reuse import TestReuseOracle
+    gate = InvariantGate(PerfCorrectnessOracle(config), PerformanceOracleImpl(config), config,
+                         reuse=TestReuseOracle(config))
     return AdapterSet(
         sensor=CppSensor(config),
         proposer=ProposerCls(config),
