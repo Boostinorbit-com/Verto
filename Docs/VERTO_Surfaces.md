@@ -69,7 +69,7 @@ verto analyze  <path> [-p DB] [--all] [--min-rung N] [--offline] [--json]
 verto optimize <path> [-p DB] [--all] [--min-rung N] [--fast] [--offline] [--json] [--apply]
     Propose → verify (correct AND faster) → keep only what passes the gate.
     default        : dry-run; prints the diffs it WOULD write.
-    with --apply   : writes the accepted diffs to your source. (planned)
+    with --apply   : writes the accepted diffs to your source (transactional, sound-only).
 
 verto report   [--json]
     Read the Ledger; show accepted/rejected episodes, rungs, and measured gains.
@@ -125,8 +125,9 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | `<path>` | file or directory to work on | ✅ |
 | `--all` | whole codebase (every TU in the database) | ✅ |
 | `-p, --compile-commands PATH` | **`compile_commands.json` (or build dir) — required to compile real C++** | ✅ |
+| `--changed [REF]` | only git-changed TUs vs REF (codebase mode; the CI workhorse) | ✅ |
+| `--jobs, -j N` | codebase mode: verify N translation units in parallel | ✅ |
 | `--function NAME` | limit to one function (hotspot is auto-selected today) | v1 |
-| `--changed [--base REF]` | only git-changed code (the CI workhorse) | v1 |
 | `--include` / `--exclude GLOB` | scope by path glob | v1 |
 | `--line-filter` | restrict to `file:line` ranges | later |
 
@@ -134,7 +135,7 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 
 | Flag | Meaning | Stage |
 |---|---|---|
-| `--profile FILE` | runtime profile to guide selection | ⚠️ |
+| `--profile FILE` | runtime profile (perf/gprof/json) to guide hotspot selection | ✅ |
 | `--profiler perf\|gbench\|xray` | which profiler produced it | v1 |
 | `--top N` / `--min-hotspot PCT` | only touch the hottest code; ignore cold | v1 |
 | `--no-profile` | static facts only (no runtime) | v1 |
@@ -155,8 +156,10 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 |---|---|---|
 | `--min-rung N` | auto-apply only at correctness Rung ≥ N (default 3) | ✅ |
 | `--fast` | skip the Rung-3 sanitizer for speed — **UNSOUND**, verdict labeled | ✅ |
-| `--fuzz-inputs N` | held-out inputs for the differential test | ⚙️ |
-| `--seed N` | reproducible fuzzing / benchmarking | ⚙️ |
+| `--fuzz N` | seeded fuzzed held-out inputs for the differential test (default 1000) | ✅ |
+| `--seed N` | PRNG seed — reproducible fuzzing / benchmarking | ✅ |
+| `--fp-tolerance REL` | accept FP output within a relative tolerance (item #1b; default 0 = exact) | ✅ |
+| `--metamorphic` | also run the metamorphic property rung (Rung 2, 2D) — rejects a change that breaks permutation-invariance | ✅ |
 | `--sanitizers address,undefined,thread` | which sanitizers the gate runs (auto-detected today) | v1 |
 
 **Performance gate** *(the Performance Vector, made controllable)*
@@ -164,11 +167,25 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | Flag | Meaning | Stage |
 |---|---|---|
 | `--min-speedup PCT` | reject gains below threshold (kills noise) | ✅ |
-| `--reps N` (`--warmup N` planned) | benchmark repetitions | ✅ |
+| `--reps N` (`--warmup N` planned) | benchmark repetitions (upper bound when adaptive) | ✅ |
+| `--reps-min N` | adaptive floor — escalate to `--reps` only if borderline (default 5) | ✅ |
+| `--no-adaptive` | always run the full `--reps` (disable early-stop) | ✅ |
 | `--objectives p50,p99,memory,size` | which Performance-Vector dimensions count | ✅ |
 | `--allow-regression mem=5%` | per-dimension Pareto budget | ⚙️ |
 | `--significance 0.01` | required statistical confidence | v1 |
 | `--baseline FILE` | compare against a saved baseline | v1 |
+
+**Project test-reuse & oracle** *(2A — verify functions the synth harness can't reach, via the project's own suite)*
+
+| Flag | Meaning | Stage |
+|---|---|---|
+| `--test-command CMD` | build+run the project's own tests to re-confirm each accepted change (exit 0 = pass) | ✅ |
+| `--test-dir DIR` | cwd for `--test-command` (default: the target file's directory) | ✅ |
+| `--test-timeout SEC` | timeout for `--test-command` / `--bench-command` runs (default 600) | ✅ |
+| `--bench-command CMD` | build+run a project bench, timed as the perf signal for functions the harness can't reach | ✅ |
+| `--bench-dir DIR` | cwd for `--bench-command` (default: the target file's directory) | ✅ |
+| `--bench-runs N` | median-of-N timings of the bench per side (default 5) | ✅ |
+| `--ctest-dir DIR` | **2A-1**: a CMake build dir — auto-discover the test/bench commands from ctest | ✅ |
 
 **Apply / output**
 
@@ -182,6 +199,7 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | `--diff` | print the unified diff of each change | ✅ |
 | `--export FILE` | write accepted diffs to a file (review/CI) | ✅ |
 | `--apply-from FILE` | apply a diff set from `--export` (uses `patch`) | ✅ |
+| `--emit-patches DIR` | **2C**: write a ranked, `git apply`-able patch series + `REPORT.md` to DIR | ✅ |
 | `--format` | run clang-format on applied changes | v1 |
 | `--interactive` | confirm each change | later |
 
@@ -206,7 +224,7 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | `--config KEY=VAL` | inline config override | ✅ |
 | `--verify-setup` | check the toolchain is present (clang, sanitizers, ccache, linker) | ✅ |
 | `--quiet` | print only accepted changes (and their diffs) | ✅ |
-| `--no-network`, `--cache` / `--no-cache`, `--max-changes N`, `--jobs N`, `-v/-vv` | isolation, caching, limits & noise | v1 |
+| `--no-network`, `--cache` / `--no-cache`, `--max-changes N`, `-v/-vv` | isolation, caching, limits & noise | v1 |
 
 ### Exit codes (so CI can branch on them)
 

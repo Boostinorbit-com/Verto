@@ -55,6 +55,20 @@ def test_perf_unproven_without_bench():
     assert vs and not vs[0].accepted and vs[0].reason == "perf_unproven"
 
 
+def test_pareto_gate_rejects_tail_and_memory_regressions():
+    """2A-3: the project-bench gate is a full Pareto gate, not a p50 threshold — a p50 win
+    that regresses p99 (tail) or peak_memory past budget is rejected."""
+    from verto.adapters.domain.performance.reuse import TestReuseOracle
+    o = TestReuseOracle(Config())
+    assert o._pareto({"p50": 1.0, "p99": 1.0, "peak_memory": 100},
+                     {"p50": 0.5, "p99": 0.5, "peak_memory": 100})[0]          # clean win
+    assert not o._pareto({"p50": 1.0}, {"p50": 0.999})[0]                       # p50 gain too small
+    assert not o._pareto({"p50": 1.0, "p99": 1.0},
+                         {"p50": 0.5, "p99": 1.3})[0]                           # p99 tail +30% > budget
+    assert not o._pareto({"p50": 1.0, "peak_memory": 100},
+                         {"p50": 0.5, "peak_memory": 130})[0]                   # peak +30% > 12% budget
+
+
 def test_accepts_via_project_tests():
     vs = Engine(_cfg(test_command=TEST, bench_command=BENCH)).optimize(EX, apply=False)
     assert len(vs) == 1

@@ -58,7 +58,11 @@ def _common(sp, *, apply: bool = False) -> None:
                       help="codebase mode: only verify TUs git changed vs REF (default: working tree)")
     tune.add_argument("--jobs", "-j", type=int, metavar="N",
                       help="codebase mode: process N translation units in parallel (default 1)")
-    tune.add_argument("--reps", type=int, metavar="N", help="benchmark repetitions")
+    tune.add_argument("--reps", type=int, metavar="N", help="benchmark repetitions (upper bound when adaptive)")
+    tune.add_argument("--reps-min", type=int, metavar="N", dest="reps_min",
+                      help="adaptive floor — escalate to --reps only if the result is borderline (default 5)")
+    tune.add_argument("--no-adaptive", action="store_true", dest="no_adaptive",
+                      help="always run the full --reps (disable early-stop when the gain is unambiguous)")
     tune.add_argument("--fp-tolerance", type=float, metavar="REL", dest="fp_tolerance",
                       help="accept FP output within this relative tolerance (item #1b; default 0 = exact)")
     tune.add_argument("--fuzz", type=int, metavar="N", dest="fuzz_inputs",
@@ -88,10 +92,18 @@ def _common(sp, *, apply: bool = False) -> None:
                      help="real profile (perf --stdio / gprof / json / 'symbol cost') to pick the hot function")
     out.add_argument("--test-command", metavar="CMD", dest="test_command",
                      help="build+run the project's own tests to re-confirm each accepted change (exit 0 = pass)")
+    out.add_argument("--test-dir", metavar="DIR", dest="test_dir",
+                     help="cwd for --test-command (default: the target file's directory)")
+    out.add_argument("--test-timeout", type=int, metavar="SEC", dest="test_timeout_sec",
+                     help="timeout for --test-command / --bench-command runs (default 600)")
     out.add_argument("--bench-command", metavar="CMD", dest="bench_command",
                      help="2A: build+run a project bench, timed as the perf signal for functions the harness can't reach")
     out.add_argument("--bench-dir", metavar="DIR", dest="bench_dir",
                      help="cwd for --bench-command (default: the target file's directory)")
+    out.add_argument("--bench-runs", type=int, metavar="N", dest="bench_runs",
+                     help="2A: median-of-N timings of the bench per side (default 5)")
+    out.add_argument("--ctest-dir", metavar="DIR", dest="ctest_dir",
+                     help="2A-1: a CMake build dir — auto-discover the test/bench commands from ctest")
     out.add_argument("--metamorphic", action="store_true", dest="metamorphic",
                      help="2D: also run the metamorphic property rung (Rung 2) — rejects a change that breaks permutation-invariance")
 

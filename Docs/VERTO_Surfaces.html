@@ -154,7 +154,7 @@
 verto optimize &lt;path&gt; [-p DB] [--all] [--min-rung N] [--fast] [--offline] [--json] [--apply]
     Propose → verify (correct AND faster) → keep only what passes the gate.
     default      : dry-run; prints the diffs it WOULD write.
-    with --apply : writes the accepted diffs to your source. (planned)
+    with --apply : writes the accepted diffs to your source (transactional, sound-only).
 
 verto report   [--json]
     Read the Ledger; show accepted/rejected episodes, rungs, and measured gains.
@@ -201,8 +201,9 @@ verto serve    [--stop]
         <tr><td><code>&lt;path&gt;</code></td><td>file or directory to work on</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--all</code></td><td>whole codebase (every TU in the database)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>-p, --compile-commands PATH</code></td><td><b><code>compile_commands.json</code> (or build dir) — required to compile real C++</b></td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--changed [REF]</code></td><td>only git-changed TUs vs REF (codebase mode; the CI workhorse)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--jobs, -j N</code></td><td>codebase mode: verify N translation units in parallel</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--function NAME</code></td><td>limit to one function (hotspot is auto-selected today)</td><td class="muted">v1</td></tr>
-        <tr><td><code>--changed [--base REF]</code></td><td>only git-changed code (the CI workhorse)</td><td class="muted">v1</td></tr>
         <tr><td><code>--include</code> / <code>--exclude GLOB</code></td><td>scope by path glob</td><td class="muted">v1</td></tr>
         <tr><td><code>--line-filter</code></td><td>restrict to <code>file:line</code> ranges</td><td class="muted">later</td></tr>
       </table>
@@ -210,7 +211,7 @@ verto serve    [--stop]
       <p style="margin:18px 0 4px"><b>Evidence / profiling</b></p>
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
-        <tr><td><code>--profile FILE</code></td><td>runtime profile to guide selection</td><td class="muted">⚠️ stub</td></tr>
+        <tr><td><code>--profile FILE</code></td><td>runtime profile (perf/gprof/json) to guide hotspot selection</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--profiler perf|gbench|xray</code></td><td>which profiler produced it</td><td class="muted">v1</td></tr>
         <tr><td><code>--top N</code> / <code>--min-hotspot PCT</code></td><td>only touch the hottest code; ignore cold</td><td class="muted">v1</td></tr>
         <tr><td><code>--no-profile</code></td><td>static facts only (no runtime)</td><td class="muted">v1</td></tr>
@@ -231,8 +232,10 @@ verto serve    [--stop]
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
         <tr><td><code>--min-rung N</code></td><td>auto-apply only at correctness Rung ≥ N (default 3)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--fast</code></td><td>skip the Rung-3 sanitizer for speed — <b>UNSOUND</b>, verdict labeled</td><td class="ok">✅ v0</td></tr>
-        <tr><td><code>--fuzz-inputs N</code></td><td>held-out inputs for the differential test</td><td class="muted">⚙️ config</td></tr>
-        <tr><td><code>--seed N</code></td><td>reproducible fuzzing / benchmarking</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--fuzz N</code></td><td>seeded fuzzed held-out inputs for the differential test (default 1000)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--seed N</code></td><td>PRNG seed — reproducible fuzzing / benchmarking</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--fp-tolerance REL</code></td><td>accept FP output within a relative tolerance (item #1b; default 0 = exact)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--metamorphic</code></td><td>also run the metamorphic property rung (Rung 2, 2D) — rejects a change that breaks permutation-invariance</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--sanitizers address,undefined,thread</code></td><td>which sanitizers the gate runs (auto-detected today)</td><td class="muted">v1</td></tr>
       </table>
 
@@ -240,11 +243,25 @@ verto serve    [--stop]
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
         <tr><td><code>--min-speedup PCT</code></td><td>reject gains below threshold (kills noise)</td><td class="ok">✅ v0</td></tr>
-        <tr><td><code>--reps N</code> (<code>--warmup N</code> planned)</td><td>benchmark repetitions</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--reps N</code> (<code>--warmup N</code> planned)</td><td>benchmark repetitions (upper bound when adaptive)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--reps-min N</code></td><td>adaptive floor — escalate to <code>--reps</code> only if borderline (default 5)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--no-adaptive</code></td><td>always run the full <code>--reps</code> (disable early-stop)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--objectives p50,p99,memory,size</code></td><td>which Performance-Vector dimensions count</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--allow-regression mem=5%</code></td><td>per-dimension Pareto budget</td><td class="muted">⚙️ config</td></tr>
         <tr><td><code>--significance 0.01</code></td><td>required statistical confidence</td><td class="muted">v1</td></tr>
         <tr><td><code>--baseline FILE</code></td><td>compare against a saved baseline</td><td class="muted">v1</td></tr>
+      </table>
+
+      <p style="margin:18px 0 4px"><b>Project test-reuse &amp; oracle</b> <span class="muted">— 2A: verify functions the synth harness can't reach, via the project's own suite</span></p>
+      <table>
+        <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
+        <tr><td><code>--test-command CMD</code></td><td>build+run the project's own tests to re-confirm each accepted change (exit 0 = pass)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--test-dir DIR</code></td><td>cwd for <code>--test-command</code> (default: the target file's directory)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--test-timeout SEC</code></td><td>timeout for <code>--test-command</code> / <code>--bench-command</code> runs (default 600)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--bench-command CMD</code></td><td>build+run a project bench, timed as the perf signal for functions the harness can't reach</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--bench-dir DIR</code></td><td>cwd for <code>--bench-command</code> (default: the target file's directory)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--bench-runs N</code></td><td>median-of-N timings of the bench per side (default 5)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--ctest-dir DIR</code></td><td><b>2A-1</b>: a CMake build dir — auto-discover the test/bench commands from ctest</td><td class="ok">✅ v0</td></tr>
       </table>
 
       <p style="margin:18px 0 4px"><b>Apply / output</b></p>
@@ -258,6 +275,7 @@ verto serve    [--stop]
         <tr><td><code>--diff</code></td><td>print the unified diff of each change</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--export FILE</code></td><td>write accepted diffs to a file (review/CI)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--apply-from FILE</code></td><td>apply a diff set from <code>--export</code> (uses <code>patch</code>)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--emit-patches DIR</code></td><td><b>2C</b>: write a ranked, <code>git apply</code>-able patch series + <code>REPORT.md</code> to DIR</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--format</code></td><td>run clang-format on applied changes</td><td class="muted">v1</td></tr>
         <tr><td><code>--interactive</code></td><td>confirm each change</td><td class="muted">later</td></tr>
       </table>
@@ -282,7 +300,7 @@ verto serve    [--stop]
         <tr><td><code>--config KEY=VAL</code></td><td>inline config override</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--verify-setup</code></td><td>check the toolchain is present (clang, sanitizers, ccache, linker)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--quiet</code></td><td>print only accepted changes (and their diffs)</td><td class="ok">✅ v0</td></tr>
-        <tr><td><code>--no-network</code>, <code>--cache</code> / <code>--no-cache</code>, <code>--max-changes N</code>, <code>--jobs N</code>, <code>-v/-vv</code></td><td>isolation, caching, limits &amp; noise</td><td class="muted">v1</td></tr>
+        <tr><td><code>--no-network</code>, <code>--cache</code> / <code>--no-cache</code>, <code>--max-changes N</code>, <code>-v/-vv</code></td><td>isolation, caching, limits &amp; noise</td><td class="muted">v1</td></tr>
       </table>
       <h3>Exit codes (so CI can branch on them)</h3>
       <table>

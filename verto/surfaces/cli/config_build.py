@@ -36,10 +36,29 @@ def _build_config(args):
         cfg.profile = args.profile        # real profile drives hotspot selection (item #5)
     if getattr(args, "test_command", None):
         cfg.test_command = args.test_command   # project's own tests re-confirm changes (item #3)
+    if getattr(args, "test_dir", None):
+        cfg.test_dir = args.test_dir
+    if getattr(args, "test_timeout_sec", None) is not None:
+        cfg.test_timeout_sec = args.test_timeout_sec
     if getattr(args, "bench_command", None):
         cfg.bench_command = args.bench_command  # 2A: project-level perf signal (test-primary oracle)
     if getattr(args, "bench_dir", None):
         cfg.bench_dir = args.bench_dir
+    if getattr(args, "bench_runs", None) is not None:
+        cfg.bench_runs = args.bench_runs
+    if getattr(args, "ctest_dir", None):        # 2A-1: auto-discover test/bench from ctest
+        from ...adapters.language.cpp.cmake_ctest import discover_ctest
+        cfg.ctest_dir = args.ctest_dir
+        tgt = getattr(args, "path", None) if not getattr(args, "all", False) else None
+        d = discover_ctest(args.ctest_dir, target_file=tgt)   # 2A-1: narrow to tests exercising this TU
+        if d.test_command and not cfg.test_command:
+            cfg.test_command = d.test_command
+        if d.bench_command and not cfg.bench_command:
+            cfg.bench_command = d.bench_command
+        if d.bench_argv and not cfg.bench_argv:
+            cfg.bench_argv = tuple(d.bench_argv)        # 2A-3: direct bench exe → full Pareto vector
+        if d.build_command and not cfg.build_command:
+            cfg.build_command = d.build_command
     if getattr(args, "metamorphic", False):
         cfg.metamorphic = True                  # 2D: metamorphic property rung (Rung 2)
     # selection & tuning knobs (config file covers the rest)
@@ -49,6 +68,10 @@ def _build_config(args):
         cfg.min_speedup_pct = args.min_speedup
     if getattr(args, "reps", None) is not None:
         cfg.reps = args.reps
+    if getattr(args, "reps_min", None) is not None:
+        cfg.reps_min = args.reps_min
+    if getattr(args, "no_adaptive", False):
+        cfg.adaptive = False                   # always run full --reps (disable early-stop)
     if getattr(args, "fuzz_inputs", None) is not None:
         cfg.fuzz_inputs = args.fuzz_inputs     # item #7: wider seeded correctness inputs
     if getattr(args, "seed", None) is not None:

@@ -124,9 +124,10 @@ class InvariantGate:
         if not reuse.bench_enabled():
             return Verdict(False, candidate, cv, None, reason="perf_unproven")
         bv = reuse.bench(orig, var)
-        pv = PerfVerdict(vector={"p50": bv.after, "p50_before": bv.before,
-                                 "p50_delta_pct": bv.delta_pct}, pareto_pass=bv.faster,
-                         samples=bv.runs, reason=("" if bv.faster else bv.detail))
+        pv = PerfVerdict(vector=(bv.vector or {"p50": bv.after, "p50_before": bv.before,
+                                               "p50_delta_pct": bv.delta_pct}),
+                         pareto_pass=bv.faster, samples=bv.runs,
+                         reason=("" if bv.faster else bv.detail))
         if not bv.available:
             return Verdict(False, candidate, cv, pv, reason="perf_unproven")
         if not bv.faster:

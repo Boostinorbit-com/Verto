@@ -49,6 +49,9 @@ class Config:
     bench_command: str | None = None      # shell cmd timed for the project-level perf signal
     bench_dir: str | None = None          # cwd for bench_command (default: the target file's dir)
     bench_runs: int = 5                   # median-of-N timings of bench_command per side
+    ctest_dir: str | None = None          # 2A-1: a CMake build dir — auto-discover test/bench commands from ctest
+    build_command: str | None = None      # 2A-3: build step run ONCE before timing (so bench timing is run-only)
+    bench_argv: tuple = ()                # 2A-3: a direct bench executable (from ctest) → clean p50/p99/peak
     # 2D — metamorphic property rung (Rung 2): opt-in; rejects a change that breaks a
     # property the original had (e.g. permutation invariance). Sound (rejects only).
     metamorphic: bool = False
