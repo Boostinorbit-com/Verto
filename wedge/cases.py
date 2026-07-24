@@ -83,6 +83,9 @@ CASES: list[Case] = [
     Case("A4-umap-reserve", "A structural", "pipeline", "accept",
          "unordered_map grown in a loop rehashes ~log2(n)×; reserve(n) removes it — the compiler can't pre-size buckets",
          file=f"{EX}/umap_build.cpp", expect_symbol="build_index"),
+    Case("A5-list-vector", "A structural", "pipeline", "accept",
+         "std::list built at the back + iterated is ~20× slower than a contiguous vector — a compiler will never swap the container type",
+         file=f"{EX}/list_build.cpp", expect_symbol="list_sum"),
 
     # ---- Category C: safety (the crown jewel) ----
     Case("C1-oob-read", "C safety", "gate", "reject",

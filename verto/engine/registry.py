@@ -47,8 +47,12 @@ def resolve(file: str, config: Config) -> AdapterSet:
         from ..adapters.proposer.frontier import FrontierProposer as ProposerCls
 
     from ..adapters.domain.performance.reuse import TestReuseOracle
+    meta = None
+    if getattr(config, "metamorphic", False):
+        from ..adapters.domain.performance.metamorphic import MetamorphicOracle
+        meta = MetamorphicOracle(config)
     gate = InvariantGate(PerfCorrectnessOracle(config), PerformanceOracleImpl(config), config,
-                         reuse=TestReuseOracle(config))
+                         reuse=TestReuseOracle(config), metamorphic=meta)
     return AdapterSet(
         sensor=CppSensor(config),
         proposer=ProposerCls(config),

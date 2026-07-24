@@ -29,6 +29,28 @@ class MapSite:
     type_end: int
 
 
+@dataclass
+class ListSite:
+    func: str | None
+    var: str
+    elem: str
+    type_start: int      # offset of "std::list" in the declaration
+    type_end: int
+
+
+@dataclass
+class FuseSite:
+    """A `if (m.count(k)) … m.at(k) …` double-lookup that fuses to one find()."""
+    func: str | None
+    var: str
+    key: str
+    if_start: int                    # char offset of `if` — insert the find() before it
+    cond_start: int                  # condition span to replace with `__it != var.end()`
+    cond_end: int
+    accesses: list                   # (start, end) char spans of var.at(key)/var[key] in the then-branch
+    indent: str = ""                 # leading whitespace for the inserted find() line
+
+
 _VEC = re.compile(r"std::vector<\s*([^>]*?)\s*>\s+(\w+)\s*;")
 _FUNC = re.compile(r"([A-Za-z_]\w*)\s*\([^;{)]*\)\s*\{")
 _BOUND = re.compile(r"for\s*\([^;]*;\s*\w+\s*<\s*([A-Za-z_]\w*)")
@@ -200,3 +222,31 @@ def detect_map_in(source: str, func: str | None) -> MapSite | None:
         pass
     m = _map_regex(source)
     return m if (m and (func is None or m.func == func)) else None
+
+
+# --- list → vector (AST-only: the no-push_front/splice precondition needs the AST) ---
+
+def detect_all_list(source: str) -> list:
+    return _ast_only("all_list", source, default=[])
+
+
+def detect_list(source: str):
+    return _ast_only("list_ast", source, default=None)
+
+
+def detect_list_in(source: str, func: str | None):
+    return _ast_only("list_in_ast", source, func, default=None) if func else None
+
+
+# --- map-lookup fusion: if(m.count(k)) … m.at(k) → one find() (AST-only) ---
+
+def detect_all_fuse(source: str) -> list:
+    return _ast_only("all_fuse", source, default=[])
+
+
+def detect_fuse(source: str):
+    return _ast_only("fuse_ast", source, default=None)
+
+
+def detect_fuse_in(source: str, func: str | None):
+    return _ast_only("fuse_in_ast", source, func, default=None) if func else None

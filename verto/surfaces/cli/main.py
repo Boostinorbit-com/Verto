@@ -48,6 +48,8 @@ def _run_command(args) -> int:
                 jobs=getattr(args, "jobs", None) or 1)
             if export:
                 return _export([v for _, vs, _, _ in results for v in vs], export)
+            if getattr(args, "emit_patches", None):
+                _emit_patches(results, args.emit_patches)
             (_render_codebase_json if args.json else _render_codebase)(results)
             return _codebase_exit(results)
 
@@ -62,6 +64,8 @@ def _run_command(args) -> int:
                                        backup=backup, force=force)
         if export:
             return _export(verdicts, export)
+        if getattr(args, "emit_patches", None):
+            _emit_patches(verdicts, args.emit_patches, single_file=args.path)
         if args.json:
             _render_json(verdicts)
         else:
@@ -71,6 +75,12 @@ def _run_command(args) -> int:
     except (ValueError, NotImplementedError) as e:
         print(f"verto: error: {e}", file=sys.stderr)
         return 2
+
+
+def _emit_patches(results, out_dir: str, *, single_file: str | None = None) -> None:
+    from ..patches import emit_patches
+    n, report = emit_patches(results, out_dir, single_file=single_file)
+    print(_col(f"→ wrote {n} verified patch(es) + REPORT.md to {out_dir}/", "32"))
 
 
 def _list_transforms() -> int:

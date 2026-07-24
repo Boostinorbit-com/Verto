@@ -44,6 +44,8 @@ def _common(sp, *, apply: bool = False) -> None:
                         help="write accepted diffs to FILE instead of applying")
         ap.add_argument("--apply-from", metavar="FILE", dest="apply_from",
                         help="apply a diff set written by --export (uses `patch`)")
+        ap.add_argument("--emit-patches", metavar="DIR", dest="emit_patches",
+                        help="2C: write a ranked, git-apply-able patch series + REPORT.md to DIR")
 
     tune = sp.add_argument_group("selection & tuning")
     tune.add_argument("--transforms", metavar="GLOB",
@@ -86,6 +88,12 @@ def _common(sp, *, apply: bool = False) -> None:
                      help="real profile (perf --stdio / gprof / json / 'symbol cost') to pick the hot function")
     out.add_argument("--test-command", metavar="CMD", dest="test_command",
                      help="build+run the project's own tests to re-confirm each accepted change (exit 0 = pass)")
+    out.add_argument("--bench-command", metavar="CMD", dest="bench_command",
+                     help="2A: build+run a project bench, timed as the perf signal for functions the harness can't reach")
+    out.add_argument("--bench-dir", metavar="DIR", dest="bench_dir",
+                     help="cwd for --bench-command (default: the target file's directory)")
+    out.add_argument("--metamorphic", action="store_true", dest="metamorphic",
+                     help="2D: also run the metamorphic property rung (Rung 2) — rejects a change that breaks permutation-invariance")
 
 
 class _HelpFormatter(argparse.RawDescriptionHelpFormatter):

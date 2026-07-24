@@ -44,13 +44,16 @@ class CppSensor:
         # than "verified" on stdout alone.
         skips: list[Skip] = []
         funcs: list[str] = []
+        test_funcs: list[str] = []           # 2A: transform-matched but harness can't build a signature oracle
         for f in sorted(candidates):
-            reason = (unsupported_reason(source, f)                 # signature (harness)
-                      or detect_side_effect_reason(source, f))      # item #1c
+            sig_reason = unsupported_reason(source, f)             # signature (harness)
+            reason = sig_reason or detect_side_effect_reason(source, f)  # item #1c
             if reason is None:
                 funcs.append(f)
             else:
                 skips.append(Skip(func=f, stage="harness", reason=reason))
+                if sig_reason is not None:    # a candidate the project's OWN tests could still verify (2A)
+                    test_funcs.append(f)
         # a TU that wouldn't parse looks empty — surface that, don't swallow it.
         for msg in detect_parse_errors(source):
             skips.append(Skip(func=Path(target.file).name, stage="parse", reason=msg))
@@ -61,6 +64,17 @@ class CppSensor:
                               reason="template function — needs a concrete instantiation to verify"))
 
         if not funcs:
+            # 2A — nothing the synth harness can reach, but a transform matched a
+            # function the project's OWN tests could verify. Route it to test-primary
+            # mode (needs --test-command; the gate additionally needs --bench-command).
+            if test_funcs and getattr(self._config, "test_command", None):
+                chosen = test_funcs[0]
+                target.symbol = chosen
+                target.verify_mode = "tests"
+                return Evidence(
+                    target=target, source=source, facts=[],
+                    profile=Profile(self_pct=0.0, extra={"detector": "test-primary (2A)", "chosen": chosen}),
+                    hotspot_rank=1, skips=[s for s in skips if s.func != chosen])
             return Evidence(target=target, source=source, facts=[], profile=None, skips=skips)
 
         # --- profile-guided selection (only when there's a choice to make) ---

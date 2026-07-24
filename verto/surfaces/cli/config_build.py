@@ -36,6 +36,12 @@ def _build_config(args):
         cfg.profile = args.profile        # real profile drives hotspot selection (item #5)
     if getattr(args, "test_command", None):
         cfg.test_command = args.test_command   # project's own tests re-confirm changes (item #3)
+    if getattr(args, "bench_command", None):
+        cfg.bench_command = args.bench_command  # 2A: project-level perf signal (test-primary oracle)
+    if getattr(args, "bench_dir", None):
+        cfg.bench_dir = args.bench_dir
+    if getattr(args, "metamorphic", False):
+        cfg.metamorphic = True                  # 2D: metamorphic property rung (Rung 2)
     # selection & tuning knobs (config file covers the rest)
     if getattr(args, "transforms", None):
         cfg.transforms = tuple(g.strip() for g in args.transforms.split(",") if g.strip())

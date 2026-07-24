@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import clang.cindex as cc
 
-from ..regex_detect import GrowthSite, MapSite
+from ..regex_detect import FuseSite, GrowthSite, ListSite, MapSite
 from .parse import _extra, _infile_funcs, _walk
 
 
@@ -236,6 +236,128 @@ def all_umap_growth(source: str) -> list[GrowthSite]:
 
 def umap_growth_in_ast(source: str, func: str) -> GrowthSite | None:
     return next((s for s in all_umap_growth(source) if s.func == func), None)
+
+
+# --- list → vector ---
+
+# Member ops that rely on std::list-only semantics (O(1) front/splice, node/iterator
+# stability, or list's own reordering algorithms). If any appears, swapping to vector
+# would change complexity or behavior → refuse (sound-by-precondition; gate backstops).
+_LIST_UNSAFE = {"push_front", "pop_front", "emplace_front", "splice", "insert", "erase",
+                "sort", "merge", "reverse", "unique", "remove", "remove_if"}
+
+
+def _std_list_offset(cursor, source: str) -> int | None:
+    """Offset of the `std::list` type text via the TEMPLATE_REF child (the `list` name)."""
+    for ch in cursor.get_children():
+        if ch.kind == cc.CursorKind.TEMPLATE_REF and ch.spelling == "list":
+            s = _b2c(source, ch.extent.start.offset - len("std::"))   # byte→char, back up over "std::"
+            if source[s:s + len("std::list")] == "std::list":
+                return s
+    return None
+
+
+def _list_in_fn(fn, source: str) -> ListSite | None:
+    """A local std::list grown only at the back + iterated — vector is cache-friendlier.
+    Sound-by-precondition: the var must actually be grown by push_back/emplace_back, and
+    must NOT be referenced (as object OR argument) inside any list-only call — e.g. both
+    `a.splice(...)` and `b.splice(b.end(), a)` disqualify `a`. The gate backstops the rest."""
+    calls = [c for c in _walk(fn) if c.kind == cc.CursorKind.CALL_EXPR]
+    unsafe_calls = []                       # calls that invoke a list-only member (`.<unsafe>(`)
+    for c in calls:
+        toks = [t.spelling for t in c.get_tokens()]
+        if any(toks[i] == "." and toks[i + 1] in _LIST_UNSAFE for i in range(len(toks) - 1)):
+            unsafe_calls.append(set(toks))
+    for v in _walk(fn):
+        if v.kind != cc.CursorKind.VAR_DECL or not v.type.spelling.startswith("std::list"):
+            continue
+        var = v.spelling
+        if not any(_is_call_on(c, var, m) for c in calls for m in ("push_back", "emplace_back")):
+            continue                                            # not a real back-growth candidate
+        if any(var in toks for toks in unsafe_calls):
+            continue                                            # touched by a list-only op → refuse
+        ts = _std_list_offset(v, source)
+        if ts is None:
+            continue
+        return ListSite(func=fn.spelling, var=var, elem=_template_arg(v.type, 0),
+                        type_start=ts, type_end=ts + len("std::list"))
+    return None
+
+
+def all_list(source: str) -> list[ListSite]:
+    return [s for fn in _infile_funcs(source, _extra()) if (s := _list_in_fn(fn, source))]
+
+
+def list_ast(source: str) -> ListSite | None:
+    sites = all_list(source)
+    return sites[0] if sites else None
+
+
+def list_in_ast(source: str, func: str) -> ListSite | None:
+    return next((s for s in all_list(source) if s.func == func), None)
+
+
+# --- map-lookup fusion: if (m.count(k)) … m.at(k)/m[k] → one find() ---
+
+def _toks_off(cursor, source: str):
+    """Tokens of a cursor as (spelling, char_start, char_end)."""
+    return [(t.spelling, _b2c(source, t.extent.start.offset), _b2c(source, t.extent.end.offset))
+            for t in cursor.get_tokens()]
+
+
+def _fuse_in_fn(fn, source: str) -> FuseSite | None:
+    """`if (m.count(k)) … m.at(k) …` does two lookups; one find() does the job. Matched
+    narrowly for soundness: the condition must be exactly `m.count(k)` (optionally compared
+    to an int literal), k a single token, and the then-branch accesses the SAME m[k]/m.at(k).
+    The gate backstops anything the pattern-match gets wrong."""
+    for node in _walk(fn):
+        if node.kind != cc.CursorKind.IF_STMT:
+            continue
+        kids = list(node.get_children())
+        if len(kids) < 2:
+            continue
+        ct = _toks_off(kids[0], source)                 # condition tokens
+        if len(ct) < 6 or not (ct[1][0] == "." and ct[2][0] == "count"
+                               and ct[3][0] == "(" and ct[5][0] == ")"):
+            continue
+        var, key = ct[0][0], ct[4][0]
+        if not (key.isidentifier() or key.lstrip("-").isdigit()):
+            continue                                    # multi-token key → can't token-match safely
+        extra = ct[6:]                                  # allow only a trailing `<cmp> <int-literal>`
+        if extra and not (len(extra) == 2 and extra[0][0] in (">", ">=", "!=", "==")
+                          and extra[1][0].lstrip("-").isdigit()):
+            continue
+        tt = _toks_off(kids[1], source)                 # then-branch tokens
+        accesses, i = [], 0
+        while i < len(tt):
+            if (i + 5 < len(tt) and tt[i][0] == var and tt[i + 1][0] == "." and tt[i + 2][0] == "at"
+                    and tt[i + 3][0] == "(" and tt[i + 4][0] == key and tt[i + 5][0] == ")"):
+                accesses.append((tt[i][1], tt[i + 5][2])); i += 6; continue
+            if (i + 3 < len(tt) and tt[i][0] == var and tt[i + 1][0] == "["
+                    and tt[i + 2][0] == key and tt[i + 3][0] == "]"):
+                accesses.append((tt[i][1], tt[i + 3][2])); i += 4; continue
+            i += 1
+        if not accesses:
+            continue
+        if_start = _b2c(source, node.extent.start.offset)
+        ls = source.rfind("\n", 0, if_start) + 1
+        indent = source[ls:if_start] if not source[ls:if_start].strip() else ""
+        return FuseSite(func=fn.spelling, var=var, key=key, if_start=if_start,
+                        cond_start=ct[0][1], cond_end=ct[-1][2], accesses=accesses, indent=indent)
+    return None
+
+
+def all_fuse(source: str) -> list[FuseSite]:
+    return [s for fn in _infile_funcs(source, _extra()) if (s := _fuse_in_fn(fn, source))]
+
+
+def fuse_ast(source: str) -> FuseSite | None:
+    sites = all_fuse(source)
+    return sites[0] if sites else None
+
+
+def fuse_in_ast(source: str, func: str) -> FuseSite | None:
+    return next((s for s in all_fuse(source) if s.func == func), None)
 
 
 # --- pass heavy parameter by const-reference ---

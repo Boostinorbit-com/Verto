@@ -17,6 +17,7 @@ class Target:
     line: int
     language: str                      # "cpp" | "python" | …  (Registry sets this)
     build: dict[str, Any] = field(default_factory=dict)  # opaque to engine; adapter interprets
+    verify_mode: str = "harness"       # "harness" (synth oracle) | "tests" (2A: project-tests primary oracle)
 
 
 @dataclass
@@ -114,9 +115,12 @@ class Verdict:
     correctness: CorrectnessVerdict | None
     performance: PerfVerdict | None
     reason: str                        # accepted | precondition_failed | unsafe | slower | build_failed | tests_failed
-    diff: str = ""                     # unified diff this change would (or did) write
+    diff: str = ""                     # concise pseudo-patch for display (@@ func @@ -old +new)
+    udiff: str = ""                    # real git-apply-able unified diff (2C patch series)
     applied: bool = False              # True iff --apply actually wrote it to source
     tests_confirmed: bool = False      # True iff the project's own test suite re-confirmed it (item #3)
+    via: str = "harness"               # correctness basis: "harness" (sanitizers) | "tests" (project suite, 2A)
+    metamorphic: str = ""              # property confirmed by the metamorphic rung, if any (2D)
 
 
 @dataclass

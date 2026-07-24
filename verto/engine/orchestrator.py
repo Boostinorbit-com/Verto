@@ -5,6 +5,8 @@ and stop conditions. Talks only to ports + the gate.
 """
 from __future__ import annotations
 
+import difflib
+import os
 from dataclasses import dataclass
 
 from .gate import InvariantGate
@@ -66,7 +68,8 @@ class Orchestrator:
             var = self._a.mutator.apply(current, cand.transform)
             # 6. VERIFICATION — the trusted gate
             v = self._a.gate.decide(current, var, cand, self._a.inputs)
-            v.diff = var.patch                # the real unified diff (preview + apply)
+            v.diff = var.patch                # concise pseudo-patch (preview)
+            v.udiff = _unified_diff(current.file, ev.source, var.source_after)  # real patch (2C)
             # 7. LEARNING (accept OR reject)
             self._ledger.record(Episode(ev, cand, v))
             verdicts.append(v)
@@ -74,8 +77,11 @@ class Orchestrator:
             if v.accepted:
                 no_accept = 0
                 # write only a SOUND change (sanitizer-clean) unless --force overrides;
-                # this refuses to auto-apply a --fast (unverified-safe) result.
-                sound = bool(v.correctness and v.correctness.rung >= _SOUND_RUNG)
+                # this refuses to auto-apply a --fast (unverified-safe) result. A 2A
+                # test-verified change (via='tests') is sound on the project's OWN
+                # acceptance criteria, so it's applyable without the sanitizer rung.
+                sound = bool(v.correctness and v.correctness.rung >= _SOUND_RUNG) \
+                    or (getattr(v, "via", "harness") == "tests" and v.tests_confirmed)
                 if apply and (sound or force) and txn is not None:
                     # item #9: write through the transaction — atomic, snapshotted for
                     # rollback, and refused if the file drifted from what was verified
@@ -94,6 +100,18 @@ class Orchestrator:
             if not apply:
                 break
         return verdicts
+
+
+def _unified_diff(path: str, before: str, after: str) -> str:
+    """A standard `git apply -p1` / `patch -p1`-able unified diff between the source the
+    gate verified (before) and the change it accepted (after). Incremental per accepted
+    change, so a codebase run yields a reviewable patch SERIES (2C)."""
+    if before == after:
+        return ""
+    rel = os.path.relpath(path)
+    return "".join(difflib.unified_diff(
+        before.splitlines(keepends=True), after.splitlines(keepends=True),
+        fromfile=f"a/{rel}", tofile=f"b/{rel}"))
 
 
 def _precondition_holds(candidate, evidence) -> bool:

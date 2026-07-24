@@ -44,6 +44,14 @@ class Config:
     test_command: str | None = None       # shell cmd that builds+runs the tests (exit 0 = pass)
     test_dir: str | None = None           # cwd for test_command (default: the target file's dir)
     test_timeout_sec: int = 600
+    # 2A — test-reuse PRIMARY oracle: verify functions the synth harness can't reach,
+    # using the project's own tests (correctness) + a project-level bench (performance).
+    bench_command: str | None = None      # shell cmd timed for the project-level perf signal
+    bench_dir: str | None = None          # cwd for bench_command (default: the target file's dir)
+    bench_runs: int = 5                   # median-of-N timings of bench_command per side
+    # 2D — metamorphic property rung (Rung 2): opt-in; rejects a change that breaks a
+    # property the original had (e.g. permutation invariance). Sound (rejects only).
+    metamorphic: bool = False
     # proposal
     model: str = "frontier"               # frontier | local | rules(--offline)
     transforms: tuple[str, ...] = ("*",)  # glob(s) of enabled transforms
