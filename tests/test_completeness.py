@@ -8,7 +8,7 @@ These close gaps in the "never changes behavior / never ships UB" guarantee:
 """
 import pytest
 
-from verto.adapters.language.cpp._detect import (
+from verto.adapters.language.cpp.regex_detect import (
     detect_side_effect_reason, detect_template_candidates)
 
 CLEAN = ("#include <vector>\n#include <cstddef>\n"
@@ -66,7 +66,7 @@ def test_1b_tolerant_compare():
 
 
 def test_1b_enables_fp_vector():
-    from verto.adapters.domain.performance.harness_gen import supported, unsupported_reason
+    from verto.adapters.domain.performance.harness import supported, unsupported_reason
     fp = ("#include <vector>\n#include <cstddef>\n"
           "std::vector<double> f(std::size_t n){ std::vector<double> o;"
           " for(std::size_t i=0;i<n;++i) o.push_back((double)i*0.5); return o; }")

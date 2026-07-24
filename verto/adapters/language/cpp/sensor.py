@@ -1,25 +1,25 @@
 """C++ Sensor — Target -> Evidence, with profile-guided hotspot selection.
 
-Mirrors VERTO_Architecture §16.1 and Evidence stage (§8①). Detects every
-candidate site (all functions), and when there is MORE than one candidate
-function, runs the micro-profiler to pick the one that is actually HOT — the
-Category-B differentiator (a static-report tool would optimize the wrong one).
-Sets the target's symbol to the chosen function so the proposer/oracles act on it.
+Mirrors VERTO_Architecture §16.1 and the Evidence stage (§8①). It is GENERIC over
+transforms: candidate functions come from each registered transform's
+`candidates()` — the Sensor no longer hardcodes growth/map/string detection, so
+adding a transform needs no Sensor change. Among candidates it can harness AND
+soundly verify, it picks the one that's actually HOT (profile-guided, item #5) and
+sets `target.symbol` so the proposer/oracles act on it. Everything it can't verify
+is reported as an honest skip with a reason (item #4/#1c/#1d).
 """
 from __future__ import annotations
 
 from pathlib import Path
 
 from ....engine.config import Config
-from ....engine.models import Evidence, Fact, Profile, Skip, Target
-from ...domain.performance.harness_gen import unsupported_reason
-from ._detect import (
-    detect_all_growth, detect_all_map, detect_all_string_growth,
-    detect_parse_errors, detect_side_effect_reason, detect_template_candidates,
-    set_parse_flags,
-)
+from ....engine.models import Evidence, Profile, Skip, Target
+from ...domain.performance.harness import unsupported_reason
 from .profile import load_profile
 from .profiler import profile_functions
+from .regex_detect import (detect_parse_errors, detect_side_effect_reason,
+                           detect_template_candidates, set_parse_flags)
+from .transforms import ALL
 
 
 class CppSensor:
@@ -31,19 +31,21 @@ class CppSensor:
         # codebase mode: parse this TU with its real compile_commands flags so
         # includes/defines/-std resolve (single-file mode leaves this empty).
         set_parse_flags(target.build.get("parse_flags"))
-        growth = {s.func: s for s in detect_all_growth(source) if s.func}
-        maps = {s.func: s for s in detect_all_map(source) if s.func}
-        strs = {s.func: s for s in detect_all_string_growth(source) if s.func}
 
-        # only candidates VERTO can actually harness AND soundly verify; the rest
-        # are skipped honestly WITH A REASON (item #4) instead of silently dropped.
-        # The cascade also enforces the correctness-completeness gates: a function
-        # with un-modeled side effects (item #1c) is refused rather than "verified"
-        # on stdout alone.
+        # Candidate functions come from the TRANSFORMS themselves — union each
+        # registered transform's candidates(). No hardcoded detectors here.
+        candidates: set[str] = set()
+        for t in ALL:
+            candidates.update(t.candidates(source))
+
+        # keep only what VERTO can harness AND soundly verify; skip the rest with a
+        # reason (item #4). The cascade also enforces the correctness-completeness
+        # gate: a function with un-modeled side effects (item #1c) is refused rather
+        # than "verified" on stdout alone.
         skips: list[Skip] = []
         funcs: list[str] = []
-        for f in sorted(set(growth) | set(maps) | set(strs)):
-            reason = (unsupported_reason(source, f)                 # signature (harness_gen)
+        for f in sorted(candidates):
+            reason = (unsupported_reason(source, f)                 # signature (harness)
                       or detect_side_effect_reason(source, f))      # item #1c
             if reason is None:
                 funcs.append(f)
@@ -79,31 +81,9 @@ class CppSensor:
                 profile = Profile(self_pct=0.0, calls=0,
                                   extra={"times_ms": times, "chosen": chosen, "profiler": "microbench-v0"})
 
-        facts: list[Fact] = []
-        if chosen in growth:
-            g = growth[chosen]
-            facts.append(Fact(kind="container", detail={
-                "type": f"std::vector<{g.elem_type}>", "var": g.var, "grown_by": "push_back",
-                "in_loop": True, "reserve_before": False, "bound": g.bound,
-                "bound_loop_invariant": g.bound is not None,
-            }))
-        if chosen in maps:
-            m = maps[chosen]
-            facts.append(Fact(kind="container", detail={
-                "type": f"std::map<{m.key}, {m.val}>", "var": m.var,
-                "ordered": True, "swap_candidate": "std::unordered_map",
-            }))
-        if chosen in strs:
-            sg = strs[chosen]
-            facts.append(Fact(kind="container", detail={
-                "type": "std::string", "var": sg.var, "grown_by": "+=",
-                "in_loop": True, "reserve_before": False, "bound": sg.bound,
-                "bound_loop_invariant": sg.bound is not None,
-            }))
-
         target.symbol = chosen           # oracles/harness/proposer act on the hot function
         return Evidence(
-            target=target, source=source, facts=facts,
+            target=target, source=source, facts=[],
             profile=profile or Profile(self_pct=79.0, extra={"detector": "single-candidate"}),
             hotspot_rank=1, skips=skips,
         )

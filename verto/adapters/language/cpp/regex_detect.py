@@ -68,11 +68,22 @@ def _map_regex(source: str) -> MapSite | None:
 
 # --- public API: prefer the robust AST detector, fall back to regex ---
 
+def _ast_only(ast_name: str, *args, default):
+    """Call the libclang detector `analysis.<ast_name>(*args)`, returning `default`
+    when libclang is unavailable or errors. For the detectors with NO regex fallback
+    (string-growth, parse errors, side-effects, templates — items #1c/#1d/#4)."""
+    try:
+        from . import analysis
+        return getattr(analysis, ast_name)(*args)
+    except Exception:
+        return default
+
+
 def set_parse_flags(flags) -> None:
     """Tell the libclang parser which compile_commands.json flags to use for the
     next translation unit (include paths, defines, -std). No-op without libclang."""
     try:
-        from ._ast import set_parse_args
+        from .analysis import set_parse_args
         set_parse_args(tuple(flags or ()))
     except Exception:
         pass
@@ -80,7 +91,7 @@ def set_parse_flags(flags) -> None:
 
 def detect_growth(source: str) -> GrowthSite | None:
     try:
-        from ._ast import growth_ast
+        from .analysis import growth_ast
         r = growth_ast(source)
         if r is not None:
             return r
@@ -91,7 +102,7 @@ def detect_growth(source: str) -> GrowthSite | None:
 
 def detect_map(source: str) -> MapSite | None:
     try:
-        from ._ast import map_ast
+        from .analysis import map_ast
         r = map_ast(source)
         if r is not None:
             return r
@@ -104,7 +115,7 @@ def detect_map(source: str) -> MapSite | None:
 
 def detect_all_growth(source: str) -> list[GrowthSite]:
     try:
-        from ._ast import all_growth
+        from .analysis import all_growth
         r = all_growth(source)
         if r:
             return r
@@ -116,7 +127,7 @@ def detect_all_growth(source: str) -> list[GrowthSite]:
 
 def detect_growth_in(source: str, func: str | None) -> GrowthSite | None:
     try:
-        from ._ast import growth_in_ast
+        from .analysis import growth_in_ast
         r = growth_in_ast(source, func) if func else None
         if r is not None:
             return r
@@ -128,7 +139,7 @@ def detect_growth_in(source: str, func: str | None) -> GrowthSite | None:
 
 def detect_all_map(source: str) -> list[MapSite]:
     try:
-        from ._ast import all_map
+        from .analysis import all_map
         r = all_map(source)
         if r:
             return r
@@ -139,52 +150,49 @@ def detect_all_map(source: str) -> list[MapSite]:
 
 
 def detect_all_string_growth(source: str) -> list[GrowthSite]:
-    try:
-        from ._ast import all_string_growth
-        return all_string_growth(source)
-    except Exception:
-        return []
+    return _ast_only("all_string_growth", source, default=[])
 
 
 def detect_string_growth_in(source: str, func: str | None) -> GrowthSite | None:
-    try:
-        from ._ast import string_growth_in_ast
-        return string_growth_in_ast(source, func) if func else None
-    except Exception:
-        return None
+    return _ast_only("string_growth_in_ast", source, func, default=None) if func else None
 
 
 def detect_parse_errors(source: str) -> list[str]:
-    """Error-severity libclang diagnostics for the current TU (item #4 skip log).
-    Empty without libclang — never raises."""
-    try:
-        from ._ast import parse_errors
-        return parse_errors(source)
-    except Exception:
-        return []
+    """Error-severity libclang diagnostics for the current TU (item #4 skip log)."""
+    return _ast_only("parse_errors", source, default=[])
 
 
 def detect_side_effect_reason(source: str, func: str) -> str | None:
-    """Why `func` has un-modeled side effects (item #1c), or None. Never raises."""
-    try:
-        from ._ast import side_effect_reason
-        return side_effect_reason(source, func)
-    except Exception:
-        return None
+    """Why `func` has un-modeled side effects (item #1c), or None."""
+    return _ast_only("side_effect_reason", source, func, default=None)
 
 
 def detect_template_candidates(source: str) -> list[str]:
     """In-file optimizable function templates to skip-with-reason (item #1d)."""
-    try:
-        from ._ast import template_candidates
-        return template_candidates(source)
-    except Exception:
-        return []
+    return _ast_only("template_candidates", source, default=[])
+
+
+def detect_all_umap_growth(source: str):
+    """std::unordered_map grown in a loop with no reserve() (AST-only)."""
+    return _ast_only("all_umap_growth", source, default=[])
+
+
+def detect_umap_growth_in(source: str, func: str):
+    return _ast_only("umap_growth_in_ast", source, func, default=None)
+
+
+def detect_byval_params(source: str):
+    """Heavy parameters passed by value that could be `const&` (AST-only)."""
+    return _ast_only("byval_params", source, default=[])
+
+
+def detect_byval_in(source: str, func: str):
+    return _ast_only("byval_in_ast", source, func, default=None)
 
 
 def detect_map_in(source: str, func: str | None) -> MapSite | None:
     try:
-        from ._ast import map_in_ast
+        from .analysis import map_in_ast
         r = map_in_ast(source, func) if func else None
         if r is not None:
             return r

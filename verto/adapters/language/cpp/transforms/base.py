@@ -15,7 +15,7 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 
-from ...engine.models import Contract, Evidence
+from .....engine.models import Contract, Evidence
 
 
 class Transform(ABC):
@@ -34,6 +34,12 @@ class Transform(ABC):
     @abstractmethod
     def matches(self, source: str) -> bool:
         """Is this transform's structural pattern present in the source?"""
+
+    def candidates(self, source: str) -> list[str]:
+        """Function names in `source` this transform can act on. The Sensor unions
+        this across all registered transforms to discover hotspots GENERICALLY —
+        so adding a transform needs no Sensor change. Override per transform."""
+        return []
 
     @abstractmethod
     def rewrite(self, source: str) -> tuple[str, str] | None:

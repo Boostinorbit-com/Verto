@@ -26,10 +26,10 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
-import threading
 from pathlib import Path
 
 from ....runtime import sandbox
+from ....runtime.fs import unique_tmp
 
 CXX = "clang++"
 _OBJ_DIR = Path(tempfile.gettempdir()) / "verto-obj"
@@ -75,7 +75,7 @@ def _compile_object(source_path: str, flags: list[str]) -> str | None:
     obj = _OBJ_DIR / f"{key}.o"
     if obj.exists():
         return str(obj)
-    tmp = f"{obj}.{os.getpid()}.{threading.get_ident()}.tmp"   # thread-unique (item #8)
+    tmp = unique_tmp(obj)
     r = sandbox.run([CXX, *flags, "-c", source_path, "-o", tmp], timeout_sec=120)
     if not r.ok:
         try:
@@ -107,7 +107,7 @@ def project_archive(tus, target_file: str) -> str | None:
     arc = _ARC_DIR / f"{akey}.a"
     if arc.exists():
         return str(arc)
-    tmp = f"{arc}.{os.getpid()}.{threading.get_ident()}.tmp"   # thread-unique (item #8)
+    tmp = unique_tmp(arc)
     r = sandbox.run(["ar", "rcs", tmp, *members], timeout_sec=120)
     if not r.ok:
         try:

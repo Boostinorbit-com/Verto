@@ -10,7 +10,7 @@ import fnmatch
 
 from ...engine.config import Config
 from ...engine.models import Candidate, Evidence, Priors
-from ..transforms import ALL
+from ..language.cpp.transforms import ALL
 
 
 class RuleProposer:

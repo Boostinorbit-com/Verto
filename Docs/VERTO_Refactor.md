@@ -31,7 +31,9 @@ So the rule is: **a 300-line file doing four unrelated things must split; a 160-
 
 The codebase is **~3,380 LOC total, with no monster files** (biggest is `cli.py` at 580). This is tidying, not a rescue. The **ports/adapters architecture survived 9 features without bending** — the gate is still the single `accepted=True`, the VERIFY/PROPOSE split stayed clean. Keep it.
 
-Files already ≤150 LOC and cohesive — leave them: everything in `engine/` (models, ports, config, ledger, gate, orchestrator, registry, api, apply_txn), plus `link.py`, `profile.py`, `reuse.py`, `performance.py`, `compile_db.py`, `sensor.py`, `runtime/*`. Splitting a 154-line file into two 77-line files is churn without benefit.
+Files already ≤150 LOC and cohesive — **don't split or move them**: everything in `engine/` (models, ports, config, ledger, gate, orchestrator, registry, api, apply_txn), plus `link.py`, `profile.py`, `reuse.py`, `performance.py`, `compile_db.py`, `sensor.py`, `runtime/*`. Splitting a 154-line file into two 77-line files is churn without benefit.
+
+("Don't split or move" is about *structure* — a couple of these still get *internal* edits from later steps: `sensor.py` goes generic in §7 and `_verify.py` gains `BuildSpec` in §6. That's fine; the point is their size and location are already right.)
 
 `tools/gen_flags.py` is already correctly separated as dev-tooling — no change.
 
@@ -54,10 +56,10 @@ Only six files exceed the threshold *and* bundle multiple concerns:
 
 ## 5. Proposed directory structure
 
-Split the six by concern; group tightly-related modules into subpackages.
+Two moves at once: **split the six oversized files by concern**, and **relocate two things that are mis-placed today** — so `adapters/` ends up as three clean axes (a language plugin, a domain plugin, a proposer).
 
 ```
-adapters/language/cpp/
+adapters/language/cpp/                ← the C++ language plugin
   analysis/                 ← was _ast.py (424) — 4 concerns
     parse.py                  libclang TU parse, thread-local flags, diagnostics
     types.py                  signature, _clean_type, aggregate_fields
@@ -66,17 +68,26 @@ adapters/language/cpp/
   build/                    ← was build.py (188)
     compile.py                compile_program + executable cache
     toolchain.py              ccache, fast-linker, sanitizer / TSan / MSan probes
+  transforms/               ← MOVED from adapters/transforms/ (see note below)
+    reserve.py                reserve-vector + reserve-string, merged onto a base
+    map_to_unordered.py
+    base.py  registry.py
   regex_detect.py           ← was _detect.py — regex fallback + AST-preferring wrappers
-  compile_db.py  link.py  profile.py  profiler.py  sensor.py  mutator.py   (unchanged)
+  compile_db.py  link.py  profile.py  profiler.py  mutator.py
+  sensor.py                 (kept; internals go generic in §7)
 
-adapters/domain/performance/
+adapters/domain/performance/          ← the performance-domain plugin
   correctness.py            ← slim: the oracle + equivalent() orchestration only
   sanitizers.py             ← extracted: ASan/TSan build+run, diagnostic markers
   compare.py                ← extracted: _outputs_match (1b), _first_diff
   harness/                  ← was harness_gen.py (212)
     template.py               the C++ harness text (check/race/bench) + assembly
     synth.py                  input synthesis (classify / builder / serialize)
-  performance.py  inputs.py  _verify.py  reuse.py   (unchanged)
+  performance.py  inputs.py  reuse.py
+  _verify.py                (kept; gains BuildSpec in §6)
+
+adapters/proposer/                    ← RENAMED from model/  (it IS the PROPOSE axis)
+  rules.py  frontier.py
 
 surfaces/cli/               ← was cli.py (580)
   main.py                     entry point + dispatch
@@ -85,36 +96,63 @@ surfaces/cli/               ← was cli.py (580)
   render.py                   human / json / codebase output + export
 ```
 
-**Naming decision:** the AST subpackage is `analysis/`, **not** `ast/` — `ast` shadows Python's standard library. Subpackages (`analysis/`, `build/`, `harness/`, `cli/`) are preferred over flat prefixed files (`ast_parse.py`) because the grouping is itself documentation.
+**Why `transforms/` moves under `language/cpp/`.** Every concrete transform already imports `language.cpp._detect` (`reserve_*`, `map_to_unordered`) — they are part of the C++ plugin, not a cross-cutting adapter. Only the universal `Transform`/`Contract` ABC (`base.py`) is language-agnostic; it rides along for now (YAGNI — *all* transforms are C++ until a 2nd language lands, at which point `base` lifts up). This also puts each transform **next to the detection it uses**, which is exactly what §7 wants.
+
+**Why `model/` → `proposer/`.** "model" is ambiguous (ML model? data model?); the directory holds `rules.py` + `frontier.py` — the **proposer**. The rename matches the VERIFY/**PROPOSE** vocabulary used everywhere else.
+
+**Result:** `adapters/` = `{ language/cpp , domain/performance , proposer }` — three adapters, one per architectural axis, with no stray `transforms/` muddying the picture.
+
+**Naming decision:** the AST subpackage is `analysis/`, **not** `ast/` — `ast` shadows Python's standard library. Subpackages (`analysis/`, `build/`, `harness/`, `cli/`, `transforms/`) are preferred over flat prefixed files (`ast_parse.py`) because the grouping is itself documentation.
 
 ---
 
-## 6. The payoff refactor — make transforms self-contained
+## 6. Deduplicate & consolidate — not just split
 
-This is *design*, not just moving files, and it's the one that pays for itself when we add the next 8–10 transforms.
+Splitting (§4–5) fixes file *size*. It does nothing for *repetition* or *scattered state* — and organizing code means both. This axis is often higher-value than splitting: **duplication is where the next bug lands** (a fix has to be made in N places), and scattered config is what makes code hard to follow. Four concrete targets, with counts from the current tree:
 
-**Today, adding one transform touches ~8 places:** an example `.cpp`, an `_ast` detector, a `_detect` wrapper, the transform class, `transforms/__init__.ALL`, a hand-built `Fact` in `sensor.py`, harness support, and a wedge case.
+1. **Extract duplicated helpers.**
+   - The **thread-unique temp-name** pattern `f"{x}.{getpid()}.{get_ident()}.tmp"` is copy-pasted **4×** (`apply_txn.py`, `link.py` ×2, `build.py`). → one `_unique_tmp(path)` helper.
+   - `_detect.py` has **12 identical shim wrappers** — every one is `try: from ._ast import X; return X(...) except: return <fallback>`. → one generic "prefer-AST, fall back to regex" dispatcher instead of twelve copies.
 
-**Target:** a `transforms/<name>.py` that **declares its own** detector + precondition + rewrite + harness-needs in one place, and a **generic `sensor.py`** that iterates the registered transforms and asks each "do you match here?" — instead of hand-coding growth/map/string detection and Fact-building. Adding a transform becomes ~1 new file (+ an example + a wedge case).
+2. **Consolidate the build-config.** `VerifyCtx` threads `extra_cflags` / `link_inputs` / `opt_flags` as **3 parallel tuple fields**, read via defensive `getattr(ctx, …)` at **5 sites**. They are one concept — *how to build this TU in codebase mode* — and want to be a single **`BuildSpec`** value passed around whole (which also deletes the `getattr` noise).
 
-This lands *after* the file splits (§5), because the split gives it a clean home (`analysis/detect.py`, `transforms/`).
+3. **Un-sprawl `Config`.** It's **20 flat fields** mixing four concerns — gate policy (`min_rung`, `objectives`, `allow_regression`), benchmarking (`reps`, `adaptive`, `min_speedup_pct`), evidence (`profile`, `fuzz_inputs`, `seed`), proposal (`model`, `transforms`), and test-reuse (`test_command`, `test_dir`, `test_timeout_sec`). Group into sub-configs (or at least clearly section them).
+
+4. **Consolidate the existing transforms.** `reserve_before_pushback` and `reserve_string` are both "insert a `reserve()`" transforms sharing most of their logic. Fold them onto a shared base **as part of §7's redesign** — not as a separate cleanup afterward.
+
+*The split axis (§4–5) fixes size; this axis fixes duplication + cohesion. Do both, or "organized" is only half true.*
 
 ---
 
-## 7. Sequencing — small, test-verified steps (never a big-bang)
+## 7. The payoff refactor — make transforms self-contained ✅ **done**
+
+This was *design*, not just moving files, and it's the one that pays for itself when we add the next 8–10 transforms.
+
+**Before, adding one transform touched ~8 places:** an example `.cpp`, a detector, a `_detect` wrapper, the transform class, `transforms/__init__.ALL`, a hand-built `Fact` in `sensor.py`, harness support, and a wedge case.
+
+**Key finding that made it clean:** the rule proposer never read `ev.facts` (it uses `target.symbol` + iterates transforms calling `matches()`), and `check_precondition` uses the source, not facts — so **the sensor's hardcoded per-type `Fact`-building was dead code.** Shipped:
+- **`Transform.candidates(source) → list[str]`** — each transform declares which functions it matches (`_ReserveBase` via `_all_sites`, `MapToUnorderedMap` via `detect_all_map`).
+- **A generic `sensor.py`** — candidate functions are the **union of `t.candidates(source)` over `ALL`**; the hardcoded growth/map/string detection and *all* Fact-building are gone. Skip-logging and profile-selection stay.
+
+**Result: adding a transform is now ~1 new file** (the transform class + register in `ALL`) plus an example and a wedge case — **the sensor is untouched.**
+
+---
+
+## 8. Sequencing — small, test-verified steps (never a big-bang)
 
 Every step is validated by the full suite (**45 tests + wedge 11/11**) before the next. No step changes behavior except where explicitly noted.
 
-1. **Dead-code delete** *(free, ~10 min)* — remove `Config.candidates` / `sandbox` / `timeout_sec` (zero readers) and `orchestrator._write_patch` (superseded by `ApplyTransaction`; the main flow always passes a `txn`).
-2. **Split the 6 files** *(mechanical, behavior-identical)* — moves + import updates into the §5 tree. Reviewable as pure reorganization.
-3. **Slim the gate** — the `correctness.py` → `sanitizers.py` + `compare.py` extraction; the trusted core reads as a clean ladder.
-4. **Transform ergonomics** *(the design work, §6)* — self-contained transforms + generic sensor.
+1. **Dead-code delete** ✅ — removed `Config.candidates` / `sandbox` / `timeout_sec` (zero readers) and `orchestrator._write_patch` (superseded by `ApplyTransaction`; the write path always has a `txn`).
+2. **Split & relocate** ✅ — split the 6 files **and** relocated the two mis-placed things (`transforms/` → `language/cpp/`, `model/` → `proposer/`) into the §5 tree.
+3. **Deduplicate & consolidate** ✅ *(core)* — extracted the temp-name helper (`runtime/fs.unique_tmp`) and the `regex_detect._ast_only` dispatcher. *`BuildSpec` and `Config` sub-config grouping deferred — moderate value, high churn on the trusted verify path.*
+4. **Slim the gate** ✅ — `correctness.py` 170→~85 LOC; extracted `sanitizers.py` (ASan/TSan build+evaluate) and `compare.py` (`_outputs_match`/`_first_diff`).
+5. **Transform ergonomics** ✅ — merged the two `reserve` transforms onto `_ReserveBase`, and made the sensor generic via `Transform.candidates()` (§7).
 
-Steps 1–2 are low-risk and give most of the readability win; 3–4 are where the design judgment lives. Recommend pausing for review after step 2.
+Every step was verified against the full suite (**45 pass + 1 skip, wedge 11/11**) before the next; the tree was never broken. *Deferred (optional): `BuildSpec` + `Config` grouping.*
 
 ---
 
-## 8. Open decisions
+## 9. Open decisions
 
 - **Subpackages vs flat prefixed files** — this plan uses subpackages (`analysis/parse.py`); the alternative is flat (`ast_parse.py`). Subpackages chosen for clarity.
 - **Reason strings → enum?** `verdict.reason` / `skip.reason` are free strings (`"tests_failed"`, `"changed_output"`…). An enum would make handling exhaustive/checkable but touches many call sites — **deferred** (tidiness, not leverage) unless it starts causing bugs.

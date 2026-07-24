@@ -9,8 +9,8 @@ measurement.
 """
 from __future__ import annotations
 
-from ...engine.models import Contract
-from ..language.cpp._detect import detect_map, detect_map_in
+from .....engine.models import Contract
+from ..regex_detect import detect_all_map, detect_map, detect_map_in
 from .base import Transform
 
 
@@ -29,6 +29,9 @@ class MapToUnorderedMap(Transform):
 
     def _site(self, source: str):
         return detect_map_in(source, self.target_func) if self.target_func else detect_map(source)
+
+    def candidates(self, source: str) -> list[str]:
+        return [s.func for s in detect_all_map(source) if s.func]
 
     def matches(self, source: str) -> bool:
         return self._site(source) is not None

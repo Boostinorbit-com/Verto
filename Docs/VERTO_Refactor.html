@@ -65,9 +65,10 @@
       <li class="num"><a href="#s3">What's healthy — don't touch</a></li>
       <li class="num"><a href="#s4">Files that need splitting</a></li>
       <li class="num"><a href="#s5">Proposed directory structure</a></li>
-      <li class="num"><a href="#s6">Self-contained transforms</a></li>
-      <li class="num"><a href="#s7">Sequencing</a></li>
-      <li class="num"><a href="#s8">Open decisions</a></li>
+      <li class="num"><a href="#s6">Deduplicate &amp; consolidate</a></li>
+      <li class="num"><a href="#s7">Self-contained transforms</a></li>
+      <li class="num"><a href="#s8">Sequencing</a></li>
+      <li class="num"><a href="#s9">Open decisions</a></li>
     </ol>
   </nav>
 
@@ -99,7 +100,8 @@
     <section id="s3">
       <h2><span class="n">3</span>What's already healthy — do NOT touch</h2>
       <p>The codebase is <b>~3,380 LOC total, with no monster files</b> (biggest is <code>cli.py</code> at 580). This is tidying, not a rescue. The <b>ports/adapters architecture survived 9 features without bending</b> — the gate is still the single <code>accepted=True</code>, the VERIFY/PROPOSE split stayed clean. Keep it.</p>
-      <p>Files already ≤150 LOC and cohesive — leave them: everything in <code>engine/</code> (models, ports, config, ledger, gate, orchestrator, registry, api, apply_txn), plus <code>link.py</code>, <code>profile.py</code>, <code>reuse.py</code>, <code>performance.py</code>, <code>compile_db.py</code>, <code>sensor.py</code>, <code>runtime/*</code>. Splitting a 154-line file into two 77-line files is churn without benefit.</p>
+      <p>Files already ≤150 LOC and cohesive — <b>don't split or move them</b>: everything in <code>engine/</code> (models, ports, config, ledger, gate, orchestrator, registry, api, apply_txn), plus <code>link.py</code>, <code>profile.py</code>, <code>reuse.py</code>, <code>performance.py</code>, <code>compile_db.py</code>, <code>sensor.py</code>, <code>runtime/*</code>. Splitting a 154-line file into two 77-line files is churn without benefit.</p>
+      <p class="muted">("Don't split or move" is about <em>structure</em> — a couple of these still get <em>internal</em> edits from later steps: <code>sensor.py</code> goes generic in §7 and <code>_verify.py</code> gains <code>BuildSpec</code> in §6. That's fine; the point is their size and location are already right.)</p>
       <p><code>tools/gen_flags.py</code> is already correctly separated as dev-tooling — no change.</p>
     </section>
 
@@ -119,8 +121,8 @@
 
     <section id="s5">
       <h2><span class="n">5</span>Proposed directory structure</h2>
-      <p>Split the six by concern; group tightly-related modules into subpackages.</p>
-<pre><code>adapters/language/cpp/
+      <p>Two moves at once: <b>split the six oversized files by concern</b>, and <b>relocate two things that are mis-placed today</b> — so <code>adapters/</code> ends up as three clean axes (a language plugin, a domain plugin, a proposer).</p>
+<pre><code>adapters/language/cpp/                ← the C++ language plugin
   analysis/                 ← was _ast.py (424) — 4 concerns
     parse.py                  libclang TU parse, thread-local flags, diagnostics
     types.py                  signature, _clean_type, aggregate_fields
@@ -129,48 +131,77 @@
   build/                    ← was build.py (188)
     compile.py                compile_program + executable cache
     toolchain.py              ccache, fast-linker, sanitizer / TSan / MSan probes
+  transforms/               ← MOVED from adapters/transforms/ (see note below)
+    reserve.py                reserve-vector + reserve-string, merged onto a base
+    map_to_unordered.py
+    base.py  registry.py
   regex_detect.py           ← was _detect.py — regex fallback + AST-preferring wrappers
-  compile_db.py  link.py  profile.py  profiler.py  sensor.py  mutator.py   (unchanged)
+  compile_db.py  link.py  profile.py  profiler.py  mutator.py
+  sensor.py                 (kept; internals go generic in §7)
 
-adapters/domain/performance/
+adapters/domain/performance/          ← the performance-domain plugin
   correctness.py            ← slim: the oracle + equivalent() orchestration only
   sanitizers.py             ← extracted: ASan/TSan build+run, diagnostic markers
   compare.py                ← extracted: _outputs_match (1b), _first_diff
   harness/                  ← was harness_gen.py (212)
     template.py               the C++ harness text (check/race/bench) + assembly
     synth.py                  input synthesis (classify / builder / serialize)
-  performance.py  inputs.py  _verify.py  reuse.py   (unchanged)
+  performance.py  inputs.py  reuse.py
+  _verify.py                (kept; gains BuildSpec in §6)
+
+adapters/proposer/                    ← RENAMED from model/  (it IS the PROPOSE axis)
+  rules.py  frontier.py
 
 surfaces/cli/               ← was cli.py (580)
   main.py                     entry point + dispatch
   parser.py                   argparse construction + HelpFormatter + cheatsheet
   config_build.py             _build_config (args → Config)
   render.py                   human / json / codebase output + export</code></pre>
-      <div class="callout"><b>Naming decision:</b> the AST subpackage is <code>analysis/</code>, <b>not</b> <code>ast/</code> — <code>ast</code> shadows Python's standard library. Subpackages (<code>analysis/</code>, <code>build/</code>, <code>harness/</code>, <code>cli/</code>) are preferred over flat prefixed files (<code>ast_parse.py</code>) because the grouping is itself documentation.</div>
+      <div class="callout"><b>Why <code>transforms/</code> moves under <code>language/cpp/</code>.</b> Every concrete transform already imports <code>language.cpp._detect</code> (<code>reserve_*</code>, <code>map_to_unordered</code>) — they are part of the C++ plugin, not a cross-cutting adapter. Only the universal <code>Transform</code>/<code>Contract</code> ABC (<code>base.py</code>) is language-agnostic; it rides along for now (YAGNI — <em>all</em> transforms are C++ until a 2nd language lands, at which point <code>base</code> lifts up). This also puts each transform <b>next to the detection it uses</b>, which is exactly what §7 wants.</div>
+      <div class="callout"><b>Why <code>model/</code> → <code>proposer/</code>.</b> "model" is ambiguous (ML model? data model?); the directory holds <code>rules.py</code> + <code>frontier.py</code> — the <b>proposer</b>. The rename matches the VERIFY/<b>PROPOSE</b> vocabulary used everywhere else. <b>Result:</b> <code>adapters/</code> = <code>{ language/cpp , domain/performance , proposer }</code> — three adapters, one per architectural axis, with no stray <code>transforms/</code> muddying the picture.</div>
+      <div class="callout"><b>Naming decision:</b> the AST subpackage is <code>analysis/</code>, <b>not</b> <code>ast/</code> — <code>ast</code> shadows Python's standard library. Subpackages (<code>analysis/</code>, <code>build/</code>, <code>harness/</code>, <code>cli/</code>, <code>transforms/</code>) are preferred over flat prefixed files (<code>ast_parse.py</code>) because the grouping is itself documentation.</div>
     </section>
 
     <section id="s6">
-      <h2><span class="n">6</span>The payoff refactor — make transforms self-contained</h2>
-      <p>This is <em>design</em>, not just moving files, and it's the one that pays for itself when we add the next 8–10 transforms.</p>
-      <p><b>Today, adding one transform touches ~8 places:</b> an example <code>.cpp</code>, an <code>_ast</code> detector, a <code>_detect</code> wrapper, the transform class, <code>transforms/__init__.ALL</code>, a hand-built <code>Fact</code> in <code>sensor.py</code>, harness support, and a wedge case.</p>
-      <p><b>Target:</b> a <code>transforms/&lt;name&gt;.py</code> that <b>declares its own</b> detector + precondition + rewrite + harness-needs in one place, and a <b>generic <code>sensor.py</code></b> that iterates the registered transforms and asks each "do you match here?" — instead of hand-coding growth/map/string detection and Fact-building. Adding a transform becomes ~1 new file (+ an example + a wedge case).</p>
-      <p class="muted">This lands <em>after</em> the file splits (§5), because the split gives it a clean home (<code>analysis/detect.py</code>, <code>transforms/</code>).</p>
+      <h2><span class="n">6</span>Deduplicate &amp; consolidate — not just split</h2>
+      <p>Splitting (§4–5) fixes file <em>size</em>. It does nothing for <em>repetition</em> or <em>scattered state</em> — and organizing code means both. This axis is often higher-value than splitting: <b>duplication is where the next bug lands</b> (a fix has to be made in N places), and scattered config is what makes code hard to follow. Four concrete targets, with counts from the current tree:</p>
+      <ol>
+        <li><b>Extract duplicated helpers.</b>
+          <ul>
+            <li>The <b>thread-unique temp-name</b> pattern <code>f"{x}.{getpid()}.{get_ident()}.tmp"</code> is copy-pasted <b>4×</b> (<code>apply_txn.py</code>, <code>link.py</code> ×2, <code>build.py</code>). → one <code>_unique_tmp(path)</code> helper.</li>
+            <li><code>_detect.py</code> has <b>12 identical shim wrappers</b> — every one is <code>try: from ._ast import X; return X(...) except: return &lt;fallback&gt;</code>. → one generic "prefer-AST, fall back to regex" dispatcher instead of twelve copies.</li>
+          </ul>
+        </li>
+        <li><b>Consolidate the build-config.</b> <code>VerifyCtx</code> threads <code>extra_cflags</code> / <code>link_inputs</code> / <code>opt_flags</code> as <b>3 parallel tuple fields</b>, read via defensive <code>getattr(ctx, …)</code> at <b>5 sites</b>. They are one concept — <em>how to build this TU in codebase mode</em> — and want to be a single <b><code>BuildSpec</code></b> value passed around whole (which also deletes the <code>getattr</code> noise).</li>
+        <li><b>Un-sprawl <code>Config</code>.</b> It's <b>20 flat fields</b> mixing four concerns — gate policy (<code>min_rung</code>, <code>objectives</code>, <code>allow_regression</code>), benchmarking (<code>reps</code>, <code>adaptive</code>, <code>min_speedup_pct</code>), evidence (<code>profile</code>, <code>fuzz_inputs</code>, <code>seed</code>), proposal (<code>model</code>, <code>transforms</code>), and test-reuse (<code>test_command</code>…). Group into sub-configs (or at least clearly section them).</li>
+        <li><b>Consolidate the existing transforms.</b> <code>reserve_before_pushback</code> and <code>reserve_string</code> are both "insert a <code>reserve()</code>" transforms sharing most of their logic. Fold them onto a shared base <b>as part of §7's redesign</b> — not as a separate cleanup afterward.</li>
+      </ol>
+      <div class="callout"><em>The split axis (§4–5) fixes size; this axis fixes duplication + cohesion. Do both, or "organized" is only half true.</em></div>
     </section>
 
     <section id="s7">
-      <h2><span class="n">7</span>Sequencing — small, test-verified steps</h2>
-      <p>Every step is validated by the full suite (<b class="ok">45 tests + wedge 11/11</b>) before the next. No step changes behavior except where explicitly noted. <b>Never a big-bang.</b></p>
-      <ol class="steps">
-        <li><b>Dead-code delete</b> <span class="m">(free, ~10 min)</span> — remove <code>Config.candidates</code> / <code>sandbox</code> / <code>timeout_sec</code> (zero readers) and <code>orchestrator._write_patch</code> (superseded by <code>ApplyTransaction</code>; the main flow always passes a <code>txn</code>).</li>
-        <li><b>Split the 6 files</b> <span class="m">(mechanical, behavior-identical)</span> — moves + import updates into the §5 tree. Reviewable as pure reorganization.</li>
-        <li><b>Slim the gate</b> — the <code>correctness.py</code> → <code>sanitizers.py</code> + <code>compare.py</code> extraction; the trusted core reads as a clean ladder.</li>
-        <li><b>Transform ergonomics</b> <span class="m">(the design work, §6)</span> — self-contained transforms + generic sensor.</li>
-      </ol>
-      <p>Steps 1–2 are low-risk and give most of the readability win; 3–4 are where the design judgment lives. <b>Recommend pausing for review after step 2.</b></p>
+      <h2><span class="n">7</span>The payoff refactor — make transforms self-contained <span class="ok">✅ done</span></h2>
+      <p>This was <em>design</em>, not just moving files, and it's the one that pays for itself when we add the next 8–10 transforms.</p>
+      <p><b>Before, adding one transform touched ~8 places:</b> an example <code>.cpp</code>, a detector, a <code>_detect</code> wrapper, the transform class, <code>transforms/__init__.ALL</code>, a hand-built <code>Fact</code> in <code>sensor.py</code>, harness support, and a wedge case.</p>
+      <p><b>Key finding that made it clean:</b> the rule proposer never read <code>ev.facts</code> (it uses <code>target.symbol</code> + iterates transforms calling <code>matches()</code>), and <code>check_precondition</code> uses the source — so <b>the sensor's hardcoded per-type <code>Fact</code>-building was dead code.</b> Shipped: <b><code>Transform.candidates(source)</code></b> (each transform declares which functions it matches) and a <b>generic <code>sensor.py</code></b> whose candidate set is the <b>union of <code>t.candidates(source)</code> over <code>ALL</code></b> — the hardcoded growth/map/string detection and all Fact-building are gone; skip-logging + profile-selection stay.</p>
+      <div class="callout"><b>Result: adding a transform is now ~1 new file</b> (the transform class + register in <code>ALL</code>) plus an example and a wedge case — <b>the sensor is untouched.</b></div>
     </section>
 
     <section id="s8">
-      <h2><span class="n">8</span>Open decisions</h2>
+      <h2><span class="n">8</span>Sequencing — small, test-verified steps</h2>
+      <p>Every step is validated by the full suite (<b class="ok">45 tests + wedge 11/11</b>) before the next. No step changes behavior except where explicitly noted. <b>Never a big-bang.</b></p>
+      <ol class="steps">
+        <li><b>Dead-code delete</b> <span class="ok">✅</span> — removed <code>Config.candidates</code> / <code>sandbox</code> / <code>timeout_sec</code> (zero readers) and <code>orchestrator._write_patch</code> (superseded by <code>ApplyTransaction</code>; the write path always has a <code>txn</code>).</li>
+        <li><b>Split &amp; relocate</b> <span class="ok">✅</span> — split the 6 files <b>and</b> relocated the two mis-placed things (<code>transforms/</code> → <code>language/cpp/</code>, <code>model/</code> → <code>proposer/</code>) into the §5 tree.</li>
+        <li><b>Deduplicate &amp; consolidate</b> <span class="ok">✅ (core)</span> — extracted the temp-name helper (<code>runtime/fs.unique_tmp</code>) and the <code>regex_detect._ast_only</code> dispatcher. <em>BuildSpec and Config sub-config grouping deferred — moderate value, high churn on the trusted verify path.</em></li>
+        <li><b>Slim the gate</b> <span class="ok">✅</span> — <code>correctness.py</code> 170→~85 LOC; extracted <code>sanitizers.py</code> (ASan/TSan build+evaluate) and <code>compare.py</code> (<code>_outputs_match</code>/<code>_first_diff</code>).</li>
+        <li><b>Transform ergonomics</b> <span class="ok">✅</span> — merged the two <code>reserve</code> transforms onto <code>_ReserveBase</code>, and made the sensor generic via <code>Transform.candidates()</code> (§7).</li>
+      </ol>
+      <p>Every step was verified against the full suite (<b class="ok">45 pass + 1 skip, wedge 11/11</b>) before the next; the tree was never broken. <em>Deferred (optional): BuildSpec + Config grouping.</em></p>
+    </section>
+
+    <section id="s9">
+      <h2><span class="n">9</span>Open decisions</h2>
       <ul>
         <li><b>Subpackages vs flat prefixed files</b> — this plan uses subpackages (<code>analysis/parse.py</code>); the alternative is flat (<code>ast_parse.py</code>). Subpackages chosen for clarity.</li>
         <li><b>Reason strings → enum?</b> <code>verdict.reason</code> / <code>skip.reason</code> are free strings (<code>"tests_failed"</code>, <code>"changed_output"</code>…). An enum would make handling exhaustive/checkable but touches many call sites — <b>deferred</b> (tidiness, not leverage) unless it starts causing bugs.</li>

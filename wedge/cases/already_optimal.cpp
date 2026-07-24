@@ -7,6 +7,7 @@
 
 std::vector<int> query_freq(std::size_t n) {
     std::unordered_map<int, int> freq;
+    freq.reserve(1000);                    // already reserved for its ~1000-key range
     for (std::size_t i = 0; i < n; ++i)
         freq[static_cast<int>((i * 2654435761u) % 1000)]++;
 

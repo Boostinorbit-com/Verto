@@ -47,7 +47,7 @@ def _prewarm() -> None:
         import importlib
         importlib.import_module("verto.engine.api")     # front-load the engine graph
         from ..adapters.language.cpp.build import sanitizer_toolchain
-        from ..adapters.language.cpp._detect import detect_all_growth
+        from ..adapters.language.cpp.regex_detect import detect_all_growth
         sanitizer_toolchain()
         detect_all_growth("#include <vector>\nvoid f(){std::vector<int> v; v.push_back(1);}")
     except Exception:

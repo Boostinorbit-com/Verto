@@ -5,9 +5,7 @@ and stop conditions. Talks only to ports + the gate.
 """
 from __future__ import annotations
 
-import shutil
 from dataclasses import dataclass
-from pathlib import Path
 
 from .gate import InvariantGate
 from .ledger import JsonlLedger
@@ -78,14 +76,11 @@ class Orchestrator:
                 # write only a SOUND change (sanitizer-clean) unless --force overrides;
                 # this refuses to auto-apply a --fast (unverified-safe) result.
                 sound = bool(v.correctness and v.correctness.rung >= _SOUND_RUNG)
-                if apply and (sound or force):
+                if apply and (sound or force) and txn is not None:
                     # item #9: write through the transaction — atomic, snapshotted for
                     # rollback, and refused if the file drifted from what was verified
                     # (ev.source is exactly the text the gate compiled and ran).
-                    if txn is not None:
-                        txn.write(current.file, var.source_after, expected_before=ev.source)
-                    else:
-                        _write_patch(var, backup=backup)
+                    txn.write(current.file, var.source_after, expected_before=ev.source)
                     v.applied = True
                     current = var.target      # 8. re-profile the mutated source
             else:
@@ -109,13 +104,3 @@ def _precondition_holds(candidate, evidence) -> bool:
     """
     check = getattr(candidate.transform, "check_precondition", None)
     return bool(check(evidence)) if callable(check) else True
-
-
-def _write_patch(variant, *, backup: bool = False) -> None:
-    """Apply the VERIFIED change: write the variant's source to its file (optionally
-    saving a .bak first). The variant already passed the trusted gate, so this is a
-    plain, deterministic file write."""
-    path = Path(variant.target.file)
-    if backup:
-        shutil.copy2(path, path.with_suffix(path.suffix + ".bak"))
-    path.write_text(variant.source_after, encoding="utf-8")

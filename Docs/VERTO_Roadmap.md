@@ -19,15 +19,15 @@ VERTO is a **verified C++ optimizer**. It has two parts:
 
 ## 2. Where it is today (honest, concrete)
 
-**Done — Phase 1 complete (v0).** The gate is real (real `clang++`/`g++`, ASan/UBSan, benchmarks) and now works on **real projects**, not just self-contained toy files: it verifies a function that **calls into other translation units** (links against the real build), at the project's **actual compile flags**, **aimed by a real profiler**, checked on **~1000 seeded fuzzed inputs**, and optionally **re-confirmed by the project's own test suite**. It **parses real CMake projects** (the `-isystem`/header/`-fPIC` fixes), reports **skips with reasons**, **scales** with `--changed` + `--jobs`, and **applies transactionally** (atomic writes, all-or-nothing rollback). A warm **daemon** + caches keep it fast. Backed by **38 tests** and its falsifiable benchmark, **11/11**.
+**Done — Phase 1 complete (v0).** The gate is real (real `clang++`/`g++`, ASan/UBSan, benchmarks) and now works on **real projects**, not just self-contained toy files: it verifies a function that **calls into other translation units** (links against the real build), at the project's **actual compile flags**, **aimed by a real profiler**, checked on **~1000 seeded fuzzed inputs**, and optionally **re-confirmed by the project's own test suite**. It **parses real CMake projects** (the `-isystem`/header/`-fPIC` fixes), reports **skips with reasons**, **scales** with `--changed` + `--jobs`, and **applies transactionally** (atomic writes, all-or-nothing rollback). A warm **daemon** + caches keep it fast. Backed by **53 tests** and its falsifiable benchmark, **13/13**.
 
 **Not done — the honest boundary:**
-- **Only 3 hand-coded transforms**, all targeting `std::` containers (`reserve`, string `reserve`, `map→unordered`). On code that uses *other* container types (e.g. Qt's `QString`/`QVector`), VERTO finds **0 opportunities** — **transform / container-type coverage is the top gap**, ahead of everything else.
+- **Only 5 hand-coded transforms**, all targeting `std::` containers (`reserve`, string `reserve`, `map→unordered`, `unordered_map reserve`, pass-by-`const&`). On code that uses *other* container types (e.g. Qt's `QString`/`QVector`), VERTO finds **0 opportunities** — **transform / container-type coverage is the top gap**, ahead of everything else. *Phase 2 closes this together with the oracle-reach gap.*
 - The **LLM proposer is still a stub** — `frontier.py` raises `NotImplementedError`. The "AI" does not exist yet.
 - Input coverage for custom types is **synthesis only** (aggregate structs of primitive fields); **capturing real argument values** from a run is future work (#2-B2).
-- A real **test suite** exists (38 tests + the wedge), but there is **no CI** yet.
+- A real **test suite** exists (53 tests + the wedge), but there is **no CI** yet.
 
-**In one line: a real verification engine that works on real projects — but its 3 hand-coded transforms still only match `std::` containers, and the LLM proposer doesn't exist yet.**
+**In one line: a real verification engine that works on real projects *mechanically* — but its 5 hand-coded transforms still only match `std::` containers, it can only harness simple signatures, so it finds 0 verified wins on real repos. Closing that is Phase 2.**
 
 ---
 
@@ -37,8 +37,8 @@ Almost every question about VERTO dissolves once you separate two **independent*
 
 | Axis | Question it answers | Today | The upgrade |
 |---|---|---|---|
-| **VERIFY** | can the gate *check* a change on real code? | **real projects** (Phase 1 ✅ done) | richer types / more coverage |
-| **PROPOSE** | *what* change should we try? | 3 hand-coded rules (`std::` only) | more transforms, then the LLM → **Phase 2** |
+| **VERIFY** | can the gate *check* a change on real code? | **mechanically** on real projects (Phase 1 ✅), but only *simple signatures* | **real reach: the project's own tests as oracle → Phase 2** |
+| **PROPOSE** | *what* change should we try? | 5 hand-coded rules (`std::` only) | more transforms (**Phase 2**), then the LLM → **Phase 3** |
 
 Think of it as an **idea generator** (PROPOSE — the LLM) and a **fact-checker** (VERIFY — the gate).
 
@@ -55,8 +55,10 @@ Everything to build, grouped into phases. Each item: what it is (plain English),
 Only a few orderings are truly load-bearing:
 
 - **#1 is the sole hard prerequisite** — you can't verify real code without it.
-- **All of Phase 1 must precede Phase 2** — a better proposer is useless if the gate can't check real code.
+- **All of Phase 1 must precede Phase 2** (real-world reach), and **all of Phase 2 must precede the LLM (Phase 3)** — a better proposer is useless if the gate can't *reach* real functions.
 - **Sandbox hardening (#13) must land before running LLM-generated code (#10).**
+
+**Phase-2 item IDs are letters (2A–2D)** so the original stable integer IDs (#1–#23) are untouched; only the later *phase labels* shifted (LLM → Phase 3, hardening → Phase 4, commercial → Phase 5).
 
 Those hard edges are drawn in §5.
 
@@ -95,7 +97,7 @@ The blocker: today VERTO can only build a test program for a **self-contained** 
 
    *Never leave a half-edited or mis-edited codebase — the moment a user can't trust `--apply`, they stop using it.* — `apply_txn.py` (`ApplyTransaction`), `orchestrator.py`, `api.py`. *v0 scope: the remaining ambiguity case (a splice that mis-lands but still compiles *and* passes — e.g. inside an inactive `#ifdef`) is backstopped by the gate's recompile; a dedicated macro/`#ifdef`-site refusal is a follow-on.*
 
-→ **After Phase 1: VERTO finds and verifies real optimizations in a real repo, using the 3 rule transforms.**
+→ **After Phase 1: VERTO can find and verify real optimizations in a real repo with its 5 rule transforms — but *only* on functions with simple signatures and `std::` containers, which is why it finds 0 wins on most real code. Phase 2 widens both.**
 
 #### Phase 1 must also close these — correctness & coverage completeness ✅ **done (v0)** *(gaps in the safety guarantee, not polish)*
 
@@ -108,29 +110,75 @@ These closed the holes where the gate proved less than "same behavior":
 
 *Honest v0 boundary: on this machine TSan/MSan aren't installed, so 1a is wired + probed but skips (verify-or-skip) — same as ASan falling back to g++; the mechanism is tested where a working TSan exists. 1c refuses (doesn't yet capture/compare) side effects; full effect-diffing is a follow-on.*
 
-### Phase 2 — The AI / LLM  *(needs Phase 1 first)*
+### Phase 2 — Real-world reach: a verified win on YOUR code  *(the bridge the measure-first check exposed — must precede the LLM)*
+
+**PROPOSAL — not yet built.** Phase 1 made the gate *mechanically* real on real projects (it links against the build, uses the project's flags, follows a profiler, fuzzes ~1000 inputs, applies transactionally). But the Phase-1 measure-first check exposed the uncomfortable truth: on real third-party repos VERTO finds **0 verified wins** — for two *structural* reasons, not bugs:
+
+1. **Oracle-reach ceiling** — the synth harness can only build an oracle for `f(size_t)`, `std::vector<primitive>`, `std::string`, and simple aggregates. Real functions are **methods on classes, multi-param, user types** → honest SKIP.
+2. **Coverage ceiling** — the 5 transforms match only `std::`-container idioms; real hotspots (`std::list`, lookup patterns, needless copies) aren't recognized.
+
+A trustworthy gate that never fires on real code has no value *yet*. **Phase 2 closes exactly these two ceilings and proves it with one real accepted-correct-and-faster patch on an actual repo.** This is also the true prerequisite for the LLM: the roadmap's own §3 rule ("VERIFY on real code before PROPOSE") applies here — the LLM (Phase 3) would just propose changes that Phase 2's reach is needed to verify.
+
+**North-star proof-point (locked):** *VERTO ingests a real third-party C++ project, uses the project's **own tests** as the oracle (2A), and produces at least one verified faster-and-correct patch — end to end.* **Target repo: the local `cList` project** (known, has the `std::list` pattern 2B-1 targets, and is self-verifiable), with a **small well-tested OSS lib** as fallback if cList lacks a usable `ctest`/test suite for 2A. **First task: 2A** (the test-reuse primary oracle) — nothing else in Phase 2 can produce a real win without it.
+
+**Recommended order:** **2A** (oracle reach — the keystone) → **2B** (coverage for real patterns) → **2C** (repo-scale patch series) → **2D** (stretch: metamorphic rung). *2A is first because 2B and 2C still hit the signature ceiling without it.*
+
+> **Item IDs:** Phase-2 items use letter IDs (**2A–2D**) so the original stable integer IDs (#1–#23) stay untouched. Inserting this phase shifts the *labels* of the later phases (LLM → **Phase 3**, hardening → **Phase 4**, commercial → **Phase 5**) but **not** their item numbers.
+
+**2A. Oracle reach via test-reuse** ☐ **planned** — *the keystone; removes the signature ceiling.*
+Promote `reuse.py` from a **confirmatory** gate (re-runs tests on changes the harness *already* verified) to a **primary** oracle: verify a function VERTO **cannot** synth-harness by using the project's own `ctest`/test suite as ground truth, paired with a **project-level perf signal** so "faster" still has meaning without a micro-harness. C++ has no reflection — you can't serialize arbitrary args — but the project's tests already drive real functions with real inputs; using them as the oracle sidesteps signature complexity entirely. *This is the single change that makes "your code" verifiable at all.*
+- **2A-1 Test-target discovery** — from `ctest`/CMake, find which test/bench binary exercises the target TU.
+- **2A-2 Primary-oracle mode** — when the harness skips (unharnessable signature), fall back to: build the variant into the real source → run the project's tests → restore; ACCEPT only if tests still pass **and** a project-level timing improves beyond noise.
+- **2A-3 Project-level perf signal** — time the test/bench binary (or a user-named `--bench-command`) before/after and Pareto-gate on *that*, not the micro-benchmark.
+
+  *Acceptance:* a real function with a non-synthesizable signature (e.g. a class method) flips **SKIP → ACCEPT**, confirmed by the project's tests + a measured project-level speedup. *Still verify-or-skip:* no covering test → honest skip (that's 2D). — `reuse.py`, `gate.py`, `correctness.py`, `performance.py`, `config.py`, `cli.py` (`--bench-command`)
+
+**2B. Coverage for the patterns real code actually has** ☐ **planned** — *measure-first each (the `pow(x,2)→x*x` lesson: clang already recovered it, so it was dead).*
+- **2B-1 `std::list → std::vector`** — the `cList` case. Precondition: no `push_front`/`splice`/iterator-stability dependence; the gate backstops a wrong match. *Biggest reach on legacy C++.*
+- **2B-2 Map-lookup fusion** — `count(k)` + `at(k)`/`[k]` → a single `find(k)` (measured ~51%). *A map **param** can't be synth-built, so this pairs with 2A.*
+- **2B-3 Copy → move / `emplace`** — `push_back(x)` of a value → `emplace_back` / `std::move`.
+- **2B-4 (opportunistic)** — `string +=` concat batching, `std::endl → '\n'`.
+
+  *Acceptance:* each transform ships with an example + wedge case + tests + a measured win on real/realistic code; measure-first kills any clang already recovers. — `transforms/<name>.py` (+ detector in `analysis/detect.py`), `transforms/__init__.py`, one example, one wedge case, one test — **sensor untouched** (the generic-sensor payoff: a transform is ~1 file).
+
+**2C. Repo-scale workflow — one-file demo → reviewable patch series.** ☐ **planned**
+Turn the whole-repo sweep (already `--changed`/`--jobs` capable) into a *deliverable*: sweep all `compile_commands.json` TUs, **rank** findings by measured delta × profile weight, and **emit a patch series / PR** with one consolidated ledger and a human-readable report of each verified win (before/after, delta, rung).
+- **2C-1 Ranked findings report** — ordered by impact, honest about what was skipped and why.
+- **2C-2 Patch-series / PR emission** — `--emit-patches DIR` (or `--pr`); each commit = one verified transform with its evidence in the message.
+- **2C-3 One consolidated ledger + run summary.**
+
+  *Acceptance:* `verto optimize <repo> --emit-patches` produces N individually-verified, applyable patches on a real project, each carrying its evidence. — `orchestrator.py`, `api.py`, new `surfaces/patches.py`, `ledger.py`, `cli.py`
+
+**2D. (stretch) Metamorphic / property rung — reach where no tests exist** ☐ **planned (stretch)** — *Rung 2 in the ladder.*
+For functions with neither a synth-harness nor a covering test, add **metamorphic checks** — properties that must survive the transform (permutation-invariance for order-independent reductions, idempotence, output-size relations) — as a real-but-weaker correctness rung **between** the differential test (Rung 1) and sanitizers (Rung 3). Extends verified reach to untested, unharnessable code without needing an exact-output oracle.
+
+  *Acceptance:* a function that's currently an honest skip gets a **conditional** verdict under a stated property, flagged in the verdict as weaker than Rung 1/3; opt-in. — `correctness.py` (Rung 2), new `metamorphic.py`, `config.py`
+
+→ **After Phase 2: VERTO produces verified, faster-and-correct patches on real third-party repos — using the project's own tests as oracle and a coverage set that matches real code. This is the milestone that makes VERTO *useful* — and the real prerequisite for the LLM.**
+
+### Phase 3 — The AI / LLM  *(needs Phase 2 first)*
 
 **Recommended order:** **#13** (sandbox hardening — a hard edge: it must land before any generated code runs) → **#10** (LLM proposer) → **#11** (multi-candidate) → **#12** (cost cap).
 
-Now that the gate can verify real functions, add a proposer that suggests far more than 3 rules:
+Now that the gate can verify *and reach* real functions, add a proposer that suggests far more than the hand-coded rules:
 
 10. **The LLM proposer** — implement `frontier.py` (a stub today): send the model the source + a compact summary of the code, and parse its reply into a change. *Proposes arbitrary optimizations, not just the hand-coded ones.* — `frontier.py`
 11. **Try several, keep the best verified** — ask the model for N proposals per hotspot, run each through the gate, keep the winner. *The model is hit-or-miss; the gate is the filter.* — `orchestrator.py`, `config.py`
 12. **Cost cap** — a `--budget` limit per hotspot. *LLM calls cost money.* — `config.py`, `cli.py`
 13. **⚠ Harden the sandbox — REQUIRED here** — you are now running **code the LLM wrote**. Today the sandbox is only a CPU limit (`sandbox.py`). Add **filesystem + network isolation and a memory cap**. *Untrusted generated code must not touch your machine or network.* — `sandbox.py`
 
-→ **After Phase 2: VERTO proposes optimizations beyond the hand-coded set — the actual "AI optimizer."**
+→ **After Phase 3: VERTO proposes optimizations beyond the hand-coded set — the actual "AI optimizer."**
 
-### Phase 3 — Product hardening  *(to ship it, free)*
+### Phase 4 — Product hardening  *(to ship it, free)*
 
 **Recommended order:** **#15** (tests + CI — protects everything after it) → **#14** (more transforms, ongoing) → **#16** (packaging) → **#17** (launch).
 
-14. **More transforms** — 3 → ~8–10 hand-coded ones (map-lookup fusion is next, measured ~51%). *Runs in parallel with Phase 2.*
+14. **More transforms** — 5 → ~10–12 hand-coded ones (the Phase-2 2B set — `list→vector`, lookup fusion — continues here). *Runs in parallel with Phase 3.*
 15. **Tests + CI** — a real test suite + GitHub Actions so a change can't silently break the tool.
 16. **Packaging** — installs cleanly on a fresh machine; clear errors when a tool (clang, sanitizers) is missing.
 17. **README + demo + public launch.**
 
-### Phase 4 — Commercial  *(to sell it)*
+### Phase 5 — Commercial  *(to sell it)*
 
 **Recommended order:** **#18** (CI / GitHub Action — the paid surface) → **#19** (hosted) → **#20** (billing) → **#21** (legal + security, running in parallel throughout).
 
@@ -148,28 +196,32 @@ Now that the gate can verify real functions, add a proposer that suggests far mo
 ## 5. The dependency picture (why the order is fixed)
 
 ```
-Phase 1   Verify on real code        ──►  MUST come first
+Phase 1   Verify on real code (mechanically)   ──►  MUST come first  ✅
                │
                ▼
-Phase 2   LLM proposes                     (useless before the gate can verify real code)
-   +      Sandbox hardening                (mandatory once running untrusted generated code)
+Phase 2   Real-world reach                       the bridge: tests-as-oracle (2A) + coverage (2B)
+          (a verified win on YOUR code)          + repo-scale patches (2C) — closes the reach gap
                │
                ▼
-Phase 3   Harden + ship (free)
+Phase 3   LLM proposes                           (useless before the gate can REACH real functions)
+   +      Sandbox hardening                      (mandatory once running untrusted generated code)
                │
                ▼
-Phase 4   Commercial surfaces + business
+Phase 4   Harden + ship (free)
+               │
+               ▼
+Phase 5   Commercial surfaces + business
 ```
 
 ---
 
 ## 6. Two paths, and the one thing to do first
 
-- **Path A — verified-transform product (no LLM):** Phases 1 + 3 + 4. Sell *"the performance tool that never ships a regression or a UB bug."* ~4–6 months, low risk, plays to the moat.
-- **Path B — AI optimizer:** add Phase 2. The marquee feature, but the hardest and longest. ~8–12 months.
-- **Either way, Phase 1 is identical and comes first.**
+- **Path A — verified-transform product (no LLM):** Phases 1 + **2** + 4 + 5. Sell *"the performance tool that never ships a regression or a UB bug."* ~4–6 months, low risk, plays to the moat. **Phase 2 is what makes this path real** — without it there are no wins to sell.
+- **Path B — AI optimizer:** add **Phase 3** (the LLM). The marquee feature, but the hardest and longest. ~8–12 months.
+- **Either way, Phases 1 and 2 are identical and come first.**
 
-> **Task one is Phase-1 item #1: the link-against-the-build harness.** It's what turns "0 functions verified on a real repo" into "N verified." The **LLM is item #10** — a multiplier that only pays off *after* Phase 1 makes the gate able to verify real code.
+> **Task one is now Phase-2 item 2A: the test-reuse *primary* oracle.** Phase 1 is done, but it turns "0 verified wins on a real repo" into "N" only once the gate can *reach* real functions — and 2A (verify via the project's own tests) is what removes the signature ceiling. The **LLM is item #10 (Phase 3)** — a multiplier that only pays off *after* Phase 2 makes the gate able to reach and win on real code.
 
 ---
 

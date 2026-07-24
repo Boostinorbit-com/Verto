@@ -46,11 +46,8 @@ class Config:
     test_timeout_sec: int = 600
     # proposal
     model: str = "frontier"               # frontier | local | rules(--offline)
-    candidates: int = 1
     transforms: tuple[str, ...] = ("*",)  # glob(s) of enabled transforms
     # runtime
-    sandbox: bool = True
-    timeout_sec: int = 30
     fuzz_inputs: int = 1000
     seed: int = 0
 

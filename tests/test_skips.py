@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from verto.adapters.domain.performance.harness_gen import supported, unsupported_reason
+from verto.adapters.domain.performance.harness import supported, unsupported_reason
 from verto.engine.api import Engine
 from verto.engine.config import Config
 

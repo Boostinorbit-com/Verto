@@ -22,6 +22,8 @@ import os
 import threading
 from pathlib import Path
 
+from ..runtime.fs import unique_tmp
+
 
 class ApplyError(Exception):
     """A write could not be completed safely (stale file / IO) — triggers rollback."""
@@ -52,7 +54,7 @@ class ApplyTransaction:
                 p.with_suffix(p.suffix + ".bak").write_bytes(cur)
             except OSError:
                 pass
-        tmp = f"{p}.{os.getpid()}.{threading.get_ident()}.verto-tmp"
+        tmp = unique_tmp(p, "verto-tmp")
         try:
             Path(tmp).write_text(new_text, encoding="utf-8")
             os.replace(tmp, p)                     # atomic

@@ -77,6 +77,12 @@ CASES: list[Case] = [
     Case("A2-string-reserve", "A structural", "pipeline", "accept",
          "std::string built by += reallocates ~log2(n)×; reserve() removes it — the compiler can't pre-size it",
          file=f"{EX}/string_build.cpp"),
+    Case("A3-byval-constref", "A structural", "pipeline", "accept",
+         "a heavy param passed by value copies on every call; const& removes it — the compiler can't change the signature",
+         file=f"{EX}/byval_sum.cpp", expect_symbol="sum_all"),
+    Case("A4-umap-reserve", "A structural", "pipeline", "accept",
+         "unordered_map grown in a loop rehashes ~log2(n)×; reserve(n) removes it — the compiler can't pre-size buckets",
+         file=f"{EX}/umap_build.cpp", expect_symbol="build_index"),
 
     # ---- Category C: safety (the crown jewel) ----
     Case("C1-oob-read", "C safety", "gate", "reject",

@@ -42,9 +42,9 @@ def resolve(file: str, config: Config) -> AdapterSet:
 
     # --- model ---
     if config.model in ("rules", "offline"):
-        from ..adapters.model.rules import RuleProposer as ProposerCls
+        from ..adapters.proposer.rules import RuleProposer as ProposerCls
     else:
-        from ..adapters.model.frontier import FrontierProposer as ProposerCls
+        from ..adapters.proposer.frontier import FrontierProposer as ProposerCls
 
     from ..adapters.domain.performance.reuse import TestReuseOracle
     gate = InvariantGate(PerfCorrectnessOracle(config), PerformanceOracleImpl(config), config,
