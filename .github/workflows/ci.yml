@@ -58,6 +58,38 @@ jobs:
       - name: Toolchain report (diagnostic, non-blocking)
         run: verto verify-setup || true
 
+      # DIAGNOSTIC (non-blocking): the two perf tests that fail only on the runner — dump the
+      # ACTUAL verdict (reason / measured delta / build_ok / baseline p50) so we stop guessing
+      # why. p50==0 ⇒ the benchmark never ran (build/run failure); delta<2% ⇒ genuinely not
+      # faster on THIS toolchain (clang version / -march=native); no candidate ⇒ detection.
+      - name: Diagnose the perf-gated failures
+        continue-on-error: true
+        run: |
+          clang++ --version | head -1
+          python - <<'PY'
+          from verto.engine.api import Engine
+          from verto.engine.config import Config
+          try:
+              import clang.cindex as cc; print("libclang:", cc.Config().get_filename())
+          except Exception as e:
+              print("libclang:", e)
+          for ex, tf in [("examples/packet_stats.cpp", "reserve_before_pushback"),
+                         ("examples/map_lookup.cpp", "fuse_map_lookup")]:
+              c = Config(); c.model = "rules"; c.transforms = (tf,)
+              vs = Engine(c).optimize(ex, apply=False)
+              print(f"\n{ex}  (transform={tf}):")
+              if not vs:
+                  print("  NO VERDICT — no candidate detected"); continue
+              for v in vs:
+                  perf = v.performance.vector if v.performance else {}
+                  w = v.correctness.witness if v.correctness else None
+                  print(f"  name={v.candidate.transform.name if v.candidate else '?'} "
+                        f"accepted={v.accepted} reason={v.reason!r} "
+                        f"delta={perf.get('p50_delta_pct')} p50={perf.get('p50')} "
+                        f"build_ok={getattr(w,'build_ok',None)} san={getattr(w,'sanitizer',None)} "
+                        f"diverge={getattr(w,'first_divergence',None)}")
+          PY
+
       # Live-LLM tests are opt-in (VERTO_LIVE_LLM unset) → no Ollama needed, and no CPU
       # contention from a loaded model. --reruns absorbs transient benchmark noise on the
       # shared runner: a real regression fails all 3 attempts; noise clears on a retry.
