@@ -18,8 +18,11 @@ from .orchestrator import Orchestrator
 
 class Engine:
     def __init__(self, config: Config | None = None) -> None:
+        from . import workspace
         self.config = config or Config()
-        self.ledger = JsonlLedger()
+        # Ledger lives in the `.verto/` workspace when one exists (post `verto init`),
+        # else the legacy repo-root `ledger.jsonl` — so nothing breaks without init.
+        self.ledger = JsonlLedger(workspace.ledger_path())
 
     def analyze(self, file: str, *, build: dict | None = None) -> list[Verdict]:
         """Non-destructive: run the loop, write nothing, don't pollute the Ledger."""
@@ -32,7 +35,8 @@ class Engine:
 
     def optimize_codebase(self, cc_path: str, *, apply: bool = False,
                           backup: bool = False, force: bool = False,
-                          changed: str | None = None, jobs: int = 1
+                          changed: str | None = None, jobs: int = 1,
+                          on_done=None
                           ) -> list[tuple[str, list[Verdict], str | None, list]]:
         """Codebase mode: iterate every C++ translation unit in a
         compile_commands.json, in ONE process (startup + libclang amortized),
@@ -74,13 +78,25 @@ class Engine:
             except Exception as e:                       # one bad TU must not sink the batch
                 return (tu.file, [], f"{type(e).__name__}: {e}", [])
 
+        total = len(tus)
+
+        def _tick(i, r):
+            # live per-TU feedback (item #4 UX): fire the callback as each TU completes,
+            # so a 43-TU run reports one line at a time instead of going silent for minutes.
+            if on_done:
+                on_done(i, total, *r)
+            return r
+
         try:
-            if jobs and jobs > 1 and len(tus) > 1:       # item #8b: parallel TU processing
+            results = []
+            if jobs and jobs > 1 and total > 1:          # item #8b: parallel TU processing
                 from concurrent.futures import ThreadPoolExecutor
                 with ThreadPoolExecutor(max_workers=jobs) as ex:
-                    results = list(ex.map(_do, tus))     # ex.map preserves input order
+                    for i, r in enumerate(ex.map(_do, tus), 1):   # yields in input order
+                        results.append(_tick(i, r))
             else:
-                results = [_do(tu) for tu in tus]
+                for i, tu in enumerate(tus, 1):
+                    results.append(_tick(i, _do(tu)))
         except BaseException:
             if txn is not None:
                 txn.rollback()                           # never leave a half-edited codebase
@@ -106,7 +122,7 @@ class Engine:
         ledger = self.ledger if persist else JsonlLedger(os.devnull)
         txn = ApplyTransaction(backup=backup) if apply else None    # item #9
         try:
-            verdicts = Orchestrator(adapters, ledger).run(
+            verdicts = Orchestrator(adapters, ledger, config=self.config).run(
                 target, apply=apply, backup=backup, force=force, txn=txn)
         except BaseException:
             if txn is not None:

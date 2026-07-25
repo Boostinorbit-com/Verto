@@ -34,7 +34,7 @@ def profile_functions(source: str, funcs: list[str], *, n: int = 200_000) -> dic
                               flags=["-std=c++20", "-O2"], workdir=wd)
         if not art.build_ok:
             return {}
-        res = sandbox.run([art.binary_path], timeout_sec=60)
+        res = sandbox.run([art.binary_path], timeout_sec=60, isolate=True)
     times: dict[str, float] = {}
     for line in res.stdout.splitlines():
         parts = line.split()

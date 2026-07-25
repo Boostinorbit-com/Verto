@@ -14,8 +14,9 @@ from ..language.cpp.transforms import ALL
 
 
 class RuleProposer:
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, budget: object | None = None) -> None:
         self._config = config
+        self._budget = budget            # rules are free — the cost cap (#12) is a no-op here
 
     def _enabled(self, name: str) -> bool:
         globs = getattr(self._config, "transforms", ("*",)) or ("*",)

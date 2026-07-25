@@ -12,6 +12,8 @@ dependencies = [
     # for AST detection (a regex fallback exists, but AST is the intended path).
     # The PyPI package bundles a native libclang, so a fresh venv is self-contained.
     "libclang>=16",
+    # .verto.toml parsing: tomllib is stdlib on 3.11+; tomli backports it for older devs.
+    "tomli>=1.1; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]

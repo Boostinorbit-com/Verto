@@ -46,6 +46,8 @@ def _build_config(args):
         cfg.bench_dir = args.bench_dir
     if getattr(args, "bench_runs", None) is not None:
         cfg.bench_runs = args.bench_runs
+    if getattr(args, "build_command", None):
+        cfg.build_command = args.build_command      # 2A: manual build step (else set by --ctest-dir)
     if getattr(args, "ctest_dir", None):        # 2A-1: auto-discover test/bench from ctest
         from ...adapters.language.cpp.cmake_ctest import discover_ctest
         cfg.ctest_dir = args.ctest_dir
@@ -61,6 +63,33 @@ def _build_config(args):
             cfg.build_command = d.build_command
     if getattr(args, "metamorphic", False):
         cfg.metamorphic = True                  # 2D: metamorphic property rung (Rung 2)
+    if getattr(args, "no_sandbox", False):
+        cfg.sandbox = False                     # #13: escape hatch — disable isolation
+    if getattr(args, "sandbox_mem", None) is not None:
+        cfg.sandbox_mem_mb = args.sandbox_mem
+    if getattr(args, "budget", None):
+        cfg.budget = args.budget                # #12: per-run LLM spend cap
+    if getattr(args, "budget_per_hotspot", None):
+        cfg.budget_per_hotspot = args.budget_per_hotspot
+    if getattr(args, "llm_model", None):
+        cfg.llm_model = args.llm_model          # #10: pick the LLM (e.g. qwen3:0.6b)
+    if getattr(args, "llm_base_url", None):
+        cfg.llm_base_url = args.llm_base_url
+    if getattr(args, "candidates", None) is not None:
+        cfg.candidates = args.candidates        # #11: N LLM rewrites per hotspot
+    if cfg.model == "frontier" and not cfg.llm_api_key:
+        # #10: secrets come from the ENVIRONMENT, never a flag (argv leaks into
+        # `ps`/shell history). VERTO_LLM_API_KEY wins; OPENAI_API_KEY is the
+        # de-facto standard. Self-hosted OpenAI-compatible hosts may need none.
+        import os
+        cfg.llm_api_key = (os.environ.get("VERTO_LLM_API_KEY")
+                           or os.environ.get("OPENAI_API_KEY"))
+        if not cfg.llm_api_key:
+            import sys
+            print("verto: --model frontier selected but no API key found. Set "
+                  "OPENAI_API_KEY (or VERTO_LLM_API_KEY), or use a keyless "
+                  "self-hosted --llm-url. Falling back to keyless request.",
+                  file=sys.stderr)
     # selection & tuning knobs (config file covers the rest)
     if getattr(args, "transforms", None):
         cfg.transforms = tuple(g.strip() for g in args.transforms.split(",") if g.strip())

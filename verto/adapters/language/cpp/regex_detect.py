@@ -250,3 +250,13 @@ def detect_fuse(source: str):
 
 def detect_fuse_in(source: str, func: str | None):
     return _ast_only("fuse_in_ast", source, func, default=None) if func else None
+
+
+def detect_func_span(source: str, func: str):
+    """(start,end) of `func`'s definition — for the LLM verbatim rewrite (#10). AST-only."""
+    return _ast_only("func_span", source, func, default=None)
+
+
+def detect_all_functions(source: str) -> list:
+    """Every in-file function name — the LLM proposer's candidate pool (#10). AST-only."""
+    return _ast_only("all_functions", source, default=[])

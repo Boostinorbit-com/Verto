@@ -154,26 +154,106 @@ For functions with neither a synth-harness nor a covering test, add **metamorphi
 
   *Acceptance:* a function that's currently an honest skip gets a **conditional** verdict under a stated property, flagged in the verdict as weaker than Rung 1/3; opt-in. — `correctness.py` (Rung 2), new `metamorphic.py`, `config.py`
 
-→ **After Phase 2: VERTO produces verified, faster-and-correct patches on real third-party repos — using the project's own tests as oracle and a coverage set that matches real code. This is the milestone that makes VERTO *useful* — and the real prerequisite for the LLM.**
+> **Real-world validation & harness reach — measure-first, 2026-07-25.** Before committing to Phase 3, we ran the complete Phase-2 VERTO on **cloned real repos** — and it re-ranked the near-term work with evidence:
+>
+> - **jsoncpp** (a mature, well-tested library): parses cleanly (7 TUs, 0 parse errors) and finds **0 wins — *correctly*.** Every `reserve()` VERTO would propose is *already hand-written*; the rest are member containers it refuses to touch. **Soundness holds on real code (0 false positives)**, but the syntactic transforms are **exhausted on mature libraries** — which is itself *evidence for* the LLM (Phase 3): what's left on good code is the non-obvious/algorithmic wins only a smarter proposer finds.
+> - **TheAlgorithms/C++** (un-optimized student code): candidates everywhere — and running it surfaced **two real harness *reach* bugs**, both now fixed:
+>     - **✅ `main()` collision** — every real `.cpp` ships its own `int main()`, which collided with the harness driver. `harness/template.py — _neutralize_main` renames it (`int main(` → `int _verto_user_main(`). **Unblocks essentially every real single-file program** (a no-op on the header-style example files).
+>     - **✅ namespace resolution** — a function inside `namespace ns { … }` didn't resolve from the driver's unqualified call. `analysis/types.py — qualified_name` walks the AST `semantic_parent` chain to emit `ns::fn`; `template.py` uses it in the call. No-op for global functions.
+> - **Verified wins on real third-party code** (sanitizer-clean, Rung 3): `text_search.cpp — lower` −17.5%, `base64_encoding.cpp — base64_encode` −22…55%, `vigenere_cipher.cpp — encrypt` −16% (all `reserve_string`). The `pass_by_const_ref`-on-DP-function attempts **REJECT** — the gate correctly declining non-wins.
+>
+> **Harness-reach gaps — one fixed since, two open:**
+> - **✅ range-based `for (x : container)` loops now detected** (2026-07-25) — the reserve detectors only saw counted `for(i=0;i<n;i++)` loops and *entirely missed* range-loops (a `CXX_FOR_RANGE_STMT` they didn't even collect). Now all three growth detectors collect both, and the bound is `container.size()` (only for a plain-name range — a call/subscript range is skipped to avoid double-evaluation; reserve is a capacity hint so any bound is behavior-preserving, and the gate verifies faster). **Unlocked 9+ new sites in a sample of TheAlgorithms + wins like `xor_cipher — encrypt` −37%, `range_reserve — map_doubled` −74%.** — `analysis/detect.py` (`_range_bound`/`_loop_bound`/`_loops`), `tests/test_range_reserve.py`.
+> - ⏳ **`while` / manual-iterator loops** — still missed (harder: no obvious `container.size()` bound to derive);
+> - ⏳ **nested-container param synthesis** (`vector<vector<int>>`) — currently unharnessable;
+> - ⏳ **rewrite robustness** — the reserve rewrite occasionally emits invalid code on complex functions (e.g. `median_of_medians`'s variant build-failed).
 
-### Phase 3 — The AI / LLM  *(needs Phase 2 first)*
+→ **After Phase 2: VERTO produces verified, faster-and-correct patches on real third-party repos — proven on cloned code (jsoncpp: sound, 0 false positives; TheAlgorithms: real verified wins). This is the milestone that makes VERTO *useful* — and the real prerequisite for the LLM.**
 
-**Recommended order:** **#13** (sandbox hardening — a hard edge: it must land before any generated code runs) → **#10** (LLM proposer) → **#11** (multi-candidate) → **#12** (cost cap).
+### Phase 3 — The AI / LLM  *(needs Phase 2 first)*  ✅ **DONE (v0) — 2026-07-25. All four items shipped: #13 sandbox, #12 cost cap, #10 LLM proposer, #11 multi-candidate. The "AI optimizer" runs end to end on a local Qwen. 105 tests, wedge 14/14.**
 
-Now that the gate can verify *and reach* real functions, add a proposer that suggests far more than the hand-coded rules:
+**Thesis: the gate makes the LLM safe.** An LLM proposer is normally *dangerous* (hallucinated "optimizations"); here it's safe because the trusted gate rejects any wrong-or-slower change **for free** — so the model becomes a pure **idea generator** whose mistakes are no-ops. `frontier.py` already declares itself UNTRUSTED, and the proposer port is swappable (`--offline` rules vs frontier), so #10 is "fill the stub," not a rebuild. *This is the moment VERTO's whole architecture pays off.*
 
-10. **The LLM proposer** — implement `frontier.py` (a stub today): send the model the source + a compact summary of the code, and parse its reply into a change. *Proposes arbitrary optimizations, not just the hand-coded ones.* — `frontier.py`
-11. **Try several, keep the best verified** — ask the model for N proposals per hotspot, run each through the gate, keep the winner. *The model is hit-or-miss; the gate is the filter.* — `orchestrator.py`, `config.py`
-12. **Cost cap** — a `--budget` limit per hotspot. *LLM calls cost money.* — `config.py`, `cli.py`
-13. **⚠ Harden the sandbox — REQUIRED here** — you are now running **code the LLM wrote**. Today the sandbox is only a CPU limit (`sandbox.py`). Add **filesystem + network isolation and a memory cap**. *Untrusted generated code must not touch your machine or network.* — `sandbox.py`
+**Recommended order (revised):** **#13** (sandbox — a hard edge, must land before any generated code runs) → **#12** (cost cap — moved **early**: real API spend needs a hard ceiling from the *first* live call) → **#10** (LLM proposer) → **#11** (multi-candidate).
+
+10. **The LLM proposer** ✅ **done (v0) — 2026-07-25. The "AI optimizer," end to end, running locally.** `frontier.py` is filled: it sends the hot function's **source** (not an AST dump) to a model, gets a whole **rewritten function**, and wraps it as a `VerbatimRewrite` the gate verifies exactly like a hand-coded transform. **`--model local` → a local Ollama** (free, private — *source never leaves the box*, resolving the §7 frontier-API blocker); `--model frontier` → an OpenAI-compatible host. The sensor now offers **any** function as a candidate in LLM mode (not just rule-matched sites). Every call is bounded by the #12 budget (`can_spend`/`charge`). **PROVEN end to end:** on `examples/llm_demo.cpp`, a local **qwen3:1.7b** (a 2B CPU model) rewrote a `push_back` loop → `vector(n)` + indexing — a win the 7 transforms *don't have* — and the gate **ACCEPTED it: Rung 3 (clean), −85.5%, in ~10s.** A cosmetic-only rewrite was correctly **REJECTED** (not faster). Untrusted-by-design: a wrong/slower reply just fails the gate. `tests/test_llm_proposer.py` (mechanism + a live-Qwen smoke test that skips without Ollama). — `runtime/llm.py`, `frontier.py`, `transforms/verbatim.py`, `analysis/detect.py` (`func_span`/`all_functions`), `sensor.py`, `config.py`, `cli/`
+    - **Output-shape decision (OPEN):**
+        - **(a) free-form rewrite** — the model returns a whole rewritten function, wrapped in a trivial "verbatim" Transform whose `rewrite()` splices it in; the gate verifies it exactly like any `Variant`. → **recommended** (minimal change, unlocks arbitrary wins).
+        - **(b) transform-selector** — the model picks + parameterizes one of the existing transforms. Safer/cheaper, but can't exceed the catalog.
+    - **Local-model + redaction from day one:** sending proprietary source to a frontier API is a hard blocker for many users (§7). Make `frontier.py` one backend and a **local model** (`ollama`/`llama.cpp`) a drop-in via `--model local`. Cheap now, expensive to retrofit.
+    - **Never spend the API key silently** — gate live calls behind an explicit opt-in.
+11. **Try several, keep the best verified** ✅ **done (v0) — 2026-07-25.** `--candidates N` draws N rewrites per hotspot (a higher temperature makes them **diverse**; identical variants are deduped), gates each, and **keeps the accepted one with the largest speedup** — so the model can be hit-or-miss and the gate still yields the best hit. Bounded by the #12 per-hotspot budget (`start_hotspot` once, `can_spend` per draw). Rule proposers are deterministic → always 1 draw (no cost). **Proven:** `--model local --candidates 3` on `llm_demo.cpp` → ACCEPT −86%; `tests/test_multicandidate.py` (best-of-N picks the largest Δ, dedups identical, rules stay at N=1). — `orchestrator.py` (`_best_of_n`/`_n_candidates`), `config.py`, `frontier.py`, `cli/`
+12. **Cost cap** ◑ **done (v0) — 2026-07-25.** The **budget meter is built and wired** (ahead of the LLM, so #10's first live call is born capped). **Two ceilings** — per-run `--budget` + per-hotspot `--budget-per-hotspot` — each a spec in **tokens** (`500k`/`1M`), **money** (`$2`), or **time** (`90s`/`2min`); prices in config. **The budget is to cost what the gate is to correctness:** a trusted, thread-safe meter (`runtime/budget.py — Budget`) the untrusted proposer consults (`can_spend()`) and charges (`charge(in,out)`). Injected into the proposer + `AdapterSet` via the registry; the `frontier.py` stub already gates its (future) call on it. Inert offline (rules are free). `tests/test_budget.py` (parse units, run cap, per-hotspot reset, money+pricing). *⏳ remaining, lands with #10: the actual `charge()` after each real API call + a per-run spend line in the summary.* — `runtime/budget.py`, `config.py`, `registry.py`, `frontier.py`, `cli/`
+13. **⚠ Harden the sandbox — REQUIRED here** ✅ **done (v0) — first Phase-3 task, landed 2026-07-25.**
+    - ✅ **network + filesystem:** every untrusted-binary run funnels through `sandbox.run` — correctness check, sanitizers, benchmark, profiler, **and the metamorphic (2D) driver** — now wrapped in **bubblewrap** with **no network** (`--unshare-all`) + a **read-only host filesystem** (only the binary's dir + a writable scratch `cwd` bound).
+    - ✅ **memory cap (ASan-safe):** isolated runs get a **hard cgroup memory cap** via `systemd-run --user --scope -p MemoryMax` (default 2 GB). It's **RSS-based, so ASan-safe** — unlike `RLIMIT_AS`, which blocks ASan's huge shadow mmap (and proved unreliable at stopping a bomb anyway). A memory-bomb variant is **OOM-killed inside its cgroup**, sparing the host.
+    - ✅ **verify-or-degrade** — without `bwrap`, isolation → rlimits-only; without a `systemd --user` session, the memory cap is skipped. Both surfaced by `verto verify-setup` (`sandbox isolation`, `sandbox memory cap` rows). CPU limit + wall-timeout always on.
+    - ✅ **proven:** `tests/test_sandbox_isolation.py` — a variant's `connect()` is **blocked**, a host write **denied**, a ~12 GB **memory bomb OOM-killed** at the cap, benign compute runs; full suite green (**90 tests**) *under* isolation, no delta distortion (the bench times internally).
+    - *v0 boundary: the memory cap needs a working `systemd --user` session (present on dev/desktop; a headless-CI path would want a direct cgroup-v2 write). — `runtime/sandbox.py` (`_isolate_prefix`/`_memcap_prefix`/`isolate=`), `correctness.py`, `sanitizers.py`, `bench_runner.py`, `profiler.py`, `metamorphic.py`, `cli/`*
+
+> **Prove it — a "wedge for the LLM" (like Phase 1/2 had).** Phase 3's falsifiable claim is **both**:
+>
+> - **(a)** the LLM finds a real win the 7 transforms **miss** and the gate verifies it, **and**
+> - **(b)** the gate **rejects** the LLM's deliberately-broken proposals.
+>
+> Without (b) you can't tell "the model is good" from "the gate is quietly catching its garbage." Build this before trusting any accepted LLM change.
+
+> **Strategic fork (§6 — OPEN decision).**
+>
+> - **Path A** — ship the no-LLM product first: VERTO already produces verified wins, so do a slice of **Phase 4** (CI action + packaging) to get users, *then* the LLM. Lower risk, value now.
+> - **Path B** — the LLM now (this phase): the marquee differentiator and the actual "AI optimizer" thesis, but the hardest/longest path.
+>
+> *Recommendation: the LLM is the differentiator but **not** the bottleneck to value — lean Path A (a Phase-4 slice) first, unless the goal is specifically the research thesis.*
 
 → **After Phase 3: VERTO proposes optimizations beyond the hand-coded set — the actual "AI optimizer."**
 
+### Milestone — `verto init`: the local performance workspace  *("git for performance")*  ✅ **done (v0) — 2026-07-25**
+
+> **Shipped (v0):** `verto init` creates the `.verto/` workspace (`ledger.jsonl`, `baselines/`, `cache/`, a `model` pointer — **weights never copied in**, they stay in Ollama's global store), auto-adds `.verto/` to `.gitignore`, and writes a committed starter `.verto.toml` (local-first: `model = "local"`). Idempotent — re-running never clobbers the ledger or pointer. It **detects** the local model (Ollama probe) and reports readiness without blocking on a multi-GB download (`--pull` opts in). The **Engine now reads its ledger from `.verto/ledger.jsonl`** when a workspace exists (legacy root `ledger.jsonl` otherwise — nothing breaks pre-init). `engine/workspace.py`, `runtime/llm.py` (`ollama_status`), `cli/` (`init`), `_help.py`; `tests/test_init_workspace.py` (9). **Design fork resolved for v0:** `.verto/` is **local + git-ignored**; the committable-baselines slice ships later *with* prevent-mode (baselines/ is scaffolded now, populated then).
+
+**The idea.** `git init` starts tracking your *source history*; `verto init` starts tracking your **verified performance state** — baselines, accepted optimizations, and the ledger of what's been tried and proven — in a `.verto/` folder that lives in the repo exactly like `.git/`. This turns VERTO from *a command you remember to run* into *a layer that lives in your project*: local, private, inspectable — a product identity a cloud optimizer (Codeflash et al.) structurally **can't** have, because their model runs in the cloud and your code is uploaded to it.
+
+**Global vs per-project — the load-bearing distinction.** A local model is **gigabytes**, so it must **not** live per-repo:
+
+- **Global** (**not** `~/.verto/`): the model **weights** live once in **Ollama's own store** (`~/.ollama`), shared by every project — `verto init` *ensures availability*, never copies them in. Machine-wide **user defaults** live at **`~/.config/verto/config.toml`** (XDG) — ✅ **built (v0):** `Config.load` layers it *under* the project `.verto.toml` (precedence: project > global > code defaults, the git model); `verto init --global` scaffolds it. XDG-idiomatic and collision-free with the per-project `.verto/` that discovery walks up to find. *(A cross-project shared ledger / transform-library "flywheel" — roadmap Later #23 — is the future global-data tier; deferred.)*
+- **Per-project** (`.verto/`, like `.git/`): the ledger, baselines, cache, and a small **pointer** to *which* global model to use. `.verto/` **references** the model; it never contains it.
+
+**`verto init` — idempotent (re-running is safe, like `git init`):**
+
+1. Create `.verto/` → `ledger.jsonl`, `cache/`, `baselines/`, a local `config` (or a pointer to the committed root `.verto.toml`).
+2. **Prepare the model** — detect Ollama → `ollama pull <default>` once (global); if absent, print the one-liner, or fall back to the `--model frontier` / env path.
+3. Auto-add `.verto/` to `.gitignore`.
+4. Optionally **warm the daemon** (`verto serve`) so the *first* `verto optimize` is instant — zero cold start.
+5. Print: *"ready → try `verto optimize <file>`."*
+
+**`.verto/` layout (proposed):**
+
+```
+.verto/
+  config          # local overrides (or a pointer to the root .verto.toml)
+  ledger.jsonl    # every accept/reject: transform, rung, measured Δ
+  baselines/      # per-function perf baselines — the regression floor
+  cache/          # VerifyCtx build cache + ccache dir
+  model           # pointer to the GLOBAL model (name + host); not the weights
+```
+
+**What it unlocks (why it's more than a convenience):**
+
+- **`verto log` / `verto report` over the ledger** — your optimization history, like `git log`: every verified win, its measured Δ, its rung.
+- **Regression prevention (the substrate for prevent-mode).** Baselines in `.verto/baselines/` let VERTO catch *"this PR made `parse()` 20 % slower"* — this is the storage layer that makes the planned **`--mode prevent`** (Surfaces / CI) real.
+- **Warm, private, always-ready** — the local model + daemon is there the moment you need it, and nothing leaves the box.
+
+> **Design fork (RESOLVED for v0):** `.verto/` is **purely local & git-ignored** (like `.git/`) — cache and ledger are machine-specific. The **committable slice is deferred**: when prevent-mode lands, a team can share the **regression floor** via one opt-in tracked `verto-baselines.toml` (or an un-ignored `.verto/baselines.toml`) — without committing the whole workspace. Local by default; shared exactly where it matters, later.
+
+**Honest cautions.** Don't block `init` on loading GBs into RAM — *ensure availability* + optionally warm; warm lazily (first optimize) or via the opt-in daemon. And `.verto/` is local state → git-ignore it (mirror `.git/` / `.terraform/`); the *committed* team config stays as the root `.verto.toml`.
+
+**Scope & placement.** Mostly **additive** — it consolidates the ledger / config / cache VERTO already has and adds one `init` command + global-model management. A natural **v0.5 polish**, not a rebuild, and the right **first-run experience** for Phase-4 packaging to build on (so it slots just before it). — `surfaces/cli/` (`init`), `runtime/` (workspace + model mgmt), `engine/config.py`, ledger.
+
 ### Phase 4 — Product hardening  *(to ship it, free)*
 
-**Recommended order:** **#15** (tests + CI — protects everything after it) → **#14** (more transforms, ongoing) → **#16** (packaging) → **#17** (launch).
+**Recommended order:** **#15** (tests + CI — protects everything after it) → **#16** (packaging) → **#17** (launch). *(#14 deferred — see below.)*
 
-14. **More transforms** — 5 → ~10–12 hand-coded ones (the Phase-2 2B set — `list→vector`, lookup fusion — continues here). *Runs in parallel with Phase 3.*
+14. **More transforms** ⏸ **deferred to post-launch (re-scoped) — 2026-07-25.** The "5 → 10–12" *count* was a **pre-LLM** goal; the LLM now covers the long tail, so hand-coding transform #9 is low-ROI vs LLM quality + gate reach. **The existing ~7 rules stay** — they're the reliable, deterministic, **offline floor of the free tier** (they fire correctly every run, where a weak local LLM is hit-or-miss). Post-launch, add a rule *only* when it's a **common** pattern worth a free fast-path or one the **LLM handles poorly** — and the higher-value form is a **tiered proposer** (cheap rules first, LLM on what's left), not a bigger library.
 15. **Tests + CI** — a real test suite + GitHub Actions so a change can't silently break the tool.
 16. **Packaging** — installs cleanly on a fresh machine; clear errors when a tool (clang, sanitizers) is missing.
 17. **README + demo + public launch.**
@@ -186,6 +266,15 @@ Now that the gate can verify *and reach* real functions, add a proposer that sug
 19. **Hosted / cloud** — no local setup for the user; needs a build farm + a shared cache of verified results.
 20. **Billing, accounts, dashboard** — open-core: the tool is free, the paid tier is CI + cloud + the AI proposer.
 21. **Legal + security review** — handling customers' private code (data policy, on-prem option).
+
+> **Model tiering (open-core — decided 2026-07-25).** Capability scales with the model; the **gate keeps every tier safe** (a better model raises the *hit rate*, never affects *correctness* — it re-verifies whatever any model proposes).
+>
+> - **Free:** deterministic **rules + a local CPU LLM** (Ollama) — 100 % on-box, private, free. The rules are the reliable floor; the local LLM is best-effort extra.
+> - **Premium (companies): rules + a strong GPU LLM**, offered as **both** deployment options —
+>   - **self-hosted** — their GPU, `--llm-url` → vLLM / TGI / Ollama-on-GPU; **code never leaves the company.** *Ship this first:* ~90 % done (the `--llm-url` plumbing exists), no infra for us, preserves the privacy moat. And
+>   - **VERTO-hosted managed** (#19) — our GPU service; **later**, once demand proves out — it carries the infra / uptime / security / legal lift and processes code off-box.
+>
+> Messaging: *"run it on your infra or ours — either way the gate verifies every change."* **Caution:** the model alone is thin premium value (a company can point `--llm-url` at their own GPU for free). The **moat is the team layer** — the cross-project verified-optimization **flywheel** (shared ledger, Later #23), the **CI action** (#18), dashboard / governance, support. The GPU model is the hook; the verification + team infrastructure is what companies pay for.
 
 ### Later
 22. **Formal verification (Alive2)** — the strongest correctness rung.

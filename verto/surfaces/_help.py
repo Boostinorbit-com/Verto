@@ -53,12 +53,14 @@ USAGE_OPTIMIZE = ("verto optimize <path> [options]\n"
 USAGE_ANALYZE = ("verto analyze <path> [options]\n"
                  "verto analyze -p <db> --all [options]")
 USAGE_SERVE = "verto serve [--stop]"
+USAGE_INIT = "verto init [--model NAME] [--pull]"
 
 # --- one-line command summaries (command list + per-command help + the docs) — keep PLAIN ---
 OPTIMIZE_DESC = "Find, verify, and apply performance improvements."
 ANALYZE_DESC = "Inspect optimization opportunities without changing anything."
 REPORT_DESC = "Review what's been accepted, rejected, and the gains so far."
 SERVE_DESC = "Run a warm background daemon so repeated runs are fast."
+INIT_DESC = "Set up the .verto/ performance workspace (like git init) and prepare the local model."
 
 # --- top-level footer: the generated COMMON OPTIONS cheat-sheet (inserted by
 #     cli._parser(), built from the parser so it can't drift) followed by TAIL. ---

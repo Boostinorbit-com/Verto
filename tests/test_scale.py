@@ -68,3 +68,16 @@ if __name__ == "__main__":
             fn()
             print(f"  PASS {name}")
     print("all scale tests passed")
+
+
+def test_on_done_fires_once_per_tu_in_order():
+    """Live-progress hook: on_done fires once per TU, index 1..N, total constant — so codebase
+    mode can report each file as it finishes instead of going silent."""
+    db = str(LINKED / "compile_commands.json")
+    calls = []
+    Engine(_cfg()).optimize_codebase(
+        db, apply=False, on_done=lambda i, total, f, *_: calls.append((i, total, f)))
+    n = len(calls)
+    assert n > 0
+    assert [c[0] for c in calls] == list(range(1, n + 1))   # 1..N, in order
+    assert all(c[1] == n for c in calls)                    # total consistent

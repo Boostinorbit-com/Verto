@@ -22,6 +22,8 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 
+from ....runtime import sandbox
+
 _DRIVER = """
 #include <vector>
 #include <cstddef>
@@ -87,7 +89,7 @@ class MetamorphicOracle:
                                capture_output=True, text=True, timeout=60)
             if b.returncode != 0:
                 return None
-            r = subprocess.run([exe], capture_output=True, text=True, timeout=60)
+            r = sandbox.run([exe], timeout_sec=60, isolate=True)   # untrusted variant → isolate
         except Exception:
             return None
         if r.returncode != 0:

@@ -24,14 +24,82 @@ class AdapterSet:
     mutator: Mutator
     gate: InvariantGate
     inputs: object                       # held-out input generator (domain-supplied)
+    budget: object | None = None         # #12: LLM cost meter (offline: inert)
 
 
 class Orchestrator:
-    def __init__(self, adapters: AdapterSet, ledger: JsonlLedger, max_rounds: int = 8) -> None:
+    def __init__(self, adapters: AdapterSet, ledger: JsonlLedger, max_rounds: int = 8,
+                 config=None) -> None:
         self._a = adapters
         self._ledger = ledger
         self._max_rounds = max_rounds
+        self._config = config
         self.last_skips: list = []           # sites seen but not optimized (item #4)
+
+    def _n_candidates(self) -> int:
+        # #11: only the LLM benefits from N draws (rules are deterministic → 1).
+        if getattr(self._config, "model", "") in ("local", "frontier"):
+            return max(1, int(getattr(self._config, "candidates", 1) or 1))
+        return 1
+
+    def _best_of_n(self, ev, priors, current, n: int, tried_here: set):
+        """#11: draw up to `n` candidates for this hotspot, gate each, and return
+        ((best_verdict, best_variant) | None, all_attempt_verdicts). "Best" = the accepted
+        rewrite with the largest p50 speedup. Deterministic proposers (rules) stop after one
+        draw; identical variants are deduped so we never re-verify the same rewrite."""
+        if self._a.budget is not None:
+            self._a.budget.start_hotspot()    # #12: one per-hotspot budget across all n draws
+        best = None
+        best_delta = float("-inf")
+        attempts: list[Verdict] = []
+        seen: set[str] = set()
+        for _ in range(max(1, n)):
+            cand = self._a.proposer.propose(ev, priors)
+            if cand is None:
+                break
+            tname = getattr(cand.transform, "name", "?")
+            varies = (tname == "llm_rewrite")   # LLM draws differ; rule transforms repeat
+            if not varies:
+                if tname in tried_here:         # a rule transform already tried this run
+                    break
+                tried_here.add(tname)
+            if not _precondition_holds(cand, ev):
+                v = Verdict(False, cand, None, None, reason="precondition_failed")
+                self._ledger.record(Episode(ev, cand, v))
+                attempts.append(v)
+                if not varies:
+                    break
+                continue
+            try:
+                var = self._a.mutator.apply(current, cand.transform)
+            except ValueError:
+                # Untrusted proposer: a candidate that can't be applied — an LLM rewrite
+                # that changed nothing or couldn't be located, a transform whose
+                # precondition slipped — is a REJECTED proposal, never a crash. Record it
+                # and move on (LLM: try the next draw; rules: stop).
+                v = Verdict(False, cand, None, None, reason="mutation_failed")
+                self._ledger.record(Episode(ev, cand, v))
+                attempts.append(v)
+                if not varies:
+                    break
+                continue
+            if var.source_after in seen:        # identical rewrite → don't re-verify it
+                if not varies:
+                    break
+                continue
+            seen.add(var.source_after)
+            v = self._a.gate.decide(current, var, cand, self._a.inputs)
+            v.diff = var.patch
+            v.udiff = _unified_diff(current.file, ev.source, var.source_after)
+            self._ledger.record(Episode(ev, cand, v))
+            attempts.append(v)
+            if v.accepted:
+                delta = v.performance.vector.get("p50_delta_pct", 0.0) if v.performance else 0.0
+                if delta > best_delta:
+                    best_delta, best = delta, (v, var)
+            if not varies:                      # rules: one draw is enough
+                break
+        return best, attempts
 
     def run(self, target: Target, *, apply: bool,
             backup: bool = False, force: bool = False, txn=None) -> list[Verdict]:
@@ -40,6 +108,7 @@ class Orchestrator:
         current = target
         no_accept = 0
         tried_here: set[str] = set()          # in-run dedup — one transform per hotspot
+        n = self._n_candidates()
 
         for round_i in range(self._max_rounds):
             # 1. EVIDENCE (profile feeds reasoning)
@@ -48,33 +117,17 @@ class Orchestrator:
                 self.last_skips = list(getattr(ev, "skips", []))
             # 2. priors
             priors = self._ledger.recall(ev)
-            # 3. PROPOSAL (untrusted, one transform)
-            cand = self._a.proposer.propose(ev, priors)
-            if cand is None:
+            # 3-6. PROPOSAL + VERIFICATION — best-of-n (untrusted proposer, trusted gate)
+            best, attempts = self._best_of_n(ev, priors, current, n, tried_here)
+            if not attempts:                  # proposer offered nothing
                 break
-            tname = getattr(cand.transform, "name", "?")
-            if tname in tried_here:           # re-profiling surfaced the same thing → stop
-                break
-            tried_here.add(tname)
-
-            # 4. contract precondition (legality before the fact)
-            if not _precondition_holds(cand, ev):
-                v = Verdict(False, cand, None, None, reason="precondition_failed")
-                self._ledger.record(Episode(ev, cand, v))
-                verdicts.append(v)
-                break
-
-            # 5. mutate
-            var = self._a.mutator.apply(current, cand.transform)
-            # 6. VERIFICATION — the trusted gate
-            v = self._a.gate.decide(current, var, cand, self._a.inputs)
-            v.diff = var.patch                # concise pseudo-patch (preview)
-            v.udiff = _unified_diff(current.file, ev.source, var.source_after)  # real patch (2C)
-            # 7. LEARNING (accept OR reject)
-            self._ledger.record(Episode(ev, cand, v))
+            if best is not None:
+                v, var = best                 # the accepted winner (largest speedup)
+            else:
+                v, var = attempts[-1], None   # none accepted → report the last attempt
             verdicts.append(v)
 
-            if v.accepted:
+            if best is not None:
                 no_accept = 0
                 # write only a SOUND change (sanitizer-clean) unless --force overrides;
                 # this refuses to auto-apply a --fast (unverified-safe) result. A 2A

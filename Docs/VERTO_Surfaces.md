@@ -62,7 +62,14 @@ The reference surface. Every other surface mirrors its verbs and its JSON output
 ### Commands
 
 ```
-verto analyze  <path> [-p DB] [--all] [--min-rung N] [--offline] [--json]
+verto init     [--model NAME] [--pull] [--global]
+    Set up the .verto/ performance workspace (like `git init`): ledger, baselines,
+    cache, a pointer to the local model; auto-.gitignores it; writes a starter
+    .verto.toml (committed team config, local-first). Detects the local model
+    (Ollama) and reports readiness; --pull fetches it, --global also scaffolds
+    machine-wide defaults at ~/.config/verto/config.toml. Idempotent.
+
+verto analyze  <path> [-p DB] [--all] [--min-rung N] [--offline] [--diff] [--json]
     Non-destructive. Detect hotspots + candidate transforms and explain them.
     Writes nothing. The "what would you do?" command.
 
@@ -83,6 +90,20 @@ verto serve    [--stop]
 # build dir). Required to compile real multi-file C++. Generate via CMake:
 # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON. A self-contained single file needs no -p.
 ```
+
+### Workspace & configuration
+
+**`.verto/` — the per-project workspace** (`verto init`, "git for performance"). Lives in the repo like `.git/`: the `ledger.jsonl` (every accept/reject), `baselines/` (the regression floor), `cache/`, and a `model` pointer. **Local & git-ignored** — generated state, never committed. The model *weights* never live here; they stay once in Ollama's global store (`~/.ollama`).
+
+**Config layering** (the git model — project overrides user overrides defaults):
+
+| Source | Scope | Committed? |
+|---|---|---|
+| `.verto.toml` (repo root) | project / team config | ✅ yes — shared |
+| `~/.config/verto/config.toml` (XDG) | machine-wide user defaults (`verto init --global`) | per-machine |
+| code defaults | built-in | — |
+
+Precedence: **project `.verto.toml` > global `~/.config/verto/config.toml` > code defaults.** XDG (not `~/.verto/`) keeps the global config from ever colliding with the per-project `.verto/` that discovery walks up to find.
 
 ### Conventions
 
@@ -127,6 +148,7 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | `-p, --compile-commands PATH` | **`compile_commands.json` (or build dir) — required to compile real C++** | ✅ |
 | `--changed [REF]` | only git-changed TUs vs REF (codebase mode; the CI workhorse) | ✅ |
 | `--jobs, -j N` | codebase mode: verify N translation units in parallel | ✅ |
+| *(live progress)* | codebase mode prints one line per TU as it finishes (`[3/43] file.cpp ✓ 1 win`), to stderr | ✅ |
 | `--function NAME` | limit to one function (hotspot is auto-selected today) | v1 |
 | `--include` / `--exclude GLOB` | scope by path glob | v1 |
 | `--line-filter` | restrict to `file:line` ranges | later |
@@ -144,11 +166,31 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 
 | Flag | Meaning | Stage |
 |---|---|---|
-| `--model NAME` | LLM backend (frontier now, local later) | ✅ |
+| `--model NAME` | proposer: `local` (Ollama, #10) \| `frontier` (OpenAI-compatible) \| `rules` | ✅ |
+| `--llm-model NAME` | LLM name for `--model local\|frontier` (default `qwen3:1.7b`) | ✅ |
+| `--llm-url URL` | LLM host base URL (default local Ollama `:11434`) | ✅ |
 | `--offline` | rules-only, no LLM (deterministic; good for CI) | ✅ |
-| `--candidates N` | try N proposals per hotspot; keep the best **verified** one | ⚙️ |
+| `--candidates N` | #11: try N LLM proposals per hotspot; gate each, keep the best **verified** one | ✅ |
 | `--transforms GLOB` / `--list-transforms` | select which transforms run / list them | ✅ |
-| `--budget TOKENS\|$\|TIME` | hard cost cap on exploration | v1 |
+| `--budget SPEC` | per-run LLM cost cap — tokens/`$`/time; **live** — charges real token usage during proposal (#10/#11) | ✅ |
+| `--budget-per-hotspot SPEC` | per-hotspot LLM cost sub-limit (shared across the N `--candidates` draws) | ✅ |
+
+> **Local-first — no key needed (the default & flagship).** `--model local` runs an on-box model
+> (Ollama); **source never leaves the machine** and there is no API key to manage. This is the
+> path VERTO is built around.
+>
+> **Advanced — a hosted model (optional escape hatch).** When you want a stronger model than a
+> local one, `--model frontier` calls any OpenAI-compatible host. The key comes from **one
+> environment variable** — `OPENAI_API_KEY` (or `VERTO_LLM_API_KEY`), **never a flag** (a key in
+> `argv` leaks into `ps`/shell history):
+> ```bash
+> export OPENAI_API_KEY=sk-...
+> verto optimize foo.cpp --model frontier \
+>        --llm-url https://api.openai.com --llm-model gpt-4o-mini --candidates 3
+> ```
+> Whatever the model returns is **re-verified by the gate**, so the model choice can never cause a
+> wrong accept — a weaker model just proposes fewer wins. (Self-hosted OpenAI-compatible hosts often
+> need no key at all.)
 
 **Correctness rigor** *(VERTO-specific — this is the differentiator)*
 
@@ -185,6 +227,7 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | `--bench-command CMD` | build+run a project bench, timed as the perf signal for functions the harness can't reach | ✅ |
 | `--bench-dir DIR` | cwd for `--bench-command` (default: the target file's directory) | ✅ |
 | `--bench-runs N` | median-of-N timings of the bench per side (default 5) | ✅ |
+| `--build-command CMD` | build step run once before timing, so the bench is timed run-only | ✅ |
 | `--ctest-dir DIR` | **2A-1**: a CMake build dir — auto-discover the test/bench commands from ctest | ✅ |
 
 **Apply / output**
@@ -196,7 +239,7 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | `--dry-run` | preview only — never write (the default) | ✅ |
 | `--backup` | save `<file>.bak` before overwriting | ✅ |
 | `--force` | apply even an unsound (`--fast`) result | ✅ |
-| `--diff` | print the unified diff of each change | ✅ |
+| `--diff` | print the unified diff of each change (single-file **and** codebase mode) | ✅ |
 | `--export FILE` | write accepted diffs to a file (review/CI) | ✅ |
 | `--apply-from FILE` | apply a diff set from `--export` (uses `patch`) | ✅ |
 | `--emit-patches DIR` | **2C**: write a ranked, `git apply`-able patch series + `REPORT.md` to DIR | ✅ |
@@ -219,7 +262,8 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | `--config-file .verto.toml` | reproducible config | ✅ |
 | `--no-daemon` | run in-process, ignore a warm `verto serve` daemon | ✅ |
 | `-V, --version` | print the VERTO version | ✅ |
-| `--sandbox` / `--no-sandbox` | isolate verification runs | ⚙️ |
+| `--no-sandbox` | run untrusted binaries WITHOUT bwrap/cgroup isolation (escape hatch; UNSAFE) | ✅ |
+| `--sandbox-mem MB` | cgroup memory cap for isolated runs (default 2048) | ✅ |
 | `--timeout SEC` | per-run time limit | ⚙️ |
 | `--config KEY=VAL` | inline config override | ✅ |
 | `--verify-setup` | check the toolchain is present (clang, sanitizers, ccache, linker) | ✅ |

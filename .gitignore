@@ -6,3 +6,10 @@ __pycache__/
 dist/
 .venv/
 ledger.jsonl
+
+# cloned real-world repos used for measure-first validation (not part of VERTO)
+examples/real_world/
+
+# VERTO local performance workspace (generated state)
+.verto/
+.verto.toml

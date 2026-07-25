@@ -42,6 +42,22 @@ def signature(source: str, func: str) -> tuple[list[str], str] | None:
     return None
 
 
+def qualified_name(source: str, func: str) -> str:
+    """Fully-qualified name of `func` (e.g. `ns1::ns2::func`) so the harness driver can
+    call a function defined inside a namespace. Falls back to the bare name for a
+    global-scope function or an anonymous namespace (which is callable unqualified in-TU)."""
+    for fn in _infile_funcs(source, _extra()):
+        if fn.spelling == func:
+            parts = [func]
+            p = fn.semantic_parent
+            while p is not None and p.kind == cc.CursorKind.NAMESPACE:
+                if p.spelling:                        # skip anonymous namespaces (no valid qualifier)
+                    parts.append(p.spelling)
+                p = p.semantic_parent
+            return "::".join(reversed(parts))
+    return func
+
+
 def aggregate_fields(source: str, typename: str, extra: tuple[str, ...] = ()):
     """Public data-member `(name, clean type)` list for a SIMPLE aggregate
     struct/class `typename`, or None if it isn't one the harness can synthesize:

@@ -71,8 +71,16 @@ Inspect optimization opportunities without changing anything.
 | `--bench-command CMD` | 2A: build+run a project bench, timed as the perf signal for functions the harness can't reach |
 | `--bench-dir DIR` | cwd for --bench-command (default: the target file's directory) |
 | `--bench-runs N` | 2A: median-of-N timings of the bench per side (default 5) |
+| `--build-command CMD` | 2A: build step run ONCE before timing, so the bench is timed run-only (e.g. 'make') |
 | `--ctest-dir DIR` | 2A-1: a CMake build dir — auto-discover the test/bench commands from ctest |
 | `--metamorphic` | 2D: also run the metamorphic property rung (Rung 2) — rejects a change that breaks permutation-invariance |
+| `--no-sandbox` | #13: run untrusted binaries WITHOUT bwrap/cgroup isolation (escape hatch; UNSAFE) |
+| `--sandbox-mem MB` | #13: cgroup memory cap (MB) for isolated runs (default 2048) |
+| `--budget SPEC` | #12: per-run LLM spend cap — tokens ('500k'), money ('$2'), or time ('90s') |
+| `--budget-per-hotspot SPEC` | #12: per-hotspot LLM spend sub-limit (same SPEC forms as --budget) |
+| `--llm-model NAME` | #10: LLM name for --model local\|frontier (default qwen3:1.7b) |
+| `--llm-url URL` | #10: LLM host base URL (default http://127.0.0.1:11434 — local Ollama) |
+| `--candidates N` | #11: ask the LLM for N rewrites per hotspot; gate each, keep the best (default 1) |
 
 ## `verto optimize`
 
@@ -143,8 +151,28 @@ Find, verify, and apply performance improvements.
 | `--bench-command CMD` | 2A: build+run a project bench, timed as the perf signal for functions the harness can't reach |
 | `--bench-dir DIR` | cwd for --bench-command (default: the target file's directory) |
 | `--bench-runs N` | 2A: median-of-N timings of the bench per side (default 5) |
+| `--build-command CMD` | 2A: build step run ONCE before timing, so the bench is timed run-only (e.g. 'make') |
 | `--ctest-dir DIR` | 2A-1: a CMake build dir — auto-discover the test/bench commands from ctest |
 | `--metamorphic` | 2D: also run the metamorphic property rung (Rung 2) — rejects a change that breaks permutation-invariance |
+| `--no-sandbox` | #13: run untrusted binaries WITHOUT bwrap/cgroup isolation (escape hatch; UNSAFE) |
+| `--sandbox-mem MB` | #13: cgroup memory cap (MB) for isolated runs (default 2048) |
+| `--budget SPEC` | #12: per-run LLM spend cap — tokens ('500k'), money ('$2'), or time ('90s') |
+| `--budget-per-hotspot SPEC` | #12: per-hotspot LLM spend sub-limit (same SPEC forms as --budget) |
+| `--llm-model NAME` | #10: LLM name for --model local\|frontier (default qwen3:1.7b) |
+| `--llm-url URL` | #10: LLM host base URL (default http://127.0.0.1:11434 — local Ollama) |
+| `--candidates N` | #11: ask the LLM for N rewrites per hotspot; gate each, keep the best (default 1) |
+
+## `verto init`
+
+Set up the .verto/ performance workspace (like git init) and prepare the local model.
+
+**optional arguments**
+
+| flag | description |
+|---|---|
+| `--model NAME` | local model to record as the project default (default: config llm_model) |
+| `--pull` | pull the model now via Ollama if missing (may download GBs) |
+| `--global` | also scaffold machine-wide defaults at ~/.config/verto/config.toml |
 
 ## `verto serve`
 

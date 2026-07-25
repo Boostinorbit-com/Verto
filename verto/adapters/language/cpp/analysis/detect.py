@@ -87,6 +87,38 @@ def _for_bound(for_stmt) -> str | None:
     return None
 
 
+def _range_bound(stmt) -> str | None:
+    """Reserve bound for a range-based `for (x : container)`: the iteration count is at
+    most `container.size()`. Only used when the range is a plain name / member access (no
+    call), so we never double-evaluate a side-effecting expression."""
+    toks = [t.spelling for t in stmt.get_tokens()]
+    if ":" not in toks:
+        return None
+    depth, rng = 0, []
+    for t in toks[toks.index(":") + 1:]:             # the range expr, up to the header ')'
+        if t == "(":
+            depth += 1
+        elif t == ")":
+            if depth == 0:
+                break
+            depth -= 1
+        rng.append(t)
+    if not rng or "(" in rng or "[" in rng:          # a call/subscript range → skip (avoid re-eval)
+        return None
+    return "".join(rng).strip() + ".size()"
+
+
+def _loop_bound(stmt) -> str | None:
+    if stmt.kind == cc.CursorKind.CXX_FOR_RANGE_STMT:
+        return _range_bound(stmt)
+    return _for_bound(stmt)
+
+
+# loops that can grow a container: a counted `for(;;)` OR a range-based `for(x:c)`.
+def _loops(nodes) -> list:
+    return [c for c in nodes if c.kind in (cc.CursorKind.FOR_STMT, cc.CursorKind.CXX_FOR_RANGE_STMT)]
+
+
 def _is_string(t) -> bool:
     s = t.spelling
     return s.startswith("std::string") or "basic_string<char" in s
@@ -97,7 +129,7 @@ def _is_string(t) -> bool:
 def _growth_in_fn(fn, source: str) -> GrowthSite | None:
     nodes = list(_walk(fn))
     calls = [c for c in nodes if c.kind == cc.CursorKind.CALL_EXPR]
-    fors = [c for c in nodes if c.kind == cc.CursorKind.FOR_STMT]
+    fors = _loops(nodes)
     for v in nodes:
         if v.kind != cc.CursorKind.VAR_DECL or not v.type.spelling.startswith("std::vector"):
             continue
@@ -108,7 +140,7 @@ def _growth_in_fn(fn, source: str) -> GrowthSite | None:
             fcalls = [c for c in _walk(fs) if c.kind == cc.CursorKind.CALL_EXPR]
             if any(_is_call_on(c, var, "push_back") or _is_call_on(c, var, "emplace_back")
                    for c in fcalls):
-                return GrowthSite(func=fn.spelling, var=var, bound=_for_bound(fs),
+                return GrowthSite(func=fn.spelling, var=var, bound=_loop_bound(fs),
                                   insert_at=_stmt_end(source, v),
                                   elem_type=_template_arg(v.type, 0))
     return None
@@ -134,7 +166,7 @@ def _string_growth_in_fn(fn, source: str) -> GrowthSite | None:
     reserve() — the string analog of _growth_in_fn (compiler can't pre-size it)."""
     nodes = list(_walk(fn))
     calls = [c for c in nodes if c.kind == cc.CursorKind.CALL_EXPR]
-    fors = [c for c in nodes if c.kind == cc.CursorKind.FOR_STMT]
+    fors = _loops(nodes)
     for v in nodes:
         if v.kind != cc.CursorKind.VAR_DECL or not _is_string(v.type):
             continue
@@ -149,7 +181,7 @@ def _string_growth_in_fn(fn, source: str) -> GrowthSite | None:
                        if c.kind in (cc.CursorKind.CALL_EXPR,
                                      cc.CursorKind.COMPOUND_ASSIGNMENT_OPERATOR))
             if grown:
-                return GrowthSite(func=fn.spelling, var=var, bound=_for_bound(fs),
+                return GrowthSite(func=fn.spelling, var=var, bound=_loop_bound(fs),
                                   insert_at=_stmt_end(source, v), elem_type="char")
     return None
 
@@ -207,7 +239,7 @@ def _umap_growth_in_fn(fn, source: str) -> GrowthSite | None:
     prior reserve() and a computable bound — reserve(n) removes the rehashing."""
     nodes = list(_walk(fn))
     calls = [c for c in nodes if c.kind == cc.CursorKind.CALL_EXPR]
-    fors = [c for c in nodes if c.kind == cc.CursorKind.FOR_STMT]
+    fors = _loops(nodes)
     for v in nodes:
         if v.kind != cc.CursorKind.VAR_DECL or not v.type.spelling.startswith("std::unordered_map"):
             continue
@@ -223,7 +255,7 @@ def _umap_growth_in_fn(fn, source: str) -> GrowthSite | None:
                 grown = any(toks[i] == var and toks[i + 1] == "["
                             for i in range(len(toks) - 1))
             if grown:
-                b = _for_bound(fs)
+                b = _loop_bound(fs)
                 if b:                                           # need a size to reserve
                     return GrowthSite(func=fn.spelling, var=var, bound=b,
                                       insert_at=_stmt_end(source, v), elem_type="")
@@ -344,6 +376,27 @@ def _fuse_in_fn(fn, source: str) -> FuseSite | None:
         indent = source[ls:if_start] if not source[ls:if_start].strip() else ""
         return FuseSite(func=fn.spelling, var=var, key=key, if_start=if_start,
                         cond_start=ct[0][1], cond_end=ct[-1][2], accesses=accesses, indent=indent)
+    return None
+
+
+def all_functions(source: str) -> list[str]:
+    """Every in-file function DEFINITION name — the LLM proposer's candidate pool (it can try
+    to optimize any function, not just the ones a hand-coded transform pattern-matches)."""
+    seen, out = set(), []
+    for fn in _infile_funcs(source, _extra()):
+        if fn.is_definition() and fn.spelling and fn.spelling not in seen:
+            seen.add(fn.spelling)
+            out.append(fn.spelling)
+    return out
+
+
+def func_span(source: str, func: str) -> tuple[int, int] | None:
+    """(start_char, end_char) of the DEFINITION of `func` in source — the whole
+    signature+body — so an LLM rewrite (#10) can be spliced in over it. None if not found."""
+    for fn in _infile_funcs(source, _extra()):
+        if fn.spelling == func and fn.is_definition():
+            e = fn.extent
+            return (_b2c(source, e.start.offset), _b2c(source, e.end.offset))
     return None
 
 

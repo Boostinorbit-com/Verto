@@ -31,6 +31,11 @@ def resolve(file: str, config: Config) -> AdapterSet:
     if lang != "cpp":
         raise NotImplementedError(f"language {lang!r} not yet implemented (Axis A)")
 
+    # #13: apply the sandbox policy (--no-sandbox / --sandbox-mem) before any binary runs.
+    from ..runtime import sandbox
+    sandbox.set_policy(enabled=getattr(config, "sandbox", True),
+                       mem_mb=getattr(config, "sandbox_mem_mb", None))
+
     # --- language: C++ ---
     from ..adapters.language.cpp.sensor import CppSensor
     from ..adapters.language.cpp.mutator import CppMutator
@@ -46,6 +51,11 @@ def resolve(file: str, config: Config) -> AdapterSet:
     else:
         from ..adapters.proposer.frontier import FrontierProposer as ProposerCls
 
+    # #12: the cost cap — a trusted meter the (untrusted) proposer can't exceed. Inert offline.
+    from ..runtime.budget import Budget
+    budget = Budget(getattr(config, "budget", None), getattr(config, "budget_per_hotspot", None),
+                    getattr(config, "llm_price_input", 0.0), getattr(config, "llm_price_output", 0.0))
+
     from ..adapters.domain.performance.reuse import TestReuseOracle
     meta = None
     if getattr(config, "metamorphic", False):
@@ -55,8 +65,9 @@ def resolve(file: str, config: Config) -> AdapterSet:
                          reuse=TestReuseOracle(config), metamorphic=meta)
     return AdapterSet(
         sensor=CppSensor(config),
-        proposer=ProposerCls(config),
+        proposer=ProposerCls(config, budget=budget),
         mutator=CppMutator(config),
         gate=gate,
         inputs=HeldOutInputs(config),
+        budget=budget,
     )

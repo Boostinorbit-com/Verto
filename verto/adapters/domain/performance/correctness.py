@@ -65,8 +65,8 @@ class PerfCorrectnessOracle:
                     return CorrectnessVerdict(0, False, Witness(build_ok=False, sanitizer=marker,
                                                                 first_divergence=err[0]))
 
-                out_a = sandbox.run([a.binary_path, "check"], input_text=stdin)
-                out_b = sandbox.run([b.binary_path, "check"], input_text=stdin)
+                out_a = sandbox.run([a.binary_path, "check"], input_text=stdin, isolate=True)
+                out_b = sandbox.run([b.binary_path, "check"], input_text=stdin, isolate=True)
                 tol = getattr(self._config, "fp_tolerance", 0.0) or 0.0
                 if not _outputs_match(out_a.stdout, out_b.stdout, tol):
                     return CorrectnessVerdict(0, False, Witness(

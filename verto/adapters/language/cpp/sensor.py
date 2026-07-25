@@ -17,8 +17,9 @@ from ....engine.models import Evidence, Profile, Skip, Target
 from ...domain.performance.harness import unsupported_reason
 from .profile import load_profile
 from .profiler import profile_functions
-from .regex_detect import (detect_parse_errors, detect_side_effect_reason,
-                           detect_template_candidates, set_parse_flags)
+from .regex_detect import (detect_all_functions, detect_parse_errors,
+                           detect_side_effect_reason, detect_template_candidates,
+                           set_parse_flags)
 from .transforms import ALL
 
 
@@ -32,11 +33,16 @@ class CppSensor:
         # includes/defines/-std resolve (single-file mode leaves this empty).
         set_parse_flags(target.build.get("parse_flags"))
 
-        # Candidate functions come from the TRANSFORMS themselves — union each
-        # registered transform's candidates(). No hardcoded detectors here.
+        # Candidate functions: for the LLM proposer (#10), ANY function is fair game (it can
+        # optimize what no hand-coded pattern matches); for the rule proposer, the union of
+        # each registered transform's candidates() (the generic-sensor payoff — no hardcoded
+        # detectors). The skip cascade + profile-selection below are shared.
         candidates: set[str] = set()
-        for t in ALL:
-            candidates.update(t.candidates(source))
+        if getattr(self._config, "model", "") in ("local", "frontier"):
+            candidates.update(detect_all_functions(source))
+        else:
+            for t in ALL:
+                candidates.update(t.candidates(source))
 
         # keep only what VERTO can harness AND soundly verify; skip the rest with a
         # reason (item #4). The cascade also enforces the correctness-completeness

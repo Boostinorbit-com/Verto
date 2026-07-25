@@ -147,7 +147,14 @@
       <h2><span class="n">3</span>CLI — fully specified<span class="when v0">v0</span></h2>
       <p>The reference surface. Every other surface mirrors its verbs and its JSON output.</p>
       <h3>Commands</h3>
-      <pre><code>verto analyze  &lt;path&gt; [-p DB] [--all] [--min-rung N] [--offline] [--json]
+      <pre><code>verto init     [--model NAME] [--pull] [--global]
+    Set up the .verto/ performance workspace (like `git init`): ledger, baselines,
+    cache, a pointer to the local model; auto-.gitignores it; writes a starter
+    .verto.toml (committed team config, local-first). Detects the local model
+    (Ollama) and reports readiness; --pull fetches it, --global also scaffolds
+    machine-wide defaults at ~/.config/verto/config.toml. Idempotent.
+
+verto analyze  &lt;path&gt; [-p DB] [--all] [--min-rung N] [--offline] [--diff] [--json]
     Non-destructive. Detect hotspots + candidate transforms and explain them.
     Writes nothing. The "what would you do?" command.
 
@@ -167,6 +174,17 @@ verto serve    [--stop]
 # -p / --compile-commands supplies the compilation database (a compile_commands.json or a
 # build dir). Required to compile real multi-file C++. Generate via CMake:
 # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON. A self-contained single file needs no -p.</code></pre>
+
+      <h3>Workspace &amp; configuration</h3>
+      <p><b><code>.verto/</code> — the per-project workspace</b> (<code>verto init</code>, "git for performance"). Lives in the repo like <code>.git/</code>: the <code>ledger.jsonl</code> (every accept/reject), <code>baselines/</code> (the regression floor), <code>cache/</code>, and a <code>model</code> pointer. <b>Local &amp; git-ignored</b> — generated state, never committed. The model <em>weights</em> never live here; they stay once in Ollama's global store (<code>~/.ollama</code>).</p>
+      <p><b>Config layering</b> (the git model — project overrides user overrides defaults):</p>
+      <table>
+        <tr><th>Source</th><th>Scope</th><th>Committed?</th></tr>
+        <tr><td><code>.verto.toml</code> (repo root)</td><td>project / team config</td><td>✅ yes — shared</td></tr>
+        <tr><td><code>~/.config/verto/config.toml</code> (XDG)</td><td>machine-wide user defaults (<code>verto init --global</code>)</td><td>per-machine</td></tr>
+        <tr><td>code defaults</td><td>built-in</td><td>—</td></tr>
+      </table>
+      <p>Precedence: <b>project <code>.verto.toml</code> &gt; global <code>~/.config/verto/config.toml</code> &gt; code defaults.</b> XDG (not <code>~/.verto/</code>) keeps the global config from ever colliding with the per-project <code>.verto/</code> that discovery walks up to find.</p>
       <h3>Conventions</h3>
       <p>VERTO uses <b>GNU/POSIX-style flags as the base, with LLVM-friendly affordances</b> — familiar to <code>git</code>/<code>cargo</code> users <em>and</em> to <code>clang-tidy</code> users. (VERTO has subcommands and a Python engine, where <code>llvm::cl</code>'s single-dash-long style fights the grain; but the audience is LLVM-native, so we adopt its habits where they help.)</p>
       <ul>
@@ -203,6 +221,7 @@ verto serve    [--stop]
         <tr><td><code>-p, --compile-commands PATH</code></td><td><b><code>compile_commands.json</code> (or build dir) — required to compile real C++</b></td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--changed [REF]</code></td><td>only git-changed TUs vs REF (codebase mode; the CI workhorse)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--jobs, -j N</code></td><td>codebase mode: verify N translation units in parallel</td><td class="ok">✅ v0</td></tr>
+        <tr><td><em>(live progress)</em></td><td>codebase mode prints one line per TU as it finishes (<code>[3/43] file.cpp ✓ 1 win</code>), to stderr</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--function NAME</code></td><td>limit to one function (hotspot is auto-selected today)</td><td class="muted">v1</td></tr>
         <tr><td><code>--include</code> / <code>--exclude GLOB</code></td><td>scope by path glob</td><td class="muted">v1</td></tr>
         <tr><td><code>--line-filter</code></td><td>restrict to <code>file:line</code> ranges</td><td class="muted">later</td></tr>
@@ -220,12 +239,30 @@ verto serve    [--stop]
       <p style="margin:18px 0 4px"><b>Proposal / model</b></p>
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
-        <tr><td><code>--model NAME</code></td><td>LLM backend (frontier now, local later)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--model NAME</code></td><td>proposer: <code>local</code> (Ollama, #10) | <code>frontier</code> (OpenAI-compat) | <code>rules</code></td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--llm-model NAME</code></td><td>LLM name for <code>--model local|frontier</code> (default <code>qwen3:1.7b</code>)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--llm-url URL</code></td><td>LLM host base URL (default local Ollama <code>:11434</code>)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--offline</code></td><td>rules-only, no LLM (deterministic; good for CI)</td><td class="ok">✅ v0</td></tr>
-        <tr><td><code>--candidates N</code></td><td>try N proposals per hotspot; keep the best <b>verified</b> one</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--candidates N</code></td><td>#11: try N LLM proposals per hotspot; gate each, keep the best <b>verified</b> one</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--transforms GLOB</code> / <code>--list-transforms</code></td><td>select which transforms run / list them</td><td class="ok">✅ v0</td></tr>
-        <tr><td><code>--budget TOKENS|$|TIME</code></td><td>hard cost cap on exploration</td><td class="muted">v1</td></tr>
+        <tr><td><code>--budget SPEC</code></td><td>per-run LLM cost cap — tokens/<code>$</code>/time; <b>live</b> — charges real token usage during proposal (#10/#11)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--budget-per-hotspot SPEC</code></td><td>per-hotspot LLM cost sub-limit (shared across the N <code>--candidates</code> draws)</td><td class="ok">✅ v0</td></tr>
       </table>
+
+      <blockquote style="border-left:3px solid #888;margin:14px 0;padding:6px 14px;background:rgba(128,128,128,.08)">
+        <b>Local-first — no key needed (the default &amp; flagship).</b> <code>--model local</code> runs an on-box model
+        (Ollama); <b>source never leaves the machine</b> and there is no API key to manage. This is the path VERTO is built around.
+        <br><br>
+        <b>Advanced — a hosted model (optional escape hatch).</b> When you want a stronger model than a local one,
+        <code>--model frontier</code> calls any OpenAI-compatible host. The key comes from <b>one environment variable</b> —
+        <code>OPENAI_API_KEY</code> (or <code>VERTO_LLM_API_KEY</code>), <b>never a flag</b> (a key in <code>argv</code> leaks
+        into <code>ps</code>/shell history):
+        <pre style="background:rgba(128,128,128,.12);padding:8px 10px;border-radius:5px;overflow-x:auto"><code>export OPENAI_API_KEY=sk-...
+verto optimize foo.cpp --model frontier \
+       --llm-url https://api.openai.com --llm-model gpt-4o-mini --candidates 3</code></pre>
+        Whatever the model returns is <b>re-verified by the gate</b>, so the model choice can never cause a wrong accept —
+        a weaker model just proposes fewer wins. (Self-hosted OpenAI-compatible hosts often need no key at all.)
+      </blockquote>
 
       <p style="margin:18px 0 4px"><b>Correctness rigor</b> <span class="muted">— VERTO-specific, the differentiator</span></p>
       <table>
@@ -261,6 +298,7 @@ verto serve    [--stop]
         <tr><td><code>--bench-command CMD</code></td><td>build+run a project bench, timed as the perf signal for functions the harness can't reach</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--bench-dir DIR</code></td><td>cwd for <code>--bench-command</code> (default: the target file's directory)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--bench-runs N</code></td><td>median-of-N timings of the bench per side (default 5)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--build-command CMD</code></td><td>build step run once before timing, so the bench is timed run-only</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--ctest-dir DIR</code></td><td><b>2A-1</b>: a CMake build dir — auto-discover the test/bench commands from ctest</td><td class="ok">✅ v0</td></tr>
       </table>
 
@@ -272,7 +310,7 @@ verto serve    [--stop]
         <tr><td><code>--dry-run</code></td><td>preview only — never write (the default)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--backup</code></td><td>save <code>&lt;file&gt;.bak</code> before overwriting</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--force</code></td><td>apply even an unsound (<code>--fast</code>) result</td><td class="ok">✅ v0</td></tr>
-        <tr><td><code>--diff</code></td><td>print the unified diff of each change</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--diff</code></td><td>print the unified diff of each change (single-file <b>and</b> codebase mode)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--export FILE</code></td><td>write accepted diffs to a file (review/CI)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--apply-from FILE</code></td><td>apply a diff set from <code>--export</code> (uses <code>patch</code>)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--emit-patches DIR</code></td><td><b>2C</b>: write a ranked, <code>git apply</code>-able patch series + <code>REPORT.md</code> to DIR</td><td class="ok">✅ v0</td></tr>
@@ -295,7 +333,8 @@ verto serve    [--stop]
         <tr><td><code>--config-file .verto.toml</code></td><td>reproducible config</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--no-daemon</code></td><td>run in-process, ignore a warm <code>verto serve</code> daemon</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>-V, --version</code></td><td>print the VERTO version</td><td class="ok">✅ v0</td></tr>
-        <tr><td><code>--sandbox</code> / <code>--no-sandbox</code></td><td>isolate verification runs</td><td class="muted">⚙️ config</td></tr>
+        <tr><td><code>--no-sandbox</code></td><td>run untrusted binaries WITHOUT bwrap/cgroup isolation (escape hatch; UNSAFE)</td><td class="ok">✅ v0</td></tr>
+        <tr><td><code>--sandbox-mem MB</code></td><td>cgroup memory cap for isolated runs (default 2048)</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--timeout SEC</code></td><td>per-run time limit</td><td class="muted">⚙️ config</td></tr>
         <tr><td><code>--config KEY=VAL</code></td><td>inline config override</td><td class="ok">✅ v0</td></tr>
         <tr><td><code>--verify-setup</code></td><td>check the toolchain is present (clang, sanitizers, ccache, linker)</td><td class="ok">✅ v0</td></tr>

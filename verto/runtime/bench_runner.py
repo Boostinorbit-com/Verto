@@ -49,7 +49,7 @@ def measure(binary: str, *, n: int = 2_000_000, reps: int = 12, pin_core: int = 
     cmd = [binary, "bench", str(n), str(reps)]
     if shutil.which("taskset"):
         cmd = ["taskset", "-c", str(pin_core), *cmd]
-    res = sandbox.run(cmd, timeout_sec=180)
+    res = sandbox.run(cmd, timeout_sec=180, isolate=True)
     times = [float(x) for x in res.stdout.split() if x.strip()]
     size_mb = os.path.getsize(binary) / 1e6 if os.path.exists(binary) else 0.0
     return summarize(times, binary_size=size_mb, peak_memory=_peak_memory_mb(res.stderr))

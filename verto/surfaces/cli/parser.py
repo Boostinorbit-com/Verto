@@ -102,10 +102,26 @@ def _common(sp, *, apply: bool = False) -> None:
                      help="cwd for --bench-command (default: the target file's directory)")
     out.add_argument("--bench-runs", type=int, metavar="N", dest="bench_runs",
                      help="2A: median-of-N timings of the bench per side (default 5)")
+    out.add_argument("--build-command", metavar="CMD", dest="build_command",
+                     help="2A: build step run ONCE before timing, so the bench is timed run-only (e.g. 'make')")
     out.add_argument("--ctest-dir", metavar="DIR", dest="ctest_dir",
                      help="2A-1: a CMake build dir — auto-discover the test/bench commands from ctest")
     out.add_argument("--metamorphic", action="store_true", dest="metamorphic",
                      help="2D: also run the metamorphic property rung (Rung 2) — rejects a change that breaks permutation-invariance")
+    out.add_argument("--no-sandbox", action="store_true", dest="no_sandbox",
+                     help="#13: run untrusted binaries WITHOUT bwrap/cgroup isolation (escape hatch; UNSAFE)")
+    out.add_argument("--sandbox-mem", type=int, metavar="MB", dest="sandbox_mem",
+                     help="#13: cgroup memory cap (MB) for isolated runs (default 2048)")
+    out.add_argument("--budget", metavar="SPEC", dest="budget",
+                     help="#12: per-run LLM spend cap — tokens ('500k'), money ('$2'), or time ('90s')")
+    out.add_argument("--budget-per-hotspot", metavar="SPEC", dest="budget_per_hotspot",
+                     help="#12: per-hotspot LLM spend sub-limit (same SPEC forms as --budget)")
+    out.add_argument("--llm-model", metavar="NAME", dest="llm_model",
+                     help="#10: LLM name for --model local|frontier (default qwen3:1.7b)")
+    out.add_argument("--llm-url", metavar="URL", dest="llm_base_url",
+                     help="#10: LLM host base URL (default http://127.0.0.1:11434 — local Ollama)")
+    out.add_argument("--candidates", type=int, metavar="N", dest="candidates",
+                     help="#11: ask the LLM for N rewrites per hotspot; gate each, keep the best (default 1)")
 
 
 class _HelpFormatter(argparse.RawDescriptionHelpFormatter):
@@ -187,6 +203,16 @@ def _parser() -> argparse.ArgumentParser:
 
     sub.add_parser("report", help=_help.REPORT_DESC, description=_help.REPORT_DESC,
                    usage="verto report", formatter_class=fmt)
+
+    ini = sub.add_parser("init", help=_help.INIT_DESC, description=_help.INIT_DESC,
+                         usage=_help.USAGE_INIT, formatter_class=fmt)
+    ini.add_argument("--model", metavar="NAME",
+                     help="local model to record as the project default (default: config llm_model)")
+    ini.add_argument("--pull", action="store_true",
+                     help="pull the model now via Ollama if missing (may download GBs)")
+    ini.add_argument("--global", dest="global_", action="store_true",
+                     help="also scaffold machine-wide defaults at ~/.config/verto/config.toml")
+
     s = sub.add_parser("serve", help=_help.SERVE_DESC, description=_help.SERVE_DESC,
                        usage=_help.USAGE_SERVE, epilog=_help.SERVE_EPILOG, formatter_class=fmt)
     s.add_argument("--stop", action="store_true", help="stop a running daemon")

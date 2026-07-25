@@ -12,8 +12,20 @@ verify) for signatures `synth` can't safely build.
 """
 from __future__ import annotations
 
+import re
+
 from ....language.cpp import analysis as _ast
 from .synth import _builder, _classify, _classify_param, _consume, _serialize
+
+# Real-world .cpp files ship their own `int main()`; the harness appends its OWN driver
+# main, so we rename the file's main out of the way (it's dead code in the harness — the
+# function under test is called directly). Without this, every real program fails to build
+# with "conflicting types for 'main'".
+_MAIN_RE = re.compile(r"\bint\s+main\s*\(")
+
+
+def _neutralize_main(source: str) -> str:
+    return _MAIN_RE.sub("int _verto_user_main(", source)
 
 _PRELUDE = ("#include <cstdio>\n#include <cstdlib>\n#include <cstdint>\n"
             "#include <chrono>\n#include <vector>\n#include <string>\n#include <thread>\n")
@@ -78,11 +90,12 @@ def generate(source: str, func: str) -> str | None:
 
     names = [f"a{i}" for i in range(len(params))]
     build = "\n".join(_builder(spec, names[i]) for i, spec in enumerate(pcats))
+    call = _ast.qualified_name(source, func)             # ns::func so a namespaced fn resolves
     return (_TEMPLATE
             .replace("<<PRELUDE>>", _PRELUDE)
-            .replace("<<SOURCE>>", source)
+            .replace("<<SOURCE>>", _neutralize_main(source))
             .replace("<<BUILD>>", build)
-            .replace("<<CALL>>", f"{func}(" + ", ".join(names) + ")")
+            .replace("<<CALL>>", f"{call}(" + ", ".join(names) + ")")
             .replace("<<SERIALIZE>>", _serialize(rc, rsub))
             .replace("<<CONSUME>>", _consume(rc)))
 

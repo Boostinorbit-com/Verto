@@ -58,7 +58,7 @@ def evaluate(san_future, tsan_future, stdin: str, want_san: bool) -> tuple[int, 
         if not san.build_ok:
             sanitizer = "san-build-failed"
         else:
-            r = sandbox.run([san.binary_path, "check"], input_text=stdin)
+            r = sandbox.run([san.binary_path, "check"], input_text=stdin, isolate=True)
             blob = r.stdout + r.stderr
             if _SAN_MARKERS.search(blob):
                 sanitizer = _san_summary(blob)  # tripped -> stays Rung 1 -> "unsafe"
@@ -68,7 +68,7 @@ def evaluate(san_future, tsan_future, stdin: str, want_san: bool) -> tuple[int, 
     if rung == 3 and tsan_future is not None:
         t = tsan_future.result()
         if t.build_ok:
-            r = sandbox.run([t.binary_path, "race", "4096"], input_text="")
+            r = sandbox.run([t.binary_path, "race", "4096"], input_text="", isolate=True)
             if _RACE_MARKERS.search(r.stdout + r.stderr):
                 rung, sanitizer = 1, "tsan:data race"
     return rung, sanitizer

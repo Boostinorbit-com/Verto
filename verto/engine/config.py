@@ -5,14 +5,26 @@ Gate enforces: min_rung, objectives, allow_regression, enabled transforms.
 """
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 if sys.version_info >= (3, 11):
     import tomllib
-else:                                     # system Python is 3.8 (see §16.6) — soft fallback
-    tomllib = None  # type: ignore
+else:                                     # 3.8 (see §16.6): tomllib is 3.11+; tomli backports it
+    try:
+        import tomli as tomllib          # pip install tomli
+    except ImportError:                   # soft fallback — config file just won't load
+        tomllib = None  # type: ignore
+
+
+def global_config_path() -> Path:
+    """Machine-wide user defaults: ``$XDG_CONFIG_HOME/verto/config.toml`` (default
+    ``~/.config/verto/config.toml``). Deliberately NOT ``~/.verto/`` — XDG-idiomatic, and it
+    never collides with the per-project ``.verto/`` workspace that discovery walks up to find."""
+    base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
+    return Path(base) / "verto" / "config.toml"
 
 
 @dataclass
@@ -55,18 +67,40 @@ class Config:
     # 2D — metamorphic property rung (Rung 2): opt-in; rejects a change that breaks a
     # property the original had (e.g. permutation invariance). Sound (rejects only).
     metamorphic: bool = False
+    # sandbox (#13): isolate untrusted binary runs (no network + read-only fs via bwrap) and
+    # cap their memory (cgroup). ON by default; --no-sandbox is an escape hatch.
+    sandbox: bool = True
+    sandbox_mem_mb: int = 2048            # cgroup MemoryMax for isolated runs
     # proposal
     model: str = "frontier"               # frontier | local | rules(--offline)
     transforms: tuple[str, ...] = ("*",)  # glob(s) of enabled transforms
+    # cost cap (#12): ceilings on LLM spend — spec = tokens ('500k'), money ('$2'), or time ('90s')
+    budget: str | None = None             # per-RUN total
+    budget_per_hotspot: str | None = None  # per-HOTSPOT sub-limit
+    llm_price_input: float = 3.0          # USD per 1M input tokens (adjust per model; config-file)
+    llm_price_output: float = 15.0        # USD per 1M output tokens
+    # LLM proposer (#10): --model local → Ollama; --model frontier → an OpenAI-compatible host
+    llm_base_url: str = "http://127.0.0.1:11434"   # Ollama default
+    llm_model: str = "qwen3:1.7b"
+    llm_api_key: str | None = None        # frontier only; local (Ollama) needs none
+    llm_timeout_sec: int = 180
+    candidates: int = 1                   # #11: LLM proposals per hotspot; gate each, keep the best
     # runtime
     fuzz_inputs: int = 1000
     seed: int = 0
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> "Config":
+        """Layered config: machine-wide global defaults first, then the project file OVER them.
+        Precedence: project `.verto.toml` > global `~/.config/verto/config.toml` > code defaults
+        (the git model — repo config overrides user config). `path` overrides the project file."""
         cfg = cls()
-        p = Path(path) if path else Path(".verto.toml")
-        if p.exists() and tomllib is not None:
+        if tomllib is None:
+            return cfg
+        project = Path(path) if path else Path(".verto.toml")
+        for p in (global_config_path(), project):     # global is the base; project wins
+            if not p.exists():
+                continue
             with p.open("rb") as f:
                 data = tomllib.load(f)
             for k, v in data.get("verto", {}).items():

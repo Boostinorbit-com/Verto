@@ -8,6 +8,11 @@ import os
 
 _COLOR = "NO_COLOR" not in os.environ   # verdict-render color; --no-color turns it off
 
+# Reasons that mean "the proposer produced no usable change" — NOT a gate rejection of a real
+# candidate. They're loop bookkeeping (e.g. an LLM re-asked after the win is already applied
+# returns nothing to splice), so we hide them from the human view; the ledger + --json keep them.
+_INTERNAL_REASONS = frozenset({"mutation_failed", "precondition_failed"})
+
 
 def set_color(on: bool) -> None:
     global _COLOR
@@ -42,11 +47,14 @@ def _diff(text: str) -> str:
 
 def _render_human(verdicts: list, *, quiet: bool = False, show_diff: bool = False,
                   applying: bool = False) -> None:
-    if not verdicts:
+    # Hide internal no-op rejects (the model had nothing more to add after the win) — they
+    # read like errors but aren't. A real gate rejection ("not faster", correctness) stays.
+    shown = [v for v in verdicts if v.accepted or v.reason not in _INTERNAL_REASONS]
+    if not shown:
         if not quiet:
             print("  no verified opportunity found.")
         return
-    for v in verdicts:
+    for v in shown:
         if quiet and not v.accepted:
             continue
         name = v.candidate.transform.name if v.candidate else "?"
@@ -96,7 +104,7 @@ def _render_json(verdicts: list) -> None:
     print(json.dumps([enc(v) for v in verdicts], default=enc, indent=2))
 
 
-def _render_codebase(results: list) -> None:
+def _render_codebase(results: list, *, show_diff: bool = False) -> None:
     n_files = n_cand = n_acc = n_applied = n_skip = 0
     skip_reasons: dict[str, int] = {}
     print(f"\n  codebase scan — {len(results)} translation unit(s)")
@@ -123,10 +131,14 @@ def _render_codebase(results: list) -> None:
                 n_applied += bool(v.applied)
                 confirmed = _col("  ✓ tests", "32") if getattr(v, "tests_confirmed", False) else ""
                 print(f"    {tag}  {name} [{fn}]{delta}{confirmed}")
+                if show_diff and v.diff:                 # --diff: show the change, in codebase mode too
+                    print("\n" + _indent(_diff(v.diff), pad="      ") + "\n")
             elif v.reason.startswith("skipped"):        # gate couldn't verify (item #1/#4)
                 n_skip += 1
                 skip_reasons[v.reason] = skip_reasons.get(v.reason, 0) + 1
                 print(f"    {_col('SKIP', '33')}    {name} [{fn}]  ({v.reason})")
+            elif v.reason in _INTERNAL_REASONS:          # no usable change — not a gate reject
+                continue
             else:
                 n_cand += 1
                 print(f"    {_col('REJECT', '31')}  {name} [{fn}]  ({v.reason})")
