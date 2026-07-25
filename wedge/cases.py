@@ -56,7 +56,10 @@ _MEMO = """#include <vector>
 #include <cstddef>
 static int heavy(int x){ long s=0; for(int k=1;k<=64;++k) s+=(long)x*k%(k+7); return (int)(s&0x7fffffff); }
 std::vector<int> transform_seq(std::size_t n){
-    static std::vector<int> memo(500000,-1);
+    thread_local std::vector<int> memo(500000,-1);   // thread_local, not static: still a resident
+                                                      // table (peak_memory regresses) but NOT shared,
+                                                      // so the 4-thread TSan rung doesn't flag a race
+                                                      // and the MEMORY gate is what rejects it.
     std::vector<int> out; out.reserve(n);
     for(std::size_t i=0;i<n;++i){ int x=(int)(i%500000); if(memo[x]<0) memo[x]=heavy(x); out.push_back(memo[x]); }
     return out;

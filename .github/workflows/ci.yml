@@ -74,7 +74,8 @@ jobs:
           except Exception as e:
               print("libclang:", e)
           for ex, tf in [("examples/packet_stats.cpp", "reserve_before_pushback"),
-                         ("examples/map_lookup.cpp", "fuse_map_lookup")]:
+                         ("examples/map_lookup.cpp", "fuse_map_lookup"),
+                         ("examples/string_build.cpp", "reserve_string")]:
               c = Config(); c.model = "rules"; c.transforms = (tf,)
               vs = Engine(c).optimize(ex, apply=False)
               print(f"\n{ex}  (transform={tf}):")
