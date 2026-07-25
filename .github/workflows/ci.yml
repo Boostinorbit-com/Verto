@@ -1,0 +1,75 @@
+# VERTO's OWN CI (roadmap #15) — runs the test suite + the wedge on every push/PR, so a
+# change can't silently break the tool. (This is NOT the user-facing GitHub Action — that's
+# the #18 product surface, a separate workflow packaged for a C++ team's own repo.)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# a new push to a branch cancels the previous, still-running CI for it
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false            # let 3.11 finish reporting even if 3.12 fails, and vice-versa
+      matrix:
+        python-version: ["3.11", "3.12"]   # matches requires-python >=3.11 in pyproject.toml
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install system toolchain
+        # clang++ carries ASan/UBSan/TSan (Rung 3); bubblewrap enables the sandbox-isolation
+        # tests (else they skipif-degrade); ccache makes the compile-heavy suite fast on reruns.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang bubblewrap ccache
+          clang++ --version
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.os }}-py${{ matrix.python-version }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-py${{ matrix.python-version }}-
+
+      - name: Install VERTO (editable + dev extras)
+        run: pip install -e '.[dev]'
+
+      - name: Toolchain report (diagnostic, non-blocking)
+        run: verto verify-setup || true
+
+      # Live-LLM tests are opt-in (VERTO_LIVE_LLM unset) → no Ollama needed, and no CPU
+      # contention from a loaded model. --reruns absorbs transient benchmark noise on the
+      # shared runner: a real regression fails all 3 attempts; noise clears on a retry.
+      - name: Run the test suite
+        env:
+          CCACHE_DIR: ~/.cache/ccache
+        run: pytest -q --reruns 2 --reruns-delay 5
+
+      # The falsifiable proof: 14 pre-registered cases — accepts the real wins AND rejects the
+      # deliberately-broken ones. Exits non-zero on any mismatch. Retried for the same noise reason.
+      - name: Wedge (correct-and-faster proof)
+        env:
+          CCACHE_DIR: ~/.cache/ccache
+        run: |
+          for attempt in 1 2 3; do
+            if python -m wedge.run; then exit 0; fi
+            echo "::warning::wedge attempt $attempt did not fully match (likely runner noise) — retrying"
+          done
+          echo "::error::wedge failed after 3 attempts"
+          exit 1
