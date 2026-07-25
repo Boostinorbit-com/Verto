@@ -45,11 +45,27 @@ def _peak_memory_mb(stderr: str) -> float:
     return 0.0
 
 
+def _pinnable_core(preferred: int) -> int | None:
+    """A CPU the process may ACTUALLY run on — the requested core if allowed, else the highest
+    available one. `taskset -c 2` fails on a 2-core box (e.g. a CI runner: cores 0,1 only), which
+    would silently break every benchmark. None → affinity unknown (non-Linux); caller skips pinning."""
+    try:
+        avail = sorted(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        return None
+    if not avail:
+        return None
+    return preferred if preferred in avail else avail[-1]
+
+
 def measure(binary: str, *, n: int = 2_000_000, reps: int = 12, pin_core: int = 2) -> Samples:
-    cmd = [binary, "bench", str(n), str(reps)]
-    if shutil.which("taskset"):
-        cmd = ["taskset", "-c", str(pin_core), *cmd]
+    base = [binary, "bench", str(n), str(reps)]
+    core = _pinnable_core(pin_core)
+    cmd = ["taskset", "-c", str(core), *base] if (core is not None and shutil.which("taskset")) else base
     res = sandbox.run(cmd, timeout_sec=180, isolate=True)
     times = [float(x) for x in res.stdout.split() if x.strip()]
+    if not times and cmd is not base:            # taskset still misfired → retry unpinned, never lose the run
+        res = sandbox.run(base, timeout_sec=180, isolate=True)
+        times = [float(x) for x in res.stdout.split() if x.strip()]
     size_mb = os.path.getsize(binary) / 1e6 if os.path.exists(binary) else 0.0
     return summarize(times, binary_size=size_mb, peak_memory=_peak_memory_mb(res.stderr))
