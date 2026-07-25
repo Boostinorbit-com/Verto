@@ -30,6 +30,7 @@ _BWRAP = shutil.which("bwrap")
 _SYSTEMD_RUN = shutil.which("systemd-run")
 _DEFAULT_MEM_MB = 2048            # generous: legit harnesses (+ ASan RSS) fit; a bomb is killed
 _systemd_ok: bool | None = None   # lazily probed once
+_bwrap_ok: bool | None = None     # lazily probed once (present ≠ usable — see isolation_available)
 
 # process-global policy, set once per run from Config (registry) — so `--no-sandbox` /
 # `--sandbox-mem` reach the isolation without threading params through every oracle.
@@ -55,8 +56,30 @@ class RunResult:
 
 
 def isolation_available() -> bool:
-    """True iff namespace isolation (bubblewrap) is usable — reported by verify-setup."""
-    return bool(_BWRAP)
+    """True iff namespace isolation (bubblewrap) is actually **usable** — PROBED once, not just
+    present. A present-but-broken bwrap (e.g. a restricted CI runner / container that denies
+    net-namespace or loopback setup — `Operation not permitted`) reports False, so the caller
+    degrades to rlimits-only instead of every isolated run failing. Reported by verify-setup."""
+    global _bwrap_ok
+    if _bwrap_ok is None:
+        _bwrap_ok = False
+        if _BWRAP:
+            try:
+                # Exercise the exact setup real runs use — `--unshare-all` (net ns + loopback,
+                # which is what fails on locked-down runners) AND the same read-only binds, so a
+                # dynamically-linked probe binary can actually load. A bare bind set would false-
+                # negative on a working host (no /lib → the linker isn't found).
+                true = shutil.which("true") or "/bin/true"
+                probe = [_BWRAP, "--ro-bind", "/usr", "/usr", "--proc", "/proc", "--dev", "/dev",
+                         "--unshare-all", "--die-with-parent"]
+                for d in ("/lib", "/lib64", "/bin", "/sbin", "/etc"):
+                    if os.path.exists(d):
+                        probe += ["--ro-bind", d, d]
+                r = subprocess.run(probe + [true], capture_output=True, timeout=10)
+                _bwrap_ok = r.returncode == 0
+            except Exception:
+                _bwrap_ok = False
+    return _bwrap_ok
 
 
 def memory_cap_available() -> bool:
@@ -94,7 +117,7 @@ def _isolate_prefix(cmd: list[str], cwd: str | None) -> list[str]:
     """A bubblewrap prefix: no network (`--unshare-all`) + a read-only host filesystem,
     with the executable's dir bound read-only and `cwd` bound writable. Empty list if
     bwrap is unavailable (caller then runs rlimits-only)."""
-    if not _BWRAP or not cmd:
+    if not cmd or not isolation_available():          # probe: present-but-broken bwrap → degrade
         return []
     p = [_BWRAP, "--ro-bind", "/usr", "/usr", "--proc", "/proc", "--dev", "/dev",
          "--unshare-all", "--die-with-parent"]

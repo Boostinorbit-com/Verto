@@ -32,11 +32,16 @@ jobs:
           cache: pip
 
       - name: Install system toolchain
-        # clang++ carries ASan/UBSan/TSan (Rung 3); bubblewrap enables the sandbox-isolation
-        # tests (else they skipif-degrade); ccache makes the compile-heavy suite fast on reruns.
+        # clang++ carries ASan/UBSan/TSan (Rung 3); ccache makes the compile-heavy suite fast.
+        # NOTE: we deliberately DON'T install bubblewrap — GitHub runners deny the net-namespace
+        # setup `bwrap --unshare-all` needs (RTM_NEWADDR: Operation not permitted), so a present
+        # bwrap would break every isolated benchmark/sanitizer run. Without it, isolation is
+        # unavailable → runs degrade to rlimits (fine for CI's trusted fixtures) and the
+        # sandbox-isolation tests skipif-degrade. (isolation_available() also probes now, so a
+        # broken bwrap degrades even if installed — this is just belt-and-suspenders.)
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang bubblewrap ccache
+          sudo apt-get install -y --no-install-recommends clang ccache
           clang++ --version
 
       - name: Cache ccache
