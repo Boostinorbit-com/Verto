@@ -64,14 +64,14 @@ class PerformanceOracleImpl:
         reps_min = getattr(self._config, "reps_min", reps_max)
         if not getattr(self._config, "adaptive", True):
             reps_min = reps_max
-        before = bench_runner.measure(a_bin, n=_BENCH_N, reps=reps_min)
-        after = bench_runner.measure(b_bin, n=_BENCH_N, reps=reps_min)
+        # INTERLEAVED A/B timing (bench_runner.measure_ab): baseline and variant are sampled in
+        # lockstep across one window, so drifting load on a shared/noisy box can't bias the delta.
+        before, after = bench_runner.measure_ab(a_bin, b_bin, n=_BENCH_N, reps=reps_min)
         gain = _pct(before.p50, after.p50)
         borderline = abs(gain - self._config.min_speedup_pct) < 5.0
         noisy = _spread(before) > 0.35 or _spread(after) > 0.35
         if (borderline or noisy) and reps_max > reps_min:
-            before = bench_runner.measure(a_bin, n=_BENCH_N, reps=reps_max)
-            after = bench_runner.measure(b_bin, n=_BENCH_N, reps=reps_max)
+            before, after = bench_runner.measure_ab(a_bin, b_bin, n=_BENCH_N, reps=reps_max)
         return before, after
 
     def _pareto(self, before: dict, after: dict) -> tuple[bool, str]:
