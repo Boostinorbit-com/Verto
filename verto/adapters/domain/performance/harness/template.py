@@ -47,12 +47,14 @@ int main(int argc, char** argv) {
     if (mode[0] == 'r') {                                        // race (ThreadSanitizer, item #1a)
         unsigned long N = argc > 2 ? std::strtoul(argv[2], nullptr, 10) : 4096UL;
 <<BUILD>>
-        const int NT = 4;                                       // call the fn concurrently:
-        std::thread th[NT];                                     // a transform that added shared
-        volatile long long sink = 0;                           // mutable state now races here
-        for (int t = 0; t < NT; ++t) th[t] = std::thread([&]{ auto r = <<CALL>>; sink += <<CONSUME>>; });
-        for (int t = 0; t < NT; ++t) th[t].join();
-        (void)sink;
+        const int NT = 4;                                       // call the fn concurrently to
+        std::thread th[NT];                                     // surface a race INSIDE the fn
+        volatile long long sinks[NT];                          // (shared static state). PER-THREAD
+        for (int t = 0; t < NT; ++t) sinks[t] = 0;             // sinks (distinct addresses) so the
+        for (int t = 0; t < NT; ++t)                           // harness's own accumulator never
+            th[t] = std::thread([&, t]{ auto r = <<CALL>>; sinks[t] += <<CONSUME>>; });   // races —
+        for (int t = 0; t < NT; ++t) th[t].join();             // else TSan flags US, not the fn.
+        (void)sinks;
         return 0;
     }
     unsigned long N = argc > 2 ? std::strtoul(argv[2], nullptr, 10) : 2000000UL;   // bench
