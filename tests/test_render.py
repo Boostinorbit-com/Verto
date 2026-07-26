@@ -50,6 +50,37 @@ def test_codebase_diff_shown_only_with_flag(capsys):
     assert "out.reserve(n)" in capsys.readouterr().out           # --diff: the change is shown
 
 
+def test_fail_on_gate_exit_codes():
+    """#18: --fail-on remaps the exit code so a run is CI-actionable."""
+    from verto.surfaces.cli.render import _fail_on_exit
+    # 'any' — fail (exit 1) only when a verified optimization exists to take.
+    assert _fail_on_exit("any", accepted=True) == 1
+    assert _fail_on_exit("any", accepted=False) == 0
+    # 'none' — always pass; findings are advisory.
+    assert _fail_on_exit("none", accepted=True) == 0
+    assert _fail_on_exit("none", accepted=False) == 0
+
+
+def test_legacy_exit_codes_unchanged_without_flag():
+    """Absent --fail-on, the default codes must be untouched (0=found/1=none/3=rejected)."""
+    from verto.surfaces.cli.render import _codebase_exit, _exit_code
+    assert _exit_code([]) == 1
+    assert _exit_code([_v(True, "accepted")]) == 0
+    assert _exit_code([_v(False, "not_faster")]) == 3
+    assert _codebase_exit([("x.cpp", [_v(True, "accepted")], None, [])]) == 0
+    assert _codebase_exit([("x.cpp", [_v(False, "not_faster")], None, [])]) == 3
+    assert _codebase_exit([("x.cpp", [], None, [])]) == 1
+
+
+def test_fail_on_choices_are_restricted():
+    """argparse rejects an unknown --fail-on value (guards against silent typos in CI yaml)."""
+    import pytest
+
+    from verto.surfaces.cli.parser import _parser
+    with pytest.raises(SystemExit):
+        _parser().parse_args(["optimize", "x.cpp", "--fail-on", "regression"])
+
+
 if __name__ == "__main__":
     import sys
     sys.exit("run via pytest (uses capsys)")

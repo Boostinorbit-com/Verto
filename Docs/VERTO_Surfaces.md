@@ -250,7 +250,7 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 
 | Flag | Meaning | Stage |
 |---|---|---|
-| `--fail-on left-on-table\|regression\|contract-violation` | control CI failure | v1 |
+| `--fail-on none\|any` | control CI failure (`any` = fail if a verified win is left unapplied; `regression` vs baseline planned) | shipped |
 | `--mode optimize\|prevent` | prevention mode (contracts-in-CI) | v1 |
 | `--comment` | post PR comments | v1 |
 | `--no-color` | disable color (also honors the `NO_COLOR` env var) | ✅ |

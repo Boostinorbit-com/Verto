@@ -11,8 +11,9 @@ import sys
 
 from .config_build import _build_config
 from .parser import _parser
-from .render import (_codebase_exit, _col, _exit_code, _render_codebase,
-                     _render_codebase_json, _render_human, _render_json, set_color)
+from .render import (_codebase_exit, _col, _exit_code, _fail_on_exit,
+                     _render_codebase, _render_codebase_json, _render_human,
+                     _render_json, set_color)
 
 
 def _run_command(args) -> int:
@@ -61,6 +62,10 @@ def _run_command(args) -> int:
                 _render_codebase_json(results)
             else:
                 _render_codebase(results, show_diff=bool(getattr(args, "diff", False)))
+            fail_on = getattr(args, "fail_on", None)
+            if fail_on:
+                accepted = any(v.accepted for _, vs, _, _ in results for v in vs)
+                return _fail_on_exit(fail_on, accepted=accepted)
             return _codebase_exit(results)
 
         # --- single file (optionally with flags looked up from -p's db) ---
@@ -81,6 +86,9 @@ def _run_command(args) -> int:
         else:
             _render_human(verdicts, quiet=bool(getattr(args, "quiet", False)),
                           show_diff=bool(getattr(args, "diff", False)), applying=do_apply)
+        fail_on = getattr(args, "fail_on", None)
+        if fail_on:
+            return _fail_on_exit(fail_on, accepted=any(v.accepted for v in verdicts))
         return _exit_code(verdicts)
     except (ValueError, NotImplementedError) as e:
         print(f"verto: error: {e}", file=sys.stderr)
@@ -108,7 +116,10 @@ def _codebase_progress(i: int, total: int, file: str, verdicts: list,
 def _emit_patches(results, out_dir: str, *, single_file: str | None = None) -> None:
     from ..patches import emit_patches
     n, report = emit_patches(results, out_dir, single_file=single_file)
-    print(_col(f"→ wrote {n} verified patch(es) + REPORT.md to {out_dir}/", "32"))
+    # STDERR: this is a status line, and it must not land on stdout ahead of --json
+    # (the CI entrypoint parses stdout as the verdict report).
+    print(_col(f"→ wrote {n} verified patch(es) + REPORT.md to {out_dir}/", "32"),
+          file=sys.stderr)
 
 
 def _init(*, model: str | None = None, pull: bool = False, set_global: bool = False,

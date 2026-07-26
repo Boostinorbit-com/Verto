@@ -321,7 +321,7 @@ verto optimize foo.cpp --model frontier \
       <p style="margin:18px 0 4px"><b>CI / automation</b></p>
       <table>
         <tr><th>Flag</th><th>Meaning</th><th>Stage</th></tr>
-        <tr><td><code>--fail-on left-on-table|regression|contract-violation</code></td><td>control CI failure</td><td class="muted">v1</td></tr>
+        <tr><td><code>--fail-on none|any</code></td><td>control CI failure (<code>any</code> = fail if a verified win is left unapplied; <code>regression</code> vs baseline planned)</td><td class="muted">shipped</td></tr>
         <tr><td><code>--mode optimize|prevent</code></td><td>prevention mode (contracts-in-CI)</td><td class="muted">v1</td></tr>
         <tr><td><code>--comment</code></td><td>post PR comments</td><td class="muted">v1</td></tr>
         <tr><td><code>--no-color</code></td><td>disable color (also honors the <code>NO_COLOR</code> env var)</td><td class="ok">✅ v0</td></tr>

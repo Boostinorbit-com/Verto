@@ -180,3 +180,15 @@ def _exit_code(verdicts: list) -> int:
     if any(v.accepted for v in verdicts):
         return 0
     return 3
+
+
+def _fail_on_exit(policy: str, *, accepted: bool) -> int:
+    """#18 CI gate — remap the process exit code when `--fail-on` is set, so a run
+    is pass/fail in a way CI can act on. (A real error returns 2 upstream and never
+    reaches here.) The default codes (0=found) are backwards for a check — a repo
+    with nothing to optimize would "fail" — which is exactly why this exists.
+      'none' → always 0: findings are advisory; the build never fails on them.
+      'any'  → 1 iff a verified optimization was found (a proven speedup to take)."""
+    if policy == "any":
+        return 1 if accepted else 0
+    return 0        # 'none'
