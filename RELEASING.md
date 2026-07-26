@@ -1,6 +1,8 @@
 # Releasing VERTO
 
-VERTO ships as **`verto-optimizer`** on PyPI (the import + CLI stay `verto`) and as a Docker image.
+> ⛔ **PUBLIC RELEASE IS ON HOLD.** VERTO is currently **proprietary / all rights reserved** (see `LICENSE`) while pre-launch, to keep every future licensing option open. `pyproject.toml` carries the `Private :: Do Not Upload` classifier, which makes **PyPI reject any upload** — a deliberate guard. The steps below are the *intended* flow for **if/when** an open-source core is published under a chosen license; do not run the `twine upload` steps until that decision is made.
+
+VERTO would ship as **`verto-optimizer`** on PyPI (the import + CLI stay `verto`) and as a Docker image.
 Do this on **Python 3.11+** (the package's floor).
 
 ## 1. Pre-flight

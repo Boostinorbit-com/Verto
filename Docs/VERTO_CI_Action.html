@@ -267,7 +267,7 @@ jobs:
         <tr><td><code>metamorphic</code></td><td>also run the opt-in metamorphic rung</td><td><code>false</code></td><td><code>--metamorphic</code></td></tr>
         <tr><td><code>github-token</code></td><td>token used to post the PR comment / suggestions</td><td><code>${{ github.token }}</code></td><td>(GitHub API)</td></tr>
         <tr><td><code>api-key</code></td><td>hosted-model key — pass a <b>secret</b>, never a literal</td><td>—</td><td>env <code>OPENAI_API_KEY</code></td></tr>
-        <tr><td><code>license</code></td><td>paid-tier license key — pass a <b>secret</b></td><td>—</td><td>(premium gating)</td></tr>
+        <tr><td><code>verto-token</code></td><td>account token for VERTO's <b>hosted</b> services (managed model / clean-room bench) — pass a <b>secret</b>. NOT a local unlock; the self-run Action is free</td><td>—</td><td>(server-side entitlement)</td></tr>
         <tr><td><code>extra-args</code></td><td>raw passthrough to the <code>verto</code> CLI (escape hatch)</td><td>—</td><td>(any flag)</td></tr>
       </table>
       <p><b>Outputs</b> (read as <code>${{ steps.verto.outputs.&lt;name&gt; }}</code>):</p>
@@ -280,7 +280,7 @@ jobs:
         <tr><td><code>report-json</code></td><td>path to the full machine-readable verdict report</td></tr>
         <tr><td><code>patches</code></td><td>path to the emitted <code>git apply</code>-able patch series</td></tr>
       </table>
-      <p><b>Secrets</b> (passed via <code>with:</code> from <code>${{ secrets.* }}</code>, never hard-coded): <code>github-token</code> (to comment), the model <code>api-key</code> (only if <code>model: frontier</code>), and <code>license</code> (paid tier).</p>
+      <p><b>Secrets</b> (passed via <code>with:</code> from <code>${{ secrets.* }}</code>, never hard-coded): <code>github-token</code> (to comment), the model <code>api-key</code> (your own key, only if <code>model: frontier</code>), and <code>verto-token</code> (only when using VERTO's hosted services — the free self-run Action needs none).</p>
       <p><b>The <code>action.yml</code> itself</b> (the interface definition — sketch):</p>
       <pre><code>name: "VERTO"
 description: "Verified C++ optimizations on your pull requests."
@@ -293,7 +293,7 @@ inputs:
   base-ref:         { description: "branch to diff against", required: false, default: "" }
   github-token:     { description: "token to post PR comments", required: false, default: "${{ github.token }}" }
   api-key:          { description: "hosted-model key (secret)", required: false, default: "" }
-  license:          { description: "paid-tier license (secret)", required: false, default: "" }
+  verto-token:      { description: "hosted-services account token (secret); free self-run needs none", required: false, default: "" }
   # …the rest of the inputs above…
 outputs:
   status:      { description: "clean | found | regressed" }
@@ -321,10 +321,10 @@ runs:
       <h2><span class="n">9</span>Free vs paid — why this is the "commercial" item</h2>
       <p>A GitHub Action is just YAML that runs on <em>your</em> runners, so the Action itself can't be "the paid thing." Instead, the money rides on <b>what powers it</b>:</p>
       <ul>
-        <li><b>Free:</b> the open-source tool + a basic Action — deterministic rules or a small local model, self-run, correctness-verified.</li>
-        <li><b>Paid:</b> a <b>stronger model</b> (your own GPU or a managed endpoint, for more/better suggestions), a <b>team dashboard</b> (trends, what's been accepted across repos), the <b>cross-project learning</b> (a win found in one repo helps the next), polished PR integration, and support — unlocked by a license the Action checks.</li>
+        <li><b>Free:</b> the open-source tool + the <b>self-run Action</b> — deterministic rules or a <b>local</b> model, running on <em>your</em> CI, fully correctness-verified. No token, no account.</li>
+        <li><b>Paid:</b> things that run on <b>VERTO's servers</b>, so they authenticate to a hosted account (via <code>verto-token</code>): a <b>managed stronger model</b>, <b>clean-room benchmarking</b> (trustworthy numbers a noisy runner can't give), a <b>team dashboard</b> (cross-repo trends), the <b>cross-project pattern learning</b>, and support.</li>
       </ul>
-      <p>The verification gate is the same at every tier — a better model only changes <em>how many</em> good suggestions appear, never whether a bad one could slip through.</p>
+      <p>The paywall is <b>architectural, not a client-side flag</b> — free things run on your machine/CI; paid things run on VERTO's, where entitlement is checked <b>server-side</b>. And the verification gate is identical at every tier — a better model only changes <em>how many</em> good suggestions appear, never whether a bad one could slip through.</p>
     </section>
 
     <section id="s10">

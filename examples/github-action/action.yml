@@ -93,8 +93,8 @@ inputs:
     description: "Hosted-model API key — pass a secret, never a literal (only for model: frontier)."
     required: false
     default: ""
-  license:
-    description: "Paid-tier license key — pass a secret."
+  verto-token:
+    description: "Account token authenticating to VERTO's HOSTED services (managed model / clean-room benchmarking). NOT a local unlock — the self-run Action is free and needs no token; entitlement is checked server-side. Pass a secret, only when using paid hosted features."
     required: false
     default: ""
   extra-args:

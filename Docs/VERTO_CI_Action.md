@@ -203,7 +203,7 @@ An Action is defined by an **`action.yml`** file, which declares the **inputs** 
 | `metamorphic` | also run the opt-in metamorphic rung | `false` | `--metamorphic` |
 | `github-token` | token used to post the PR comment / suggestions | `${{ github.token }}` | (GitHub API) |
 | `api-key` | hosted-model key — pass a **secret**, never a literal | — | env `OPENAI_API_KEY` |
-| `license` | paid-tier license key — pass a **secret** | — | (premium gating) |
+| `verto-token` | account token for VERTO's **hosted** services (managed model / clean-room bench) — pass a **secret**. NOT a local unlock; the self-run Action is free | — | (server-side entitlement) |
 | `extra-args` | raw passthrough to the `verto` CLI (escape hatch) | — | (any flag) |
 
 **Outputs** (read by later steps as `${{ steps.verto.outputs.<name> }}`):
@@ -217,7 +217,7 @@ An Action is defined by an **`action.yml`** file, which declares the **inputs** 
 | `report-json` | path to the full machine-readable verdict report |
 | `patches` | path to the emitted `git apply`-able patch series |
 
-**Secrets** (passed via `with:` from `${{ secrets.* }}`, never hard-coded): `github-token` (to comment), the model `api-key` (only if `model: frontier`), and `license` (paid tier).
+**Secrets** (passed via `with:` from `${{ secrets.* }}`, never hard-coded): `github-token` (to comment), the model `api-key` (your own key, only if `model: frontier`), and `verto-token` (only when using VERTO's hosted services — the free self-run Action needs none).
 
 **The `action.yml` itself** (the interface definition — sketch):
 ```yaml
@@ -232,7 +232,7 @@ inputs:
   base-ref:         { description: "branch to diff against", required: false, default: "" }
   github-token:     { description: "token to post PR comments", required: false, default: "${{ github.token }}" }
   api-key:          { description: "hosted-model key (secret)", required: false, default: "" }
-  license:          { description: "paid-tier license (secret)", required: false, default: "" }
+  verto-token:      { description: "hosted-services account token (secret); free self-run needs none", required: false, default: "" }
   # …the rest of the inputs above…
 outputs:
   status:      { description: "clean | found | regressed" }
@@ -266,10 +266,10 @@ A user's workflow then references it declaratively — the fuller form of the sk
 
 A GitHub Action is just YAML that runs on *your* runners, so the Action itself can't be "the paid thing." Instead, the money rides on **what powers it**:
 
-- **Free:** the open-source tool + a basic Action — deterministic rules or a small local model, self-run, correctness-verified.
-- **Paid:** a **stronger model** (your own GPU or a managed endpoint, for more/better suggestions), a **team dashboard** (trends, what's been accepted across repos), the **cross-project learning** (a win found in one repo helps the next), polished PR integration, and support — unlocked by a license the Action checks.
+- **Free:** the open-source tool + the **self-run Action** — deterministic rules or a **local** model, running on *your* CI, fully correctness-verified. No token, no account.
+- **Paid:** things that run on **VERTO's servers**, so they authenticate to a hosted account (via `verto-token`): a **managed stronger model**, **clean-room benchmarking** (trustworthy numbers a noisy runner can't give), a **team dashboard** (cross-repo trends), the **cross-project pattern learning**, and support.
 
-The verification gate is the same at every tier — a better model only changes *how many* good suggestions appear, never whether a bad one could slip through.
+The paywall is **architectural, not a client-side flag** — free things run on your machine/CI; paid things run on VERTO's, where entitlement is checked **server-side**. And the verification gate is identical at every tier — a better model only changes *how many* good suggestions appear, never whether a bad one could slip through.
 
 ---
 

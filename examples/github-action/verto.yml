@@ -58,7 +58,7 @@ jobs:
           github-token: ${{ github.token }}            # to post the PR comment (this is the default)
           # api-key:    ${{ secrets.OPENAI_API_KEY }}  # ONLY if model: frontier
           # llm-url:    https://api.openai.com         # ONLY if model: frontier
-          # license:    ${{ secrets.VERTO_LICENSE }}   # paid tier
+          # verto-token: ${{ secrets.VERTO_TOKEN }}    # only for VERTO HOSTED features (managed model / clean-room bench); the free self-run Action needs none
 
       # 4) (optional) Use VERTO's outputs in later steps.
       - name: Summary

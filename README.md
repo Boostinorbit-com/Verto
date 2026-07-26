@@ -5,7 +5,7 @@
 > **VERTO proves your code on *your* machine — the source never leaves your box.**
 
 [![CI](https://github.com/Boostinorbit-com/Verto/actions/workflows/ci.yml/badge.svg)](https://github.com/Boostinorbit-com/Verto/actions/workflows/ci.yml)
-&nbsp;License: Apache-2.0 &nbsp;·&nbsp; Status: beta (v0, C++)
+&nbsp;License: Proprietary (all rights reserved) &nbsp;·&nbsp; Status: beta (v0, C++)
 
 ---
 
@@ -129,4 +129,4 @@ Every `.md` has a styled `.html` twin for reading in a browser.
 
 ## License
 
-[Apache-2.0](LICENSE). Contributions welcome — a change is only accepted if it's provably correct-and-faster, which is a nice property for a contribution guide too.
+**Proprietary — all rights reserved** (see [LICENSE](LICENSE)). Pre-release software under active development; not licensed for use, copying, or distribution. The licensing terms for any future public release are reserved and will be decided at that time.
