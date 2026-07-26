@@ -3,27 +3,49 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "verto"
-version = "0.0.1"
-description = "VERTO — a verified, profile-guided, source-level optimizer (v0: C++)"
+name = "verto-optimizer"           # PyPI distribution name; the import + CLI stay `verto`
+version = "0.1.0"
+description = "A verified C++ optimizer — proposes optimizations and applies them only after proving each is byte-identical in behavior AND measurably faster."
+readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "Apache-2.0" }   # widely-compatible form; setuptools auto-includes LICENSE
+authors = [{ name = "Nafis Ayaz", email = "sir.nafis47@gmail.com" }]
+keywords = ["optimization", "performance", "compiler", "c++", "clang", "llm",
+            "verification", "sanitizers", "benchmark", "code-optimization"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Software Development :: Code Generators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: Console",
+]
 dependencies = [
-    # The engine core uses only the stdlib. The C++ Language adapter uses libclang
-    # for AST detection (a regex fallback exists, but AST is the intended path).
-    # The PyPI package bundles a native libclang, so a fresh venv is self-contained.
+    # The engine core uses only the stdlib. The C++ Language adapter uses libclang for AST
+    # detection (a regex fallback exists, but AST is the intended path). The PyPI package
+    # bundles a native libclang, so a fresh venv is self-contained.
     "libclang>=16",
-    # .verto.toml parsing: tomllib is stdlib on 3.11+; tomli backports it for older devs.
+    # .verto.toml parsing: tomllib is stdlib on 3.11+; tomli backports it for older interpreters.
     "tomli>=1.1; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
-# pytest-rerunfailures lets CI re-run a failed test a couple times — a legitimate backstop
-# for the benchmark-gated tests, which are stochastic on shared/noisy runners. A real bug
-# fails all attempts; transient CPU-contention noise clears on a retry.
+# Contributor tooling. pytest-rerunfailures re-runs a flaky (benchmark-gated) test a couple
+# times — a real regression fails all attempts; transient CPU-contention noise clears on retry.
 dev = ["pytest>=7", "pytest-rerunfailures>=12"]
-# LLM proposer backends (build step 6) — install one when wiring the frontier model:
+# Hosted-model backend for `--model frontier` (optional; local Ollama needs nothing extra).
 llm-openai = ["openai>=1.0"]
 llm-anthropic = ["anthropic>=0.30"]
+# OS-keychain storage for a hosted API key (optional).
+keychain = ["keyring>=23"]
+
+[project.urls]
+Homepage = "https://github.com/Boostinorbit-com/Verto"
+Repository = "https://github.com/Boostinorbit-com/Verto"
+Issues = "https://github.com/Boostinorbit-com/Verto/issues"
 
 [project.scripts]
 verto = "verto.surfaces.cli:main"

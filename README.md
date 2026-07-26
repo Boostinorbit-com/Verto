@@ -1,119 +1,132 @@
-# VERTO — Verified Transforming Optimizer
+# VERTO — the verified C++ optimizer
 
-An AI system that makes existing programs measurably faster by reasoning about them like a senior performance engineer, and that **only keeps a change it has proven to be both correct and faster.**
+**VERTO proposes an optimization to your C++ and applies it *only* after proving the change is byte-identical in behavior AND measurably faster.** An untrusted proposer (a local LLM, or deterministic rules) suggests changes; a trusted gate re-compiles, differential-tests, runs sanitizers, and benchmarks each one — and keeps only what passes.
 
-This repo holds both a **working v0 engine** (`verto/`) and the **design documentation** (`Docs/`). Each document owns one concern — *one fact, one home* — so they stay consistent as the project evolves.
+> **VERTO proves your code on *your* machine — the source never leaves your box.**
 
-> **Scope:** v0 targets **C++**. Multi-language support (Python → Rust / Java / Go / JS) is **Axis A** (`VERTO.md` §12) — planned and architected for, not yet built.
+[![CI](https://github.com/Boostinorbit-com/Verto/actions/workflows/ci.yml/badge.svg)](https://github.com/Boostinorbit-com/Verto/actions/workflows/ci.yml)
+&nbsp;License: Apache-2.0 &nbsp;·&nbsp; Status: beta (v0, C++)
 
-## Quickstart
+---
 
-Runs on your system Python (3.8+), no install needed. Requires `clang++` and `g++` (the sanitizer fallback).
+## The one invariant
 
-```bash
-cd "…/AI_Optimizer_Network - (VERTO)"
-export PYTHONPATH="$PWD"
+VERTO accepts a change **if and only if**:
 
-# Optimize the example — really compiles, differential-tests, runs ASan/UBSan, benchmarks:
-python3 -m verto.surfaces.cli optimize examples/packet_stats.cpp --offline
+```
+correctness.rung ≥ min_rung   AND   performance.pareto_pass
 ```
 
-Expected (takes ~6s — it's actually building + benchmarking):
+- **Correct** — a graded ladder: Rung 1 differential test on fuzzed held-out inputs → Rung 3 **AddressSanitizer / UBSan / ThreadSanitizer** clean → (opt-in) Rung 2 metamorphic properties.
+- **Faster** — a Pareto vector (**p50, p99, peak memory**) measured by real benchmarking, not guessed.
+
+The proposer can be wrong, slow, or adversarial — a bad suggestion is a *rejected proposal*, never a wrong accept. That's the whole design.
+
+## Quickstart (60 seconds)
+
+Requires **`clang++`** with sanitizers (that's the one real system dependency — `libclang` ships with the pip package).
+
+```bash
+pip install verto-optimizer          # installs the `verto` command
+
+# Optimize a file: really compiles, differential-tests, runs ASan/UBSan, and benchmarks.
+verto optimize examples/packet_stats.cpp --offline
+```
+
+Output (numbers vary by machine — the *acceptance* is what's guaranteed):
 
 ```
   reserve_before_pushback  →  ACCEPT
     correctness: Rung 3 (clean)
     performance: p50 2.22 ms (-68.0%)  pareto=True
+    ✓ applied to source        (with --apply; dry-run by default)
 ```
 
-Other commands:
+`--offline` uses the deterministic rule proposer (no model, no key). To use a **local LLM** instead — free, private, nothing leaves your machine:
 
 ```bash
-python3 -m verto.surfaces.cli analyze examples/packet_stats.cpp --offline           # non-destructive
-python3 -m verto.surfaces.cli analyze examples/packet_stats.cpp --offline --json     # machine output
-python3 -m verto.surfaces.cli report                                                 # read the Ledger
+verto optimize hot.cpp --model local        # via a local Ollama (e.g. qwen3)
 ```
 
-Notes:
-- **`--offline`** uses the deterministic rule proposer (no LLM/API key). The frontier LLM proposer isn't wired yet — `--model frontier` errors cleanly telling you to use `--offline`.
-- On Python 3.11+, `pip install -e .` installs a plain `verto` command (declared in `pyproject.toml`).
+## What you get
 
-## Development setup (Python 3.11 venv)
+- **Correctness you can trust** — differential testing on fuzzed inputs *plus* ASan/UBSan/TSan, so it catches undefined behavior a passing test suite would miss.
+- **Actually faster** — a measured Pareto vector (p50, p99, **peak memory**), not one guessed metric.
+- **On your machine** — a local model, or your own key; the source never leaves your box.
+- **Beyond a compiler's reach** — data-structure swaps, signature changes, container-type changes.
+- **Inspectable** — read the diff and the proof; untrusted binaries run in a sandbox.
 
-Optional — VERTO runs on system Python 3.8 (see Quickstart). Python 3.11+ enables the packaged `verto` command and `tomllib` config loading.
+VERTO's built-in **wedge test** — 14 pre-registered cases — shows it **accepts** real wins (reserve, `map`→`unordered_map`, `list`→`vector`, pass-by-const-ref…) **and rejects** deliberately-broken ones (an out-of-bounds write that passes the diff test but ASan catches; a memoization that's faster but blows the memory budget). Run it yourself: `python -m wedge.run`.
 
-> ⚠️ Do **not** replace the system `python3` on Ubuntu 20.04 — install 3.11 *alongside* it.
-
-**Install 3.11 (deadsnakes PPA):**
+## Commands
 
 ```bash
-sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt update
-sudo apt install python3.11 python3.11-venv python3.11-dev
+verto init                       # set up a .verto/ workspace (like `git init`) + prep the local model
+verto analyze  foo.cpp           # non-destructive: what would you optimize, and why
+verto optimize foo.cpp --apply   # verify, then write the accepted change (transactional, sound-only)
+verto optimize -p build/ --all   # whole codebase (a compile_commands.json)
+verto report                     # the ledger — every accept/reject, its rung, its measured Δ
 ```
 
-**Create the venv and install VERTO:**
+Key flags: `--offline` (rules) · `--model local|frontier` (LLM) · `--min-rung N` · `--metamorphic` · `--diff` · `--json` · `--jobs N`. Full reference: [`Docs/VERTO_Flags.md`](Docs/VERTO_Flags.md).
 
+## Install
+
+**From PyPI** (recommended):
 ```bash
-cd "…/AI_Optimizer_Network - (VERTO)"
-python3.11 -m venv .venv
-source .venv/bin/activate         # `python` / `pip` are now 3.11
-pip install -e '.[dev]'           # installs the `verto` command + pytest
-verto optimize examples/packet_stats.cpp --offline
-pytest -q                         # run the tests
+pip install verto-optimizer
 ```
 
-No-sudo alternative with [`uv`](https://astral.sh/uv):
-
+**From source** (Python 3.11+):
 ```bash
-uv python install 3.11
-uv venv --python 3.11 && source .venv/bin/activate
-uv pip install -e '.[dev]'
+git clone https://github.com/Boostinorbit-com/Verto && cd Verto
+pip install -e '.[dev]'
+verto analyze --verify-setup     # checks clang, sanitizers, ccache, linker
 ```
 
-## Repository layout
-
-```
-README.md            ← you are here
-Docs/                ← design documentation (.md + .html twins)
-verto/                ← the v0 engine (Python)
-  engine/            gate · orchestrator · ports · models · ledger · registry · api
-  adapters/          language/cpp · domain/performance · model · transforms
-  runtime/           sandbox · bench_runner
-  surfaces/          cli
-examples/            packet_stats.cpp  (the canonical reserve() case)
-tests/               gate invariant tests
+**Docker** (zero setup — bundles clang + sanitizers):
+```bash
+docker build -t verto .
+docker run --rm -v "$PWD:/src" -w /src verto optimize examples/packet_stats.cpp --offline
 ```
 
-## Documents
+Optional extras: a **local LLM** via [Ollama](https://ollama.com) (`--model local`); **bubblewrap** for network/filesystem sandboxing of untrusted binaries; **ccache** for faster repeat runs. `verto analyze --verify-setup` reports what's present.
 
-| Document | Owns | Read it for |
-|---|---|---|
-| **[VERTO.md](Docs/VERTO.md)** · [html](Docs/VERTO.html) | The **design spec** — what VERTO is, why it's needed, where it sits in compilation, the invariant, the four-stage loop, the seven axes, prior art. | Understanding the idea and why it's sound. |
-| **[VERTO_Surfaces.md](Docs/VERTO_Surfaces.md)** · [html](Docs/VERTO_Surfaces.html) | The **surface specs** — how VERTO is delivered (CLI, CI action, IDE extension, dashboard, network, SDK), staged v0→vision. | What the user actually runs. |
-| **[WEDGE_TEST.md](Docs/WEDGE_TEST.md)** · [html](Docs/WEDGE_TEST.html) | The **pre-registered benchmark** — head-to-head vs Codeflash / CompilerGPT, the cases, the judge, honest predictions. | Proving (or disproving) VERTO's differentiation. |
-| **[VERTO_Architecture.md](Docs/VERTO_Architecture.md)** · [html](Docs/VERTO_Architecture.html) | The **engineering blueprint** — the language-agnostic engine core, abstract adapter contracts, multi-language support (universal vs per-language, the support matrix), **and the concrete C++ instance (v0)** inline in §16. | Understanding *and* building the engine. |
-| **[VERTO_Roadmap.md](Docs/VERTO_Roadmap.md)** · [html](Docs/VERTO_Roadmap.html) | The **state & build plan** — where VERTO is today, the complete ordered list of everything to build (Phase 1–4), the two-axis model, known boundaries. | Knowing what's done and what's next. |
-| **[VERTO_Refactor.md](Docs/VERTO_Refactor.md)** · [html](Docs/VERTO_Refactor.html) | The **refactoring plan** — organize by concern, split the few oversized files, make adding a transform cheap; sequenced, test-verified. | Paying down debt after Phase 1. |
+## How it works
 
-Every `.md` has a styled, self-contained `.html` twin (sidebar nav, light/dark) for reading in a browser.
+A four-stage loop, driven by `engine/orchestrator.py`:
 
-## The idea in one line
+```
+ Evidence   →   Proposal      →   Mutate    →   Verify
+ (sensor)       (LLM / rules)     (splice)      (the GATE: compile · diff-test ·
+   │                                             sanitizers · benchmark)  ─→ accept ⟺ invariant
+   └───────────────────────── learn (ledger) ─────────────────────────────┘
+```
 
-The core loop (LLM proposes → verify correct → verify faster → accept) is **not novel** — Codeflash ships it, Google's ECO runs it, CompilerGPT does it for C++. VERTO's bet is **integration, not invention**: formal rigor (contracts + a graded correctness ladder) as the spine, for **C++ systems code**, with profile-guided selection and a verified-transform network. That bet is defensible but unproven — which is what the [Wedge Test](Docs/WEDGE_TEST.md) exists to settle.
+Untrusted binaries run in a **bubblewrap sandbox** (no network, read-only filesystem, cgroup memory cap). The LLM path sends only the hot function's source and re-verifies whatever comes back, so the model choice can never cause a wrong accept.
 
 ## Status
 
-**v0 in progress — the trusted gate is real and working.** On `examples/packet_stats.cpp`, `verto optimize` genuinely compiles, differential-tests, runs ASan/UBSan, and benchmarks — accepting `reserve()` with a **real measured −68%** at correctness Rung 3. The differentiator is proven too: a UB rewrite that *passes* the differential test is **rejected** because AddressSanitizer catches it (`REJECT unsafe`).
+**v0 (beta) — the AI optimizer runs end to end, locally.** The gate is real; a local `qwen3` produced a rewrite the hand-coded transforms lack and the gate verified it at −85%. CI is green on GitHub Actions (Python 3.11/3.12, full suite + the wedge on every push).
 
-- ✅ Engine core (gate · orchestrator · ports · ledger · registry) + gate-invariant tests
-- ✅ Real correctness oracle (differential test + ASan/UBSan ladder) and performance oracle (Pareto vector)
-- ✅ Light-real C++ sensor/mutator (regex) + the `reserve()` transform
-- ⬜ **Next:** libclang AST sensor/mutator (robust) · frontier LLM proposer · more transforms · wire the Wedge Test
+- ✅ Trusted gate (differential + ASan/UBSan/TSan; Pareto vector; opt-in metamorphic)
+- ✅ LLM proposer (local Ollama or any OpenAI-compatible host), best-of-N, cost cap, sandbox
+- ✅ `verto init` workspace, codebase mode, patch export, CI
+- ⬜ Next: more languages (Axis A), formal verification (Alive2), hosted/CI product surfaces
 
-## Where each concern lives (so nothing gets duplicated)
+**Scope:** v0 is **C++** and **Linux**. Multi-language (Python → Rust / Java / Go / JS) is designed for but not built.
 
-- **Concepts / why** → `VERTO.md`
-- **How it's built** → `VERTO_Architecture` (generic engine + the C++ v0 instance in §16; splits into per-language docs when a 2nd language lands)
-- **How it's delivered** → `VERTO_Surfaces`
-- **How it's proven** → `WEDGE_TEST`
+## Documentation
+
+| Doc | For |
+|---|---|
+| [VERTO.md](Docs/VERTO.md) | the idea, the invariant, prior art — *why it's sound* |
+| [VERTO_Architecture.md](Docs/VERTO_Architecture.md) | the engine + the C++ instance — *how it's built* |
+| [VERTO_Surfaces.md](Docs/VERTO_Surfaces.md) | CLI / CI / IDE / config — *what you run* |
+| [VERTO_Roadmap.md](Docs/VERTO_Roadmap.md) | what's done, what's next |
+
+Every `.md` has a styled `.html` twin for reading in a browser.
+
+## License
+
+[Apache-2.0](LICENSE). Contributions welcome — a change is only accepted if it's provably correct-and-faster, which is a nice property for a contribution guide too.

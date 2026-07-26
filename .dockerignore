@@ -1,0 +1,12 @@
+.git
+**/__pycache__
+*.egg-info
+.venv
+.verto
+.verto.toml
+ledger.jsonl
+examples/real_world
+.pytest_cache
+Docs
+tests
+wedge
