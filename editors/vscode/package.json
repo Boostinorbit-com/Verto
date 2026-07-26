@@ -1,0 +1,63 @@
+{
+  "name": "verto-vscode",
+  "displayName": "VERTO — verified C++ optimizations",
+  "description": "Verified, correct-and-faster C++ optimizations in your editor. Every suggestion is proven behavior-identical before it is ever shown.",
+  "version": "0.0.1",
+  "publisher": "verto",
+  "private": true,
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Boostinorbit-com/Verto",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:cpp"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "verto.optimizeFile",
+        "title": "VERTO: Verify & Optimize Current File"
+      }
+    ],
+    "configuration": {
+      "title": "VERTO",
+      "properties": {
+        "verto.command": {
+          "type": "string",
+          "default": "verto",
+          "description": "Command to run the verto CLI. Use 'verto' if installed, or e.g. 'python3 -m verto.surfaces.cli' to run from a checkout."
+        },
+        "verto.model": {
+          "type": "string",
+          "default": "rules",
+          "enum": ["rules", "local", "frontier"],
+          "description": "Proposer: rules (deterministic, no network) | local (Ollama) | frontier (hosted)."
+        },
+        "verto.compileCommands": {
+          "type": "string",
+          "default": "",
+          "description": "Path to compile_commands.json so files build like the real project (optional; recommended for real codebases)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "test:core": "node out/core.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -44,8 +44,8 @@ Build the engine once and every surface inherits it; the dangerous parts (the tr
 | Surface | What it is | When | Why |
 |---|---|---|---|
 | **CLI** (`verto analyze / optimize --apply / report`) | terminal tool | **v0** | simplest; proves the engine end-to-end |
-| **CI action** (GitHub Action / GitLab CI) | runs on a PR, comments verified findings; also **prevention mode** (contracts-in-CI) | v1 | highest leverage; matches Codeflash's GH Action |
-| **VS Code / IDE extension** | inline verified suggestions, one-click apply | v1 | where developers live; matches Codeflash's VS Code plugin |
+| **CI action** (GitHub Action / GitLab CI) | runs on a PR, comments verified findings; also **prevention mode** (contracts-in-CI) | v1 | highest leverage — the PR is where review already happens |
+| **VS Code / IDE extension** | inline verified suggestions, one-click apply | v1 | where developers live — shifts verification left to authoring time |
 | **Web dashboard** | team view of where code is slow, trends over time | v2 | reads the Ledger; a team/management surface |
 | **Network service** | shared verified-transform backend (Axis E) | vision | the flywheel |
 | **SDK / library** | embed the engine programmatically | optional | for power users / integration |
@@ -326,7 +326,7 @@ Runs VERTO automatically on every pull request, so optimization becomes part of 
 
 **Setup** (once): add the workflow YAML, commit a `compile_commands.json` (CMake `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`), set `min-rung`.
 **Tech:** a thin YAML action wrapping the CLI — no engine logic; it just runs `verto` and renders `--json`.
-**Why first among the v1 surfaces:** highest leverage, zero new UI, and the surface Codeflash leads with.
+**Why first among the v1 surfaces:** highest leverage, zero new UI — the PR is where code review already happens, so a verified finding lands exactly where the team is already looking.
 
 ```yaml
 # .github/workflows/verto.yml (sketch)
@@ -342,7 +342,7 @@ Runs VERTO automatically on every pull request, so optimization becomes part of 
 
 ## v1 — VS Code / IDE extension
 
-Brings verified suggestions into the editor, where developers already work.
+Brings verified suggestions into the editor, where developers already work. **Full design note (every concept, the CodeLens/proof-on-hover/Apply UX, the honest-latency model): [`VERTO_VSCode.md`](VERTO_VSCode.md) · [html](VERTO_VSCode.html).**
 
 **The experience, end to end:**
 1. You open (or save) a C++ file.
@@ -359,7 +359,7 @@ Brings verified suggestions into the editor, where developers already work.
 
 **Latency:** analysis and verification (build + benchmark) take seconds, so they run **asynchronously** — results stream into the editor as they're verified; typing is never blocked.
 **Config:** reads the project's `.verto.toml` (min-rung, transforms, profile source), so editor and CLI behave identically.
-**Why:** developers live in the editor; parity with Codeflash's VS Code plugin.
+**Why:** developers live in the editor — surfacing a verified win at authoring time, before it ever reaches a PR, is the earliest possible feedback.
 
 ---
 
@@ -420,7 +420,7 @@ for v in eng.optimize("hist.cpp", apply=False):
     print(v.transform, v.rung, v.perf.p50_delta)   # inspect each Verdict
 ```
 
-**Who uses it:** custom optimization pipelines, research harnesses, and — notably — the **Wedge Test judge**, which drives the engine's verification stage over competitors' outputs.
+**Who uses it:** custom optimization pipelines, research harnesses, and — notably — the **Wedge Test judge**, which drives the engine's verification stage over candidate (proposer) outputs.
 **Note:** no new capability — it's the same Engine API every surface calls, exposed as a library instead of a CLI.
 
 ---

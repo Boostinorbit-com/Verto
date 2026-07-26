@@ -134,8 +134,8 @@
       <table>
         <tr><th>Surface</th><th>What it is</th><th>When</th><th>Why</th></tr>
         <tr><td><b>CLI</b> (<code>verto analyze / optimize --apply / report</code>)</td><td>terminal tool</td><td><span class="ok">v0</span></td><td>simplest; proves the engine end-to-end</td></tr>
-        <tr><td><b>CI action</b> (GitHub Action / GitLab CI)</td><td>runs on a PR, comments verified findings; also <b>prevention mode</b> (contracts-in-CI)</td><td>v1</td><td>highest leverage; matches Codeflash's GH Action</td></tr>
-        <tr><td><b>VS Code / IDE extension</b></td><td>inline verified suggestions, one-click apply</td><td>v1</td><td>where developers live; matches Codeflash's VS Code plugin</td></tr>
+        <tr><td><b>CI action</b> (GitHub Action / GitLab CI)</td><td>runs on a PR, comments verified findings; also <b>prevention mode</b> (contracts-in-CI)</td><td>v1</td><td>highest leverage — the PR is where review already happens</td></tr>
+        <tr><td><b>VS Code / IDE extension</b></td><td>inline verified suggestions, one-click apply</td><td>v1</td><td>where developers live — shifts verification left to authoring time</td></tr>
         <tr><td><b>Web dashboard</b></td><td>team view of where code is slow, trends over time</td><td>v2</td><td>reads the Ledger; a team/management surface</td></tr>
         <tr><td><b>Network service</b></td><td>shared verified-transform backend (Axis E)</td><td>vision</td><td>the flywheel</td></tr>
         <tr><td><b>SDK / library</b></td><td>embed the engine programmatically</td><td>optional</td><td>for power users / integration</td></tr>
@@ -390,7 +390,7 @@ verto optimize foo.cpp --model frontier \
       <ul>
         <li><b>Setup</b> (once): add the workflow YAML, commit a <code>compile_commands.json</code> (CMake <code>-DCMAKE_EXPORT_COMPILE_COMMANDS=ON</code>), set <code>min-rung</code>.</li>
         <li><b>Tech:</b> a thin YAML action wrapping the CLI — no engine logic; it just runs <code>verto</code> and renders <code>--json</code>.</li>
-        <li><b>Why first among v1:</b> highest leverage, zero new UI, the surface Codeflash leads with.</li>
+        <li><b>Why first among v1:</b> highest leverage, zero new UI — the PR is where code review already happens, so a verified finding lands exactly where the team is already looking.</li>
       </ul>
       <pre><code># .github/workflows/verto.yml (sketch)
 - uses: verto/optimize-action@v1
@@ -403,7 +403,7 @@ verto optimize foo.cpp --model frontier \
 
     <section id="s5">
       <h2><span class="n">5</span>VS Code / IDE extension<span class="when v1">v1</span></h2>
-      <p>Brings verified suggestions into the editor, where developers already work.</p>
+      <p>Brings verified suggestions into the editor, where developers already work. <b>Full design note (every concept, the CodeLens/proof-on-hover/Apply UX, the honest-latency model): <a href="VERTO_VSCode.html">VERTO_VSCode</a>.</b></p>
       <h3>The experience, end to end</h3>
       <ol>
         <li>You open (or save) a C++ file.</li>
@@ -421,7 +421,7 @@ verto optimize foo.cpp --model frontier \
       <ul>
         <li><b>Latency:</b> analysis and verification (build + benchmark) take seconds, so they run <b>asynchronously</b> — results stream in as they're verified; typing is never blocked.</li>
         <li><b>Config:</b> reads the project's <code>.verto.toml</code>, so editor and CLI behave identically.</li>
-        <li><b>Why:</b> developers live in the editor; parity with Codeflash's VS Code plugin.</li>
+        <li><b>Why:</b> developers live in the editor — surfacing a verified win at authoring time, before it ever reaches a PR, is the earliest possible feedback.</li>
       </ul>
     </section>
 
@@ -474,7 +474,7 @@ report = eng.analyze("hist.cpp")            # non-destructive: hotspots + candid
 for v in eng.optimize("hist.cpp", apply=False):
     print(v.transform, v.rung, v.perf.p50_delta)   # inspect each Verdict</code></pre>
       <ul>
-        <li><b>Who uses it:</b> custom pipelines, research harnesses, and — notably — the <b>Wedge Test judge</b>, which drives the engine's verification stage over competitors' outputs.</li>
+        <li><b>Who uses it:</b> custom pipelines, research harnesses, and — notably — the <b>Wedge Test judge</b>, which drives the engine's verification stage over candidate (proposer) outputs.</li>
         <li><b>Note:</b> no new capability — the same Engine API every surface calls, exposed as a library instead of a CLI.</li>
       </ul>
     </section>
