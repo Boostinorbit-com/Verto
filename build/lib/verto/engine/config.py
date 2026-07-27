@@ -81,7 +81,8 @@ class Config:
     llm_price_output: float = 15.0        # USD per 1M output tokens
     # LLM proposer (#10): --model local → Ollama; --model frontier → an OpenAI-compatible host
     llm_base_url: str = "http://127.0.0.1:11434"   # Ollama default
-    llm_model: str = "qwen3:1.7b"
+    llm_model: str = "qwen2.5-coder:7b"   # code-specialized default; the gate makes it a pure
+                                          # yield knob (bigger/better model = more real wins, never less safe)
     llm_api_key: str | None = None        # frontier only; local (Ollama) needs none
     llm_timeout_sec: int = 180
     candidates: int = 1                   # #11: LLM proposals per hotspot; gate each, keep the best

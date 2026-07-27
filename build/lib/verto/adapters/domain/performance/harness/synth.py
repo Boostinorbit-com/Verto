@@ -91,6 +91,16 @@ def _builder(spec, name: str) -> str:
             f"{name}.push_back((char)('a' + (j % 26)));")
 
 
+def _ptr_builder(elem: str, name: str, length_name: str) -> str:
+    """B2-a: synthesize a `const T*` parameter as a length-N buffer whose length is
+    the paired integer parameter `length_name`. The call passes `<name>_buf.data()`.
+    Same fuzz formula as the vector builder — the buffer's contents feed BOTH the
+    original and the variant identically, so the differential test stays sound."""
+    return (f"            std::vector<{elem}> {name}_buf((size_t){length_name});\n"
+            f"            for (unsigned long j = 0; j < (unsigned long){length_name}; ++j) "
+            f"{name}_buf[j] = ({elem})((j * 2654435761ull) % 1000);")
+
+
 def _serialize(cat: str, sub: str = "") -> str:
     if cat == "int":
         return '            std::printf("%lld\\n", (long long)r);'

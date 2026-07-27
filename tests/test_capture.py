@@ -52,8 +52,12 @@ def test_aggregate_param_function_is_accepted_end_to_end():
                 shutil.copy2(f, d / f.name)
         results = Engine(_cfg()).optimize_codebase(str(d / "compile_commands.json"), apply=False)
         verds = next(v for f, v, err, _ in results if f.endswith("report.cpp") and not err)
-        acc = [v for v in verds if v.accepted and getattr(v.candidate.transform, "target_func", None) == "scaled_series"]
-        assert acc, "scaled_series (custom aggregate param) should now verify & accept"
+        # report.cpp now has TWO synthesis-param functions — scaled_series (aggregate,
+        # this slice) and gather (const-ptr+length, B2-a). The sensor optimizes whichever
+        # is the hotspot, so accept either as proof that synthesized-input capture works.
+        acc = [v for v in verds if v.accepted
+               and getattr(v.candidate.transform, "target_func", None) in ("scaled_series", "gather")]
+        assert acc, "a synthesis-param function (aggregate scaled_series / pointer gather) should verify & accept"
     finally:
         shutil.rmtree(d, ignore_errors=True)
 

@@ -46,8 +46,9 @@ def resolve(file: str, config: Config) -> AdapterSet:
     from ..adapters.domain.performance.inputs import HeldOutInputs
 
     # --- model ---
+    from ..adapters.proposer.rules import RuleProposer
     if config.model in ("rules", "offline"):
-        from ..adapters.proposer.rules import RuleProposer as ProposerCls
+        ProposerCls = RuleProposer
     else:
         from ..adapters.proposer.frontier import FrontierProposer as ProposerCls
 
@@ -63,6 +64,11 @@ def resolve(file: str, config: Config) -> AdapterSet:
         meta = MetamorphicOracle(config)
     gate = InvariantGate(PerfCorrectnessOracle(config), PerformanceOracleImpl(config), config,
                          reuse=TestReuseOracle(config), metamorphic=meta)
+    # Under an LLM model, keep the deterministic rule proposer as a FLOOR: its guaranteed
+    # win is gated alongside the LLM draws, so `--model local|frontier` is never WORSE than
+    # `--model rules` (the gate keeps the fastest ACCEPTED candidate). Free — rules cost $0.
+    floor = RuleProposer(config, budget=budget) if config.model not in ("rules", "offline") else None
+
     return AdapterSet(
         sensor=CppSensor(config),
         proposer=ProposerCls(config, budget=budget),
@@ -70,4 +76,5 @@ def resolve(file: str, config: Config) -> AdapterSet:
         gate=gate,
         inputs=HeldOutInputs(config),
         budget=budget,
+        floor_proposer=floor,
     )

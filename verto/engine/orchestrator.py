@@ -25,6 +25,8 @@ class AdapterSet:
     gate: InvariantGate
     inputs: object                       # held-out input generator (domain-supplied)
     budget: object | None = None         # #12: LLM cost meter (offline: inert)
+    floor_proposer: Proposer | None = None  # deterministic rule floor, added under an LLM model
+                                            # so a weak rewrite never loses the guaranteed rule win
 
 
 class Orchestrator:
@@ -42,17 +44,63 @@ class Orchestrator:
             return max(1, int(getattr(self._config, "candidates", 1) or 1))
         return 1
 
+    def _evaluate(self, cand, ev, current, seen: set, attempts: list):
+        """Precondition → apply → gate → record ONE candidate. Returns (verdict, variant)
+        if it was ACCEPTED, else None. Rejected / unappliable candidates are recorded in
+        `attempts` — an untrusted proposer's bad rewrite is a REJECT, never a crash."""
+        if not _precondition_holds(cand, ev):
+            v = Verdict(False, cand, None, None, reason="precondition_failed")
+            self._ledger.record(Episode(ev, cand, v)); attempts.append(v)
+            return None
+        try:
+            var = self._a.mutator.apply(current, cand.transform)
+        except ValueError:
+            v = Verdict(False, cand, None, None, reason="mutation_failed")
+            self._ledger.record(Episode(ev, cand, v)); attempts.append(v)
+            return None
+        if var.source_after in seen:            # identical rewrite → don't re-verify it
+            return None
+        seen.add(var.source_after)
+        v = self._a.gate.decide(current, var, cand, self._a.inputs)
+        v.diff = var.patch
+        v.udiff = _unified_diff(current.file, ev.source, var.source_after)
+        self._ledger.record(Episode(ev, cand, v)); attempts.append(v)
+        return (v, var) if v.accepted else None
+
     def _best_of_n(self, ev, priors, current, n: int, tried_here: set):
-        """#11: draw up to `n` candidates for this hotspot, gate each, and return
+        """#11: gate a pool of candidates for this hotspot and return
         ((best_verdict, best_variant) | None, all_attempt_verdicts). "Best" = the accepted
-        rewrite with the largest p50 speedup. Deterministic proposers (rules) stop after one
-        draw; identical variants are deduped so we never re-verify the same rewrite."""
+        rewrite with the largest p50 speedup. The pool is the deterministic RULE floor (when
+        an LLM model is selected — so a weak/garbled rewrite can never lose the guaranteed
+        rule win) PLUS up to `n` LLM draws. Identical variants are deduped."""
         if self._a.budget is not None:
             self._a.budget.start_hotspot()    # #12: one per-hotspot budget across all n draws
         best = None
         best_delta = float("-inf")
         attempts: list[Verdict] = []
         seen: set[str] = set()
+
+        def _consider(cand):
+            nonlocal best, best_delta
+            res = self._evaluate(cand, ev, current, seen, attempts)
+            if res is not None:
+                v, var = res
+                delta = v.performance.vector.get("p50_delta_pct", 0.0) if v.performance else 0.0
+                if delta > best_delta:
+                    best_delta, best = delta, (v, var)
+
+        # Rule FLOOR (LLM models only): always put the deterministic rule win in the pool, so
+        # `--model local|frontier` can only ever do BETTER than `--model rules`, never worse —
+        # the gate keeps whichever ACCEPTED candidate (floor or an LLM rewrite) is fastest.
+        floor = self._a.floor_proposer
+        if floor is not None:
+            fc = floor.propose(ev, priors)
+            if fc is not None:
+                fname = getattr(fc.transform, "name", "?")
+                if fname not in tried_here:
+                    tried_here.add(fname)
+                    _consider(fc)
+
         for _ in range(max(1, n)):
             cand = self._a.proposer.propose(ev, priors)
             if cand is None:
@@ -63,40 +111,7 @@ class Orchestrator:
                 if tname in tried_here:         # a rule transform already tried this run
                     break
                 tried_here.add(tname)
-            if not _precondition_holds(cand, ev):
-                v = Verdict(False, cand, None, None, reason="precondition_failed")
-                self._ledger.record(Episode(ev, cand, v))
-                attempts.append(v)
-                if not varies:
-                    break
-                continue
-            try:
-                var = self._a.mutator.apply(current, cand.transform)
-            except ValueError:
-                # Untrusted proposer: a candidate that can't be applied — an LLM rewrite
-                # that changed nothing or couldn't be located, a transform whose
-                # precondition slipped — is a REJECTED proposal, never a crash. Record it
-                # and move on (LLM: try the next draw; rules: stop).
-                v = Verdict(False, cand, None, None, reason="mutation_failed")
-                self._ledger.record(Episode(ev, cand, v))
-                attempts.append(v)
-                if not varies:
-                    break
-                continue
-            if var.source_after in seen:        # identical rewrite → don't re-verify it
-                if not varies:
-                    break
-                continue
-            seen.add(var.source_after)
-            v = self._a.gate.decide(current, var, cand, self._a.inputs)
-            v.diff = var.patch
-            v.udiff = _unified_diff(current.file, ev.source, var.source_after)
-            self._ledger.record(Episode(ev, cand, v))
-            attempts.append(v)
-            if v.accepted:
-                delta = v.performance.vector.get("p50_delta_pct", 0.0) if v.performance else 0.0
-                if delta > best_delta:
-                    best_delta, best = delta, (v, var)
+            _consider(cand)
             if not varies:                      # rules: one draw is enough
                 break
         return best, attempts
@@ -107,25 +122,33 @@ class Orchestrator:
         self.last_skips = []                  # sites seen but not optimized (item #4)
         current = target
         no_accept = 0
-        tried_here: set[str] = set()          # in-run dedup — one transform per hotspot
-        optimized_funcs: set[str] = set()     # multi-hotspot: functions already optimized this run
+        visited_funcs: set[str] = set()       # multi-hotspot: functions already PROCESSED this run
+                                              # (accepted or rejected) — excluded so each round advances
         n = self._n_candidates()
 
         for round_i in range(self._max_rounds):
-            # 1. EVIDENCE — exclude functions already optimized, so a re-profile of the applied
-            # source moves on to the NEXT hotspot instead of re-picking the one just done.
-            ev = self._a.sensor.collect(current, exclude=frozenset(optimized_funcs))
+            # PER-HOTSPOT dedup — reset every round. It stops best-of-n from re-drawing the SAME
+            # transform for THIS function; it must NOT carry across hotspots, or a later function
+            # would be denied a transform (e.g. reserve) just because an earlier one already used it.
+            tried_here: set[str] = set()
+            # 1. EVIDENCE — exclude functions already VISITED this run (accepted OR rejected), so
+            # each round advances to a NEW hotspot. This is what makes multi-function pickup work
+            # even in DRY-RUN (analyze / --diff without --apply): the file is untouched, but the
+            # exclude set — not a source change — is what moves the sensor to the next function.
+            ev = self._a.sensor.collect(current, exclude=frozenset(visited_funcs))
             if round_i == 0:                  # skips describe the ORIGINAL source
                 self.last_skips = list(getattr(ev, "skips", []))
             sym = getattr(ev.target, "symbol", None)
-            if round_i > 0 and (not sym or sym in optimized_funcs):
-                break                         # no NEW hotspot left to optimize
+            if round_i > 0 and (not sym or sym in visited_funcs):
+                break                         # no NEW harness-able hotspot left
             # 2. priors
             priors = self._ledger.recall(ev)
             # 3-6. PROPOSAL + VERIFICATION — best-of-n (untrusted proposer, trusted gate)
             best, attempts = self._best_of_n(ev, priors, current, n, tried_here)
             if not attempts:                  # proposer offered nothing
                 break
+            if sym:
+                visited_funcs.add(sym)        # processed — the next round targets a DIFFERENT fn
             if best is not None:
                 v, var = best                 # the accepted winner (largest speedup)
             else:
@@ -134,8 +157,6 @@ class Orchestrator:
 
             if best is not None:
                 no_accept = 0
-                if sym:
-                    optimized_funcs.add(sym)  # done — the next round targets a different hotspot
                 # write only a SOUND change (sanitizer-clean) unless --force overrides;
                 # this refuses to auto-apply a --fast (unverified-safe) result. A 2A
                 # test-verified change (via='tests') is sound on the project's OWN
@@ -151,14 +172,10 @@ class Orchestrator:
                     current = var.target      # 8. re-profile the mutated source
             else:
                 no_accept += 1
-                if no_accept >= 2:
+                # optimize: stop grinding a barren file after two dud hotspots in a row.
+                # analyze / dry-run keeps walking so it reports EVERY function's opportunity.
+                if apply and no_accept >= 2:
                     break
-
-            # Re-profiling only surfaces something new after the source changes.
-            # With apply=False the file is untouched, so a second round just
-            # re-parses and re-proposes the same transform — skip it.
-            if not apply:
-                break
         return verdicts
 
 
