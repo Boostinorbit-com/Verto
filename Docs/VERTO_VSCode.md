@@ -186,13 +186,28 @@ The correctness lines are stated as **fact** (toolchain-independent). The speed-
 
 ## 12. Status & the smallest first version
 
-**MVP built & confirmed working in the editor (2026-07-27)** — lives in [`editors/vscode/`](../editors/vscode/). Installed from a `.vsix` and run on a real C++ file: the command → *verifying…* → ⚡ CodeLens → proof-on-hover → Apply all work. The deliberately-small first version:
+**Built & confirmed working in the editor (2026-07-27)** — lives in [`editors/vscode/`](../editors/vscode/) (`.vsix` v0.0.2). Installed and run on a real C++ file.
 
-1. A **command** — "VERTO: Verify & Optimize Current File" — spawns `verto … --json` and collects the findings. ✅
-2. **CodeLens + proof-on-hover** rendering of each `Verdict`. ✅
-3. **Apply** via `WorkspaceEdit` (from the verdict's `udiff`). ✅
+**The §5 surfaces are built:**
+1. **Command + right-click code action** (the 💡 lightbulb) — "VERTO: Verify & Optimize Current File" → spawns `verto … --json`. ✅ (§5.1/5.4)
+2. **Two-state CodeLens** — `⚡ verify & optimize this file` → (async run) → per-finding `⚡ verified −X% · Rung R — Apply` + `Show diff`. ✅ (§5.1)
+3. **Proof-on-hover** — the trust triplet. ✅ (§5.2)
+4. **Apply** via `WorkspaceEdit` from the verdict's `udiff`; **Show diff** opens the change in a diff view. ✅ (§5.3, §8)
+5. **Honest silence** — a "VERTO" output channel logs what was tried and *why* each non-accepted candidate didn't make the cut. ✅ (§5.5)
 
-Pure logic (`src/core.ts`: parse `--json`, diff→edits, proof markdown) is **unit-tested off the editor** (8 tests green); the extension **type-checks against `@types/vscode`** and **packages to a `.vsix`**. End-to-end verified without the editor: real `verto --json` → parse → anchor/label/apply. *What's left is the in-editor UX itself (CodeLens/hover/Apply pixels) — that needs VS Code running, plus CodeLens polish, on-save mode, and the "why skipped" view.* A few hundred lines of TypeScript, because the hard parts (the gate, `--json`, the daemon) already existed.
+Pure logic (`src/core.ts`) is **unit-tested off the editor** (10 tests green); the extension **type-checks against `@types/vscode`** and **packages to a `.vsix`**.
+
+**Still gated on ENGINE work, not extension code (the §13 unique features):** free bug-finding and the proof-as-a-show streaming need the CLI to *emit* sanitizer findings / progress events — not yet available, so they're deliberately **not** faked here. The verifiability heat-map and live-contract need per-function status + persisted proven-baselines. Also follow-ons: on-save mode, per-function (not per-file) targeting.
+
+### Locked UX north-star (2026-07-27): the hybrid chat + console panel
+
+The interim MVP above (CodeLens + a `WebviewPanel` proof popup + `.verto.json` profiles) is *not* the end state. The **chosen direction** — designed and locked in Figma — is a **docked right-side panel (a `WebviewViewProvider`) that merges a conversational chat surface with full console power**:
+
+- **Chat layer (approachable)** — assistant identity, natural-language requests, conversational replies, quick-reply chips.
+- **Console layer (power)** — the profile chip, the **AI-propose → gate-filter pipeline embedded in the reply** (proposed N · verified/rejected with reasons), and a **`/`-command escape hatch** (composer toggles `chat ▾` mode).
+- **Trust preserved** — the verified result card (proof triplet + explanation + Apply/Show diff) lives inside the conversation; *"I'll only suggest changes I can prove… never a guess."*
+
+Rationale: approachable for newcomers (just talk), powerful for pros (raw commands, profiles, the full pipeline) — one panel, same engine, same proof. **Figma:** the design file has three explored frames on one page; the locked one is **"✅ VERTO Extension UX — HYBRID (LOCKED direction)."**
 
 ---
 

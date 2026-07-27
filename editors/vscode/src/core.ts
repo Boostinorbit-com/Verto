@@ -32,6 +32,72 @@ export function acceptedFindings(vs: Verdict[]): Verdict[] {
   return vs.filter((v) => v.accepted);
 }
 
+// Reasons that mean "the proposer produced no usable change" — loop bookkeeping,
+// not a real reject of a candidate. Hidden from the human, per the CLI's own rule.
+const INTERNAL_REASONS = new Set(['mutation_failed', 'precondition_failed']);
+
+/** Non-accepted verdicts worth reporting (skips + real rejects), minus loop noise. */
+export function nonAcceptedShown(vs: Verdict[]): Verdict[] {
+  return vs.filter((v) => !v.accepted && !INTERNAL_REASONS.has(v.reason));
+}
+
+export function isSkip(v: Verdict): boolean {
+  return (v.reason ?? '').startsWith('skipped');
+}
+
+/** A one-line "why not accepted" summary for the honest-silence report. */
+export function outcomeLine(v: Verdict): string {
+  const t = v.candidate?.transform ?? '?';
+  const verb = isSkip(v) ? 'skipped' : 'rejected';
+  return `${verb}: ${t} — ${v.reason}`;
+}
+
+// ── Project run-profiles (.verto.json) ─────────────────────────────────────────
+// A committed, team-shared file where developers define named flag-sets, e.g.
+//   { "default": "quick",
+//     "profiles": {
+//       "quick":    { "description": "fast, deterministic", "args": ["--model","rules"] },
+//       "thorough": { "args": ["--min-rung","3","--metamorphic","--fuzz","5000"] } } }
+
+export interface Profile {
+  description?: string;
+  args: string[];
+}
+export interface ProfileConfig {
+  default?: string;
+  profiles: Record<string, Profile>;
+}
+
+/** Parse a .verto.json into a validated ProfileConfig (tolerant of missing bits). */
+export function parseProfiles(text: string): ProfileConfig {
+  const data = JSON.parse(text) as { default?: unknown; profiles?: Record<string, unknown> };
+  const profiles: Record<string, Profile> = {};
+  for (const [name, raw] of Object.entries(data.profiles ?? {})) {
+    const p = (raw ?? {}) as { description?: unknown; args?: unknown };
+    profiles[name] = {
+      description: typeof p.description === 'string' ? p.description : undefined,
+      args: Array.isArray(p.args) ? p.args.map(String) : [],
+    };
+  }
+  return { default: typeof data.default === 'string' ? data.default : undefined, profiles };
+}
+
+/** The args for the chosen profile — falling back to default, then first, then `fallback`. */
+export function profileArgs(
+  cfg: ProfileConfig | undefined,
+  name: string | undefined,
+  fallback: string[],
+): string[] {
+  if (!cfg || Object.keys(cfg.profiles).length === 0) {
+    return fallback;
+  }
+  const pick =
+    (name && cfg.profiles[name] && name) ||
+    (cfg.default && cfg.profiles[cfg.default] && cfg.default) ||
+    Object.keys(cfg.profiles)[0];
+  return pick ? cfg.profiles[pick].args : fallback;
+}
+
 export function deltaPct(v: Verdict): number | undefined {
   return v.performance?.vector?.p50_delta_pct;
 }

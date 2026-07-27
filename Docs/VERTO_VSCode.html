@@ -270,13 +270,25 @@
 
     <section id="s12">
       <h2><span class="n">12</span>Status &amp; the smallest first version</h2>
-      <p><b>MVP built &amp; confirmed working in the editor (2026-07-27)</b> — lives in <code>editors/vscode/</code>. Installed from a <code>.vsix</code> and run on a real C++ file: the command → <em>verifying…</em> → ⚡ CodeLens → proof-on-hover → Apply all work. The deliberately-small first version:</p>
+      <p><b>Built &amp; confirmed working in the editor (2026-07-27)</b> — lives in <code>editors/vscode/</code> (<code>.vsix</code> v0.0.2). Installed and run on a real C++ file.</p>
+      <p><b>The §5 surfaces are built:</b></p>
       <ol>
-        <li>A <b>command</b> — "VERTO: Verify &amp; Optimize Current File" — spawns <code>verto … --json</code> and collects the findings. ✅</li>
-        <li><b>CodeLens + proof-on-hover</b> rendering of each <code>Verdict</code>. ✅</li>
-        <li><b>Apply</b> via <code>WorkspaceEdit</code> (from the verdict's <code>udiff</code>). ✅</li>
+        <li><b>Command + right-click code action</b> (the 💡 lightbulb) — "VERTO: Verify &amp; Optimize Current File" → spawns <code>verto … --json</code>. ✅ (§5.1/5.4)</li>
+        <li><b>Two-state CodeLens</b> — <code>⚡ verify &amp; optimize this file</code> → (async run) → per-finding <code>⚡ verified −X% · Rung R — Apply</code> + <code>Show diff</code>. ✅ (§5.1)</li>
+        <li><b>Proof-on-hover</b> — the trust triplet. ✅ (§5.2)</li>
+        <li><b>Apply</b> via <code>WorkspaceEdit</code> from the verdict's <code>udiff</code>; <b>Show diff</b> opens the change in a diff view. ✅ (§5.3, §8)</li>
+        <li><b>Honest silence</b> — a "VERTO" output channel logs what was tried and <em>why</em> each non-accepted candidate didn't make the cut. ✅ (§5.5)</li>
       </ol>
-      <p>Pure logic (<code>src/core.ts</code>: parse <code>--json</code>, diff→edits, proof markdown) is <b>unit-tested off the editor</b> (8 tests green); the extension <b>type-checks against <code>@types/vscode</code></b> and <b>packages to a <code>.vsix</code></b>. End-to-end verified without the editor: real <code>verto --json</code> → parse → anchor/label/apply. <em>What's left is the in-editor UX itself (CodeLens/hover/Apply pixels) — that needs VS Code running, plus CodeLens polish, on-save mode, and the "why skipped" view.</em> A few hundred lines of TypeScript, because the hard parts (the gate, <code>--json</code>, the daemon) already existed.</p>
+      <p>Pure logic (<code>src/core.ts</code>) is <b>unit-tested off the editor</b> (10 tests green); the extension <b>type-checks against <code>@types/vscode</code></b> and <b>packages to a <code>.vsix</code></b>.</p>
+      <p><b>Still gated on ENGINE work, not extension code (the §13 unique features):</b> free bug-finding and the proof-as-a-show streaming need the CLI to <em>emit</em> sanitizer findings / progress events — not yet available, so they're deliberately <b>not</b> faked here. The verifiability heat-map and live-contract need per-function status + persisted proven-baselines. Also follow-ons: on-save mode, per-function (not per-file) targeting.</p>
+      <h3>Locked UX north-star (2026-07-27): the hybrid chat + console panel</h3>
+      <p>The interim MVP above (CodeLens + a <code>WebviewPanel</code> proof popup + <code>.verto.json</code> profiles) is <em>not</em> the end state. The <b>chosen direction</b> — designed and locked in Figma — is a <b>docked right-side panel (a <code>WebviewViewProvider</code>) that merges a conversational chat surface with full console power</b>:</p>
+      <ul>
+        <li><b>Chat layer (approachable)</b> — assistant identity, natural-language requests, conversational replies, quick-reply chips.</li>
+        <li><b>Console layer (power)</b> — the profile chip, the <b>AI-propose → gate-filter pipeline embedded in the reply</b> (proposed N · verified/rejected with reasons), and a <b><code>/</code>-command escape hatch</b> (composer toggles <code>chat ▾</code> mode).</li>
+        <li><b>Trust preserved</b> — the verified result card (proof triplet + explanation + Apply/Show diff) lives inside the conversation; <em>"I'll only suggest changes I can prove… never a guess."</em></li>
+      </ul>
+      <p>Rationale: approachable for newcomers (just talk), powerful for pros (raw commands, profiles, the full pipeline) — one panel, same engine, same proof. <b>Figma:</b> the design file has three explored frames on one page; the locked one is <b>"✅ VERTO Extension UX — HYBRID (LOCKED direction)."</b></p>
     </section>
 
     <section id="s13">

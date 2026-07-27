@@ -89,4 +89,45 @@ test('proofMarkdown shows the trust triplet', () => {
   assert.ok(md.includes('10.06 ms → 4.85 ms'));
 });
 
+test('nonAcceptedShown keeps rejects/skips, drops loop noise', () => {
+  const rejected: core.Verdict = { accepted: false, reason: 'not_faster', candidate: { transform: 'reserve' } };
+  const skipped: core.Verdict = { accepted: false, reason: 'skipped(sig)', candidate: { transform: 'reserve' } };
+  const noise: core.Verdict = { accepted: false, reason: 'mutation_failed' };
+  const shown = core.nonAcceptedShown([VERDICT, rejected, skipped, noise]);
+  assert.strictEqual(shown.length, 2); // rejected + skipped, not VERDICT (accepted) or noise
+  assert.ok(core.isSkip(skipped) && !core.isSkip(rejected));
+});
+
+test('outcomeLine reads like an honest report line', () => {
+  const skipped: core.Verdict = { accepted: false, reason: 'skipped(pointer param)', candidate: { transform: 'reserve' } };
+  assert.strictEqual(core.outcomeLine(skipped), 'skipped: reserve — skipped(pointer param)');
+});
+
+test('parseProfiles reads names, args, default; tolerates junk', () => {
+  const cfg = core.parseProfiles(
+    JSON.stringify({
+      default: 'quick',
+      profiles: {
+        quick: { description: 'fast', args: ['--model', 'rules'] },
+        thorough: { args: ['--min-rung', 3, '--metamorphic'] }, // 3 coerced to "3"
+        broken: {}, // no args → []
+      },
+    }),
+  );
+  assert.strictEqual(cfg.default, 'quick');
+  assert.deepStrictEqual(cfg.profiles.quick.args, ['--model', 'rules']);
+  assert.deepStrictEqual(cfg.profiles.thorough.args, ['--min-rung', '3', '--metamorphic']);
+  assert.deepStrictEqual(cfg.profiles.broken.args, []);
+});
+
+test('profileArgs picks named → default → first → fallback', () => {
+  const cfg = core.parseProfiles(
+    JSON.stringify({ default: 'd', profiles: { a: { args: ['--a'] }, d: { args: ['--d'] } } }),
+  );
+  assert.deepStrictEqual(core.profileArgs(cfg, 'a', []), ['--a']); // named wins
+  assert.deepStrictEqual(core.profileArgs(cfg, undefined, []), ['--d']); // default
+  assert.deepStrictEqual(core.profileArgs(cfg, 'nope', []), ['--d']); // unknown → default
+  assert.deepStrictEqual(core.profileArgs(undefined, 'x', ['--fb']), ['--fb']); // no cfg → fallback
+});
+
 console.log(`\n${passed} passed`);

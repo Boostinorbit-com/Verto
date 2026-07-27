@@ -27,8 +27,30 @@ Verified, correct-and-faster C++ optimizations in your editor. Every suggestion 
 | Setting | Default | Meaning |
 |---|---|---|
 | `verto.command` | `verto` | How to invoke the CLI. Use `python3 -m verto.surfaces.cli` to run from a checkout. |
-| `verto.model` | `rules` | Proposer: `rules` (deterministic, no network) · `local` (Ollama) · `frontier` (hosted). |
-| `verto.compileCommands` | `""` | Path to `compile_commands.json` (optional; recommended for real codebases). |
+| `verto.args` | `[]` | **Your choice of flags** passed to `verto optimize` — anything from `verto optimize --help`, e.g. `["--model","local","--min-rung","1","--metamorphic","--fuzz","5000"]`. The extension always adds `--json`. |
+| `verto.compileCommands` | `""` | Convenience for the common `-p` flag: path to `compile_commands.json` (or put `-p <path>` in `verto.args`). |
+
+**Config, two layers.** Keep *project policy* (rungs, transforms, objectives, budget…) in **`.verto.toml`** — it's read automatically and shared by the CLI, CI, and this extension, so all three behave identically. Use **`verto.args`** for *editor-specific* overrides on top. The extension never forces policy flags; unset knobs fall through to `.verto.toml`.
+
+## Run profiles — `.verto.json` (team-shared, committed)
+
+Rather than one fixed flag list, define **named profiles** in a `.verto.json` at your repo root (copy `.verto.json.example`). It's committed, so the whole team shares the same presets:
+
+```json
+{
+  "default": "quick",
+  "profiles": {
+    "quick":    { "description": "fast, deterministic", "args": ["--model","rules","--fast"] },
+    "thorough": { "description": "sanitizers + metamorphic + heavy fuzz",
+                  "args": ["--model","rules","--min-rung","3","--metamorphic","--fuzz","5000"] },
+    "ai":       { "description": "local LLM proposer", "args": ["--model","local","--candidates","3"] }
+  }
+}
+```
+
+- The **status bar** shows the active profile (`⚡ VERTO: quick`); click it — or run **"VERTO: Select Optimization Profile"** — to switch.
+- **"Verify & Optimize"** then runs with that profile's flags.
+- No `.verto.json`? It falls back to the `verto.args` setting.
 
 ## Develop / run locally
 
