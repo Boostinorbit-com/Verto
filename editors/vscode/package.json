@@ -1,0 +1,71 @@
+{
+  "name": "verto-vscode",
+  "displayName": "VERTO — verified C++ optimizations",
+  "description": "Verified, correct-and-faster C++ optimizations in your editor. Every suggestion is proven behavior-identical before it is ever shown.",
+  "version": "0.2.1",
+  "publisher": "verto",
+  "private": true,
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Boostinorbit-com/Verto",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "verto.openPanel",
+        "title": "VERTO: Open Pair-Optimizer Panel"
+      },
+      {
+        "command": "verto.optimizeFile",
+        "title": "VERTO: Verify & Optimize Current File"
+      },
+      {
+        "command": "verto.pickProfile",
+        "title": "VERTO: Select Optimization Profile"
+      }
+    ],
+    "configuration": {
+      "title": "VERTO",
+      "properties": {
+        "verto.command": {
+          "type": "string",
+          "default": "verto",
+          "description": "Command to run the verto CLI. Use 'verto' if installed, or e.g. 'python3 -m verto.surfaces.cli' to run from a checkout."
+        },
+        "verto.args": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "Extra flags passed to `verto optimize`, your choice. Anything from `verto optimize --help` works, e.g.:\n\n```json\n[\"--model\", \"local\", \"--min-rung\", \"1\", \"--metamorphic\", \"--fuzz\", \"5000\", \"--budget\", \"$1\"]\n```\n\nProject policy is best kept in `.verto.toml` (shared with the CLI & CI); use this for editor-specific overrides. The extension always adds `--json`."
+        },
+        "verto.compileCommands": {
+          "type": "string",
+          "default": "",
+          "description": "Convenience for the common `-p` flag: path to compile_commands.json (optional; or just put '-p <path>' in verto.args)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "test:core": "node out/core.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.4.0"
+  }
+}
