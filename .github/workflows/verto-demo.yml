@@ -1,0 +1,46 @@
+# A self-contained DEMO of the #18 user-facing Action, running on THIS repo's own PRs so
+# you can SEE it work end-to-end — VERTO comments on a real pull request — WITHOUT first
+# publishing the Docker image. It runs the action's entrypoint.py directly (the image is
+# only needed for OTHER repos to `uses:` it) and force-scans the bundled demo project so
+# any PR lights up the reserve() finding.
+#
+# For real use in a C++ repo you'd instead copy examples/github-action/verto.yml and point
+# it at your own compile_commands.json with a real base-ref. THIS file is just the demo.
+name: verto-demo
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write          # ← lets the poster comment on the PR (see gotcha in SHIPPING.md)
+
+jobs:
+  verto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install clang (Rung-3 sanitizers) + verto
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang ccache
+          pip install .
+
+      - name: Run the VERTO Action and comment on this PR
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          INPUT_COMPILE-COMMANDS: examples/demo_project/compile_commands.json
+          INPUT_MODEL: rules            # deterministic proposer, no API key
+          INPUT_MODE: comment
+          INPUT_FAIL-ON: none           # advisory: comment, never block the check
+          # DEMO ONLY: diff vs git's empty tree so every bundled file counts as "changed",
+          # guaranteeing the finding shows even on a PR that didn't touch the demo project.
+          # A real setup would drop this and let --changed scope to the PR's actual diff.
+          INPUT_BASE-REF: "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+        run: python examples/github-action/entrypoint.py

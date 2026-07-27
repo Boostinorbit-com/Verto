@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VERTO — CI GitHub Action, explained</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+      --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+      --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+    --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+    --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .layout{display:grid; grid-template-columns:270px 1fr; max-width:1240px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);}
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:19px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-radius:7px; border-left:2px solid transparent;}
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:32px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:72ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{font-size:23px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  h3{font-size:16px; margin:22px 0 8px; color:var(--accent);}
+  p{max-width:80ch;} li{max-width:78ch;}
+  a{color:var(--accent);}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.86em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.5;}
+  pre code{background:none; padding:0;}
+  pre.diagram{background:var(--diagram-bg); color:var(--diagram-fg); border:none;}
+  pre.diagram code{color:var(--diagram-fg);}
+  table{border-collapse:collapse; width:100%; margin:14px 0; font-size:13.5px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0; font-weight:600;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  .ok{color:var(--ok); font-weight:700;} .muted{color:var(--muted);}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+    nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+    main{padding:28px 20px 80px;}
+    header.doc h1{font-size:25px;}
+  }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">VER<span>TO</span> · CI Action</div>
+    <div class="tagline">Item #18: the GitHub Action a C++ team installs so VERTO finds verified speed-ups on every pull request. Explained from scratch.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li class="num"><a href="#s1">Two CIs — clear the confusion</a></li>
+      <li class="num"><a href="#s2">The idea in one picture</a></li>
+      <li class="num"><a href="#s3">The words you need</a></li>
+      <li class="num"><a href="#s4">What it does, step by step</a></li>
+      <li class="num"><a href="#s5">The four modes</a></li>
+      <li class="num"><a href="#s6">How it's delivered</a></li>
+      <li class="num"><a href="#s7">The one hard part</a></li>
+      <li class="num"><a href="#s8">Setting it up</a></li>
+      <li class="num"><a href="#s9">Free vs paid</a></li>
+      <li class="num"><a href="#s10">Today vs to-build</a></li>
+      <li class="num"><a href="#s11">Quick answers</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc">
+      <h1>VERTO in Your CI — the GitHub Action, explained from scratch</h1>
+      <p class="lede">This document explains roadmap item <b>#18</b>: the VERTO GitHub Action — the thing a C++ team installs so that, on every code change, VERTO automatically finds <b>verified</b> speed-ups and shows them right in the pull request. No prior knowledge assumed; every term is defined the first time it appears.</p>
+    </header>
+
+    <section id="s1">
+      <h2><span class="n">1</span>Who this is for, and the one confusion to clear first</h2>
+      <p>There are <b>two completely different things</b> in VERTO's plan that both contain the words "CI". Do not mix them up:</p>
+      <table>
+        <tr><th></th><th>VERTO's own CI (#15, already built)</th><th>The VERTO Action (#18, this doc)</th></tr>
+        <tr><td><b>Whose project it runs in</b></td><td>The <b>VERTO repository</b></td><td><b>Your</b> C++ project</td></tr>
+        <tr><td><b>What it does</b></td><td>Tests that VERTO itself isn't broken</td><td>Runs VERTO <b>on your code</b> and suggests optimizations</td></tr>
+        <tr><td><b>Who benefits</b></td><td>VERTO's developers</td><td><b>You and your team</b></td></tr>
+      </table>
+      <p>This document is only about the second one — <b>the Action you would add to your own project.</b></p>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>The idea in one picture</h2>
+      <pre class="diagram"><code>   You open a Pull Request (a proposed code change)
+            │
+            ▼
+   GitHub runs the VERTO Action automatically
+            │
+            ▼
+   VERTO looks only at the files you changed, and for each one:
+     · compiles it            (does it still build?)
+     · runs it on test inputs (identical output? → CORRECT)
+     · runs sanitizers        (any hidden memory/threading bugs?)
+     · benchmarks it          (is the optimization actually faster?)
+            │
+            ▼
+   VERTO writes a comment on your Pull Request:
+     "Found 2 verified optimizations — here are the diffs. Click to apply."</code></pre>
+      <p>You never leave GitHub. You never run anything by hand. VERTO does the work and <em>proves</em> each suggestion before showing it to you.</p>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>The words you need (each defined once)</h2>
+      <ul>
+        <li><b>CI / CD</b> — "Continuous Integration / Continuous Delivery." In plain terms: <b>automation that runs every time you change code</b> — building, testing, checking. GitHub runs these for you.</li>
+        <li><b>Pull Request (PR)</b> — a <em>proposed</em> change to a codebase, opened for review before it's merged. It's where teammates comment and automated checks report — and where VERTO puts its findings.</li>
+        <li><b>GitHub Action</b> — a <b>reusable piece of automation</b> you plug into a project. You add a small file and GitHub then runs that automation on chosen events (e.g. "on every PR"). The VERTO Action is one of these.</li>
+        <li><b>Workflow</b> — the small YAML file (in <code>.github/workflows/</code>) where you say <em>when</em> to run an Action and <em>with what settings</em>. ~10 lines, written once.</li>
+        <li><b>Runner</b> — the <b>temporary computer GitHub rents to run your automation</b>. A fresh, shared virtual machine that exists for a few minutes, then disappears. (This matters later — see §7.)</li>
+        <li><b><code>compile_commands.json</code></b> — a file listing <b>exactly how each of your C++ files is compiled</b> (flags, includes, defines). Real C++ can't compile without this, so VERTO needs it. Most build systems generate it automatically (CMake with one flag).</li>
+        <li><b>"Only the changed files" (<code>--changed</code>)</b> — instead of scanning your whole project every time (slow), VERTO looks <b>only at the files this PR touched.</b> Fast and relevant.</li>
+        <li><b>A "verified finding"</b> — an optimization VERTO has <b>proven</b> is (a) behavior-identical and (b) faster. VERTO never shows you an unproven guess.</li>
+        <li><b>A GitHub "suggested change"</b> — a special PR comment containing a diff <b>you can apply with one click</b> in the review screen. VERTO can post its fixes this way.</li>
+      </ul>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>What the Action actually does, step by step</h2>
+      <p>When a PR is opened or updated, the Action runs these steps on the runner:</p>
+      <ol>
+        <li><b>Check out your code</b> at the PR's version.</li>
+        <li><b>Figure out which files changed</b> in this PR (vs the base branch).</li>
+        <li><b>Get the compilation info</b> — read your <code>compile_commands.json</code> (or run your build command to generate it).</li>
+        <li><b>Run VERTO on just those files</b> — <code>verto optimize --changed &lt;base&gt; -p compile_commands.json</code>. For each candidate, the trusted gate compiles it, differential-tests it, runs sanitizers, and benchmarks it.</li>
+        <li><b>Collect the verified findings</b> as machine-readable JSON.</li>
+        <li><b>Report back on the PR</b> — a comment listing each proven optimization with its diff (and, optionally, one-click "suggested changes").</li>
+      </ol>
+      <p>Everything above is a thin wrapper over the same VERTO engine the command-line tool already uses — the Action just <em>triggers</em> it and <em>renders</em> the result into GitHub.</p>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>The four ways it can behave — and yes, you can combine them</h2>
+      <p>These four aren't a rigid "pick exactly one." They're really <b>two independent dials</b>, so you can run several at once. (My earlier "start with Comment + Suggested changes" was a <em>rollout order</em>, not a limit.)</p>
+      <p><b>Dial A — how found <em>wins</em> are delivered</b> (choose one — three intensities of the same thing):</p>
+      <ol>
+        <li><b>Comment (safest, the default)</b> — a PR note: <em>"2 verified optimizations found"</em> with the diffs. Changes nothing; you decide.</li>
+        <li><b>Suggested changes</b> — the same findings as <b>one-click-apply</b> suggestions in the review UI. A linter that also <em>fixes</em> — except every fix is proven correct-and-faster.</li>
+        <li><b>Auto-PR</b> — a <em>separate</em> follow-up pull request with the applied, verified patches, for you to review and merge.</li>
+      </ol>
+      <p><b>Dial B — do you also <em>block the merge</em>?</b> (independent on/off, stacks on top of any delivery choice):</p>
+      <ol start="4">
+        <li><b>Prevent mode</b> — <b>fail the check when VERTO found a verified win you didn't take</b> (<code>fail-on: any</code>). Turns the comment from advice into a gate: <em>"there's a proven, correct-and-faster change here — don't merge past it."</em> <b>Shipped.</b>
+          <ul><li><em>Planned variant — <code>fail-on: regression</code>:</em> fail when your PR is <em>slower than a saved baseline</em> (the "guard against losses" flavor). Needs the baseline-diff feature (roadmap), so today the working prevent condition is <code>any</code>.</li></ul>
+        </li>
+      </ol>
+      <p>Because they're separate dials, <b>you can have them together</b> — e.g. <b>Suggested changes + Prevent</b>: suggest every proven win inline <em>and</em> fail the check until one is taken. The only genuine either/or is the <em>delivery style</em> (comment vs suggest vs auto-PR — three ways to present the same wins). In the interface (§8) that's the <code>mode</code> input (<code>comment</code> | <code>suggest</code> | <code>pr</code>) plus <code>fail-on: any</code> for Prevent.</p>
+      <blockquote><p>Recommended rollout: Comment → Suggested changes → turn on Prevent (<code>fail-on: any</code>) once the team trusts the findings. Auto-PR whenever a separate PR suits your flow better than inline suggestions.</p></blockquote>
+      <p><em>What the comment actually looks like</em> (summary comment, inline suggestion, prevent-mode failure) is drafted in <code>examples/github-action/pr-comment.md</code> — it renders on GitHub, so it previews the design.</p>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">6</span>How it's delivered (a "Docker action")</h2>
+      <p>VERTO needs a C++ toolchain (<code>clang++</code> with sanitizers) to do its job. Rather than make every user install that, the Action ships as a <b>Docker action</b>: a pre-built container image that already contains clang, the sanitizers, and VERTO. GitHub pulls the image and runs it. The user installs <em>nothing</em> — they just add the workflow file.</p>
+      <p class="muted">(VERTO already has the <code>Dockerfile</code> for this; the Action is a thin <code>action.yml</code> on top of it.)</p>
+
+      <h3>CI portability — works on GitLab too (and any CI)</h3>
+      <p>Because VERTO is really just <b>a CLI in a Docker image</b>, it runs on <em>any</em> CI — GitHub, GitLab, Jenkins, CircleCI. The engine and every "entry" are universal; only a thin <em>wrapper</em> per platform differs:</p>
+      <pre class="diagram"><code>        one engine  (verto CLI + Docker)  ← universal; every input maps to a CLI flag
+         ├── GitHub Action     (action.yml + PR comments)   ← GitHub wrapper
+         └── GitLab Component  (spec:inputs + MR notes)      ← GitLab wrapper</code></pre>
+      <p><b>GitLab</b> has its own analog of the Action's inputs — a <b>CI/CD Component</b> with a <code>spec: inputs:</code> block. The <em>entries are the same</em> (they map to the same <code>verto</code> flags); only two things differ syntactically:</p>
+      <table>
+        <tr><th></th><th>GitHub Actions</th><th>GitLab CI/CD</th></tr>
+        <tr><td>Input names</td><td><code>compile-commands</code> (hyphens)</td><td><code>compile_commands</code> (underscores)</td></tr>
+        <tr><td>Reading a value</td><td><code>${{ inputs.x }}</code> / <code>with:</code></td><td><code>$[[ inputs.x ]]</code></td></tr>
+        <tr><td>Review UI it posts to</td><td>Pull Request comment</td><td><b>Merge Request</b> note (different API)</td></tr>
+      </table>
+      <p>The only genuinely per-platform work is <b>posting the result</b> — GitHub's PR-comment API vs GitLab's MR-note API — both fed by the same <code>--json</code> output. Everything upstream (find + verify) is identical.</p>
+      <p>Runnable samples for both live in <code>examples/</code>: <code>github-action/</code> (workflow + <code>action.yml</code>) and <code>gitlab-ci/</code> (a plain <code>.gitlab-ci.yml</code> job <b>and</b> a CI/CD Component with matching <code>inputs:</code>).</p>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">7</span>The one genuinely hard part — explained simply</h2>
+      <p>Here is the honest challenge, and it shapes everything.</p>
+      <p><b>A "runner" is a shared, rented computer, and shared computers are <em>noisy</em></b> — other people's jobs run on the same hardware, the CPU speed fluctuates, and timing measurements bounce around. VERTO's whole promise is <em>"correct AND faster,"</em> and <em>"faster"</em> is measured by timing. On a noisy runner, a change that's genuinely <b>30% faster on your laptop can measure as barely 1% faster on the runner</b> — and VERTO, being honest, would then say <em>"not faster, no finding."</em> So the naive Action would <em>under-report</em> real wins and look weak.</p>
+      <p><b>The key realization (learned the hard way building #15):</b> the two halves of the guarantee behave very differently on shared hardware —</p>
+      <ul>
+        <li><b>Correctness is rock-solid regardless of hardware.</b> A memory bug is a memory bug on any machine; "the output is byte-identical" is true on any machine. The sanitizer + differential-test half is <b>toolchain-independent</b> and always trustworthy.</li>
+        <li><b>The exact speed-up number is hardware-dependent.</b> How big the win <em>measures</em> depends on the specific CPU and compiler on that runner.</li>
+      </ul>
+      <p>So the Action <b>separates what it proves from what it merely measures</b>:</p>
+      <ul>
+        <li>Report the <b>proven</b> part with full confidence: <em>"behavior-identical (differential test + sanitizers), and removes N reallocations — a structural win the compiler cannot make."</em></li>
+        <li>Report the <b>measured</b> speed-up with an honest caveat: <em>"measured ~X% faster on this runner; typically larger on production hardware,"</em> and use extra repetitions to steady it.</li>
+      </ul>
+      <p>The upshot: on CI, VERTO's unique, durable value is the <b>correctness proof and the non-obvious optimization</b> — the exact percentage is secondary. That's a <em>stronger</em> and more honest pitch than a fragile hard number.</p>
+    </section>
+
+    <section id="s8">
+      <h2><span class="n">8</span>Setting it up for a team (what you'd actually write)</h2>
+      <p><b>1. Make your build emit <code>compile_commands.json</code>.</b> With CMake, one flag:</p>
+      <pre><code>cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON</code></pre>
+      <p><b>2. Add a workflow file</b> — <code>.github/workflows/verto.yml</code> (sketch):</p>
+      <pre><code>name: VERTO
+on: pull_request
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }        # so VERTO can see the diff vs the base branch
+      - run: cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - uses: verto/action@v1            # ← the VERTO Action
+        with:
+          compile-commands: build/compile_commands.json
+          mode: comment                  # comment | suggest | pr</code></pre>
+      <p><b>3. (Optional) A <code>.verto.toml</code></b> in your repo root sets team defaults once — which model, minimum speed-up, budget — and every run follows it.</p>
+      <p>That's the entire user-facing setup: one build flag, one short workflow file, one optional config.</p>
+
+      <h3>The full interface — every input, output, and secret</h3>
+      <p>An Action is defined by an <b><code>action.yml</code></b> file, which declares the <b>inputs</b> a user may pass (the <code>with:</code> keys), the <b>outputs</b> later steps can read, and how it runs. Here is the proposed contract — each input maps to a VERTO CLI flag that already exists, so this is a real spec, not a wish.</p>
+      <p><b>Inputs</b> (set under <code>with:</code>):</p>
+      <table>
+        <tr><th>Input</th><th>What it controls</th><th>Default</th><th>Maps to</th></tr>
+        <tr><td><code>compile-commands</code></td><td>path to <code>compile_commands.json</code> (or a build dir)</td><td>auto-detect</td><td><code>-p</code></td></tr>
+        <tr><td><code>build-command</code></td><td>shell command run first to <em>generate</em> the DB (e.g. a <code>cmake</code> line)</td><td>—</td><td>(pre-step)</td></tr>
+        <tr><td><code>base-ref</code></td><td>branch to diff against — decides which files count as "changed"</td><td>the PR's base branch</td><td><code>--changed</code></td></tr>
+        <tr><td><code>mode</code></td><td>delivery of found wins: <code>comment</code> · <code>suggest</code> · <code>pr</code> (Prevent = <code>fail-on: any</code>)</td><td><code>comment</code></td><td>(delivery)</td></tr>
+        <tr><td><code>model</code></td><td>proposer: <code>rules</code> · <code>local</code> · <code>frontier</code></td><td><code>rules</code></td><td><code>--model</code>/<code>--offline</code></td></tr>
+        <tr><td><code>min-speedup</code></td><td>reject wins smaller than this %</td><td><code>2</code></td><td><code>--min-speedup</code></td></tr>
+        <tr><td><code>min-rung</code></td><td>correctness rung (<code>1</code> diff test, <code>3</code> sanitizers)</td><td><code>3</code></td><td><code>--min-rung</code></td></tr>
+        <tr><td><code>objectives</code></td><td>performance dimensions to gate on</td><td><code>p50,p99,peak_memory</code></td><td><code>--objectives</code></td></tr>
+        <tr><td><code>include</code> / <code>exclude</code></td><td>globs to narrow which changed files are considered</td><td>—</td><td>(path scoping)</td></tr>
+        <tr><td><code>jobs</code></td><td>translation units to verify in parallel</td><td>auto</td><td><code>--jobs</code></td></tr>
+        <tr><td><code>budget</code></td><td>LLM spend cap — tokens (<code>500k</code>), money (<code>$2</code>), time (<code>90s</code>)</td><td>—</td><td><code>--budget</code></td></tr>
+        <tr><td><code>llm-url</code> / <code>llm-model</code></td><td>hosted-model endpoint + name (for <code>model: frontier</code>)</td><td>—</td><td><code>--llm-url</code>/<code>--llm-model</code></td></tr>
+        <tr><td><code>fail-on</code></td><td>make the check red on: <code>none</code> · <code>any</code> (verified win left unapplied). <code>regression</code> (vs baseline) planned</td><td><code>none</code></td><td><code>--fail-on</code></td></tr>
+        <tr><td><code>config-file</code></td><td>path to the team's <code>.verto.toml</code></td><td><code>.verto.toml</code></td><td><code>--config-file</code></td></tr>
+        <tr><td><code>metamorphic</code></td><td>also run the opt-in metamorphic rung</td><td><code>false</code></td><td><code>--metamorphic</code></td></tr>
+        <tr><td><code>github-token</code></td><td>token used to post the PR comment / suggestions</td><td><code>${{ github.token }}</code></td><td>(GitHub API)</td></tr>
+        <tr><td><code>api-key</code></td><td>hosted-model key — pass a <b>secret</b>, never a literal</td><td>—</td><td>env <code>OPENAI_API_KEY</code></td></tr>
+        <tr><td><code>verto-token</code></td><td>account token for VERTO's <b>hosted</b> services (managed model / clean-room bench) — pass a <b>secret</b>. NOT a local unlock; the self-run Action is free</td><td>—</td><td>(server-side entitlement)</td></tr>
+        <tr><td><code>extra-args</code></td><td>raw passthrough to the <code>verto</code> CLI (escape hatch)</td><td>—</td><td>(any flag)</td></tr>
+      </table>
+      <p><b>Outputs</b> (read as <code>${{ steps.verto.outputs.&lt;name&gt; }}</code>):</p>
+      <table>
+        <tr><th>Output</th><th>Meaning</th></tr>
+        <tr><td><code>status</code></td><td><code>clean</code> · <code>found</code> (verified wins) · <code>regressed</code> (prevent-mode failure)</td></tr>
+        <tr><td><code>findings</code></td><td>number of verified optimizations</td></tr>
+        <tr><td><code>applied</code></td><td>number applied / posted as suggestions</td></tr>
+        <tr><td><code>regressions</code></td><td>number of regressions caught (prevent mode)</td></tr>
+        <tr><td><code>report-json</code></td><td>path to the full machine-readable verdict report</td></tr>
+        <tr><td><code>patches</code></td><td>path to the emitted <code>git apply</code>-able patch series</td></tr>
+      </table>
+      <p><b>Secrets</b> (passed via <code>with:</code> from <code>${{ secrets.* }}</code>, never hard-coded): <code>github-token</code> (to comment), the model <code>api-key</code> (your own key, only if <code>model: frontier</code>), and <code>verto-token</code> (only when using VERTO's hosted services — the free self-run Action needs none).</p>
+      <p><b>The <code>action.yml</code> itself</b> (the interface definition — sketch):</p>
+      <pre><code>name: "VERTO"
+description: "Verified C++ optimizations on your pull requests."
+branding: { icon: "zap", color: "blue" }
+inputs:
+  compile-commands: { description: "path to compile_commands.json or a build dir", required: false, default: "" }
+  mode:             { description: "comment | suggest | pr", required: false, default: "comment" }
+  model:            { description: "rules | local | frontier", required: false, default: "rules" }
+  min-speedup:      { description: "reject wins below this %", required: false, default: "2" }
+  base-ref:         { description: "branch to diff against", required: false, default: "" }
+  github-token:     { description: "token to post PR comments", required: false, default: "${{ github.token }}" }
+  api-key:          { description: "hosted-model key (secret)", required: false, default: "" }
+  verto-token:      { description: "hosted-services account token (secret); free self-run needs none", required: false, default: "" }
+  # …the rest of the inputs above…
+outputs:
+  status:      { description: "clean | found | regressed" }
+  findings:    { description: "number of verified optimizations" }
+  report-json: { description: "path to the full JSON report" }
+runs:
+  using: "docker"            # reuses VERTO's Dockerfile / a published image
+  image: "docker://ghcr.io/verto/action:v1"
+  # the entrypoint reads inputs from INPUT_* env vars, runs `verto`, posts results</code></pre>
+      <p>A user's workflow then references it declaratively — the fuller form of the sketch above:</p>
+      <pre><code>      - id: verto
+        uses: verto/action@v1
+        with:
+          compile-commands: build/compile_commands.json
+          mode: suggest
+          model: rules
+          min-speedup: "3"
+          fail-on: any               # block the merge if a verified win is left unapplied
+          # api-key: ${{ secrets.OPENAI_API_KEY }}   # only if model: frontier
+      - run: echo "VERTO found ${{ steps.verto.outputs.findings }} optimizations"</code></pre>
+      <p><b>Copy-pasteable sample files</b> live in <code>examples/github-action/</code>: a fully-commented <code>verto.yml</code> (the workflow you drop into your repo) and the <code>action.yml</code> (this interface definition, as a real file).</p>
+    </section>
+
+    <section id="s9">
+      <h2><span class="n">9</span>Free vs paid — why this is the "commercial" item</h2>
+      <p>A GitHub Action is just YAML that runs on <em>your</em> runners, so the Action itself can't be "the paid thing." Instead, the money rides on <b>what powers it</b>:</p>
+      <ul>
+        <li><b>Free:</b> the open-source tool + the <b>self-run Action</b> — deterministic rules or a <b>local</b> model, running on <em>your</em> CI, fully correctness-verified. No token, no account.</li>
+        <li><b>Paid:</b> things that run on <b>VERTO's servers</b>, so they authenticate to a hosted account (via <code>verto-token</code>): a <b>managed stronger model</b>, <b>clean-room benchmarking</b> (trustworthy numbers a noisy runner can't give), a <b>team dashboard</b> (cross-repo trends), the <b>cross-project pattern learning</b>, and support.</li>
+      </ul>
+      <p>The paywall is <b>architectural, not a client-side flag</b> — free things run on your machine/CI; paid things run on VERTO's, where entitlement is checked <b>server-side</b>. And the verification gate is identical at every tier — a better model only changes <em>how many</em> good suggestions appear, never whether a bad one could slip through.</p>
+    </section>
+
+    <section id="s10">
+      <h2><span class="n">10</span>What exists today, and what's left to build</h2>
+      <p><b>#18 is not built yet</b> — it's a Phase-5 (commercial) item. But most of the hard machinery already exists, so it's largely <em>assembly</em>:</p>
+      <table>
+        <tr><th>Already built</th><th>Used by #18 for</th></tr>
+        <tr><td>The verification engine + gate</td><td>the actual proving</td></tr>
+        <tr><td><code>Dockerfile</code></td><td>the Docker action's image</td></tr>
+        <tr><td><code>--changed</code> + <code>--jobs</code></td><td>scoping to the PR's files, in parallel</td></tr>
+        <tr><td><code>--json</code> output</td><td>building the PR comment</td></tr>
+        <tr><td><code>--emit-patches</code></td><td>the ranked diffs / suggestions</td></tr>
+        <tr><td><code>.verto.toml</code></td><td>the team's config</td></tr>
+        <tr><td>budget cap</td><td>bounding LLM cost per PR</td></tr>
+        <tr><td>benchmark robustness (from #15)</td><td>surviving noisy runners</td></tr>
+      </table>
+      <p><b>Left to build:</b> the <code>action.yml</code> wrapper, the PR-comment / suggested-changes integration, the free/paid gating, and (later) prevent-mode + the dashboard.</p>
+    </section>
+
+    <section id="s11">
+      <h2><span class="n">11</span>Quick answers to the obvious questions</h2>
+      <ul>
+        <li><b>Does it change my code without asking?</b> No — the default only <em>comments</em>. Anything applied is either your one click ("suggested changes") or a separate PR you review.</li>
+        <li><b>Is my code uploaded anywhere?</b> With the local/rules model, no — it runs entirely on your runner. Only if you opt into a hosted model does the relevant code go to that endpoint (your choice, your key/endpoint).</li>
+        <li><b>What if a suggestion is wrong?</b> It can't be silently wrong — every suggestion passed the correctness gate (identical behavior + clean sanitizers). A weak model just produces <em>fewer</em> suggestions, never an unsafe one.</li>
+        <li><b>Will it slow my CI down?</b> It only looks at changed files, caches compiled artifacts, and you can bound its time/cost. Scoped by design.</li>
+        <li><b>Which build systems work?</b> Anything that can produce a <code>compile_commands.json</code> — CMake (built-in), or tools like Bear for Make/others.</li>
+        <li><b>Is this the same as VERTO's own CI?</b> No — see §1. That one tests VERTO; this one runs VERTO on <em>your</em> code.</li>
+      </ul>
+      <p class="foot">Companion docs: <code>VERTO_Surfaces</code> (all delivery surfaces), <code>VERTO.md</code> (the concept), <code>VERTO_Roadmap</code> (where #18 sits). One fact, one home.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('verto-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('verto-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        if(map[en.target.id]) map[en.target.id].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

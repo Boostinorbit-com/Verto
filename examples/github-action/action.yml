@@ -1,0 +1,125 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# action.yml — the definition of the VERTO GitHub Action (roadmap #18).
+#
+# This is the SPEC / the interface contract: it declares every `with:` input a
+# user's workflow may set, every output they can read, and how the action runs.
+# When the action is built, this file lives at the ROOT of the action's repo
+# (e.g. github.com/verto/action) and is referenced as  uses: verto/action@v1.
+#
+# Each input maps to an existing `verto` CLI flag, so the entrypoint is thin:
+# read INPUT_* env vars → run `verto` → post the result to the PR.
+# ─────────────────────────────────────────────────────────────────────────────
+name: "VERTO"
+description: "Find verified (correct-AND-faster) C++ optimizations on your pull requests."
+author: "VERTO"
+branding:
+  icon: "zap"
+  color: "blue"
+
+inputs:
+  compile-commands:
+    description: "Path to compile_commands.json, or a build dir containing one."
+    required: false
+    default: ""
+  build-command:
+    description: "Shell command run first to GENERATE the compilation database (e.g. a cmake line)."
+    required: false
+    default: ""
+  base-ref:
+    description: "Branch to diff against — decides which files count as changed. Defaults to the PR base."
+    required: false
+    default: ""
+  mode:
+    description: "How found WINS are delivered: comment | suggest | pr. (Prevent = fail-on: any.)"
+    required: false
+    default: "comment"
+  model:
+    description: "Proposer: rules (deterministic, no key) | local (Ollama) | frontier (hosted)."
+    required: false
+    default: "rules"
+  min-speedup:
+    description: "Reject wins smaller than this percent."
+    required: false
+    default: "2"
+  min-rung:
+    description: "Correctness rung to require: 1 = differential test, 3 = + sanitizers."
+    required: false
+    default: "3"
+  objectives:
+    description: "Comma-separated performance dimensions to gate on."
+    required: false
+    default: "p50,p99,peak_memory"
+  include:
+    description: "Glob(s) to narrow which changed files are considered."
+    required: false
+    default: ""
+  exclude:
+    description: "Glob(s) of paths to skip."
+    required: false
+    default: ""
+  jobs:
+    description: "Translation units to verify in parallel."
+    required: false
+    default: ""
+  budget:
+    description: "LLM spend cap — tokens (500k), money ($2), or time (90s)."
+    required: false
+    default: ""
+  llm-url:
+    description: "Hosted-model endpoint (only for model: frontier)."
+    required: false
+    default: ""
+  llm-model:
+    description: "Hosted-model name (only for model: frontier)."
+    required: false
+    default: ""
+  fail-on:
+    description: "Make the check red on: none (never) | any (a verified win was found and left unapplied). `regression` (PR slower than baseline) is planned — needs saved baselines."
+    required: false
+    default: "none"
+  metamorphic:
+    description: "Also run the opt-in metamorphic rung."
+    required: false
+    default: "false"
+  config-file:
+    description: "Path to the team's .verto.toml."
+    required: false
+    default: ".verto.toml"
+  github-token:
+    description: "Token used to post the PR comment / suggestions."
+    required: false
+    default: "${{ github.token }}"
+  api-key:
+    description: "Hosted-model API key — pass a secret, never a literal (only for model: frontier)."
+    required: false
+    default: ""
+  verto-token:
+    description: "Account token authenticating to VERTO's HOSTED services (managed model / clean-room benchmarking). NOT a local unlock — the self-run Action is free and needs no token; entitlement is checked server-side. Pass a secret, only when using paid hosted features."
+    required: false
+    default: ""
+  extra-args:
+    description: "Raw passthrough to the verto CLI (escape hatch)."
+    required: false
+    default: ""
+
+outputs:
+  status:
+    description: "clean (nothing to do) | found (verified wins) | regressed (prevent-mode failure)."
+  findings:
+    description: "Number of verified optimizations."
+  applied:
+    description: "Number applied / posted as suggestions."
+  regressions:
+    description: "Number of regressions caught (prevent mode)."
+  report-json:
+    description: "Path to the full machine-readable verdict report."
+  patches:
+    description: "Path to the emitted git-apply-able patch series."
+
+runs:
+  using: "docker"
+  image: "docker://ghcr.io/verto/action:v1"   # built from VERTO's Dockerfile (roadmap #18 step 4)
+  # The image's ENTRYPOINT is entrypoint.py (this directory): it reads the inputs as
+  # INPUT_* env vars, runs `verto optimize --changed … --json --fail-on …`, writes the
+  # outputs above to $GITHUB_OUTPUT, and re-emits verto's exit code (so `fail-on` turns
+  # the check red/green). Posting the PR comment / suggestions is a separate step (#18 step 3).

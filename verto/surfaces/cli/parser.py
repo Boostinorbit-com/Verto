@@ -80,6 +80,10 @@ def _common(sp, *, apply: bool = False) -> None:
     out.add_argument("--diff", action="store_true",
                      help="print the full unified diff of each accepted change")
     out.add_argument("--json", action="store_true", help="machine-readable output")
+    out.add_argument("--fail-on", metavar="WHAT", dest="fail_on", choices=["none", "any"],
+                     help="#18 CI gate: force the exit code — none (always 0; findings are advisory) "
+                          "| any (exit 1 if a verified optimization was found). Omit for the default "
+                          "codes (0=found, 1=none, 3=all-rejected)")
     out.add_argument("--quiet", "-q", action="store_true",
                      help="only print accepted changes (and their diffs)")
     out.add_argument("--no-color", action="store_true", dest="no_color",

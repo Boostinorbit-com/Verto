@@ -8,14 +8,15 @@ version = "0.1.0"
 description = "A verified C++ optimizer — proposes optimizations and applies them only after proving each is byte-identical in behavior AND measurably faster."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }   # widely-compatible form; setuptools auto-includes LICENSE
+license = { text = "Proprietary" }   # pre-release; all rights reserved (see LICENSE). NOT for public/PyPI release.
 authors = [{ name = "Nafis Ayaz", email = "sir.nafis47@gmail.com" }]
 keywords = ["optimization", "performance", "compiler", "c++", "clang", "llm",
             "verification", "sanitizers", "benchmark", "code-optimization"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: Other/Proprietary License",
+    "Private :: Do Not Upload",
     "Topic :: Software Development :: Compilers",
     "Topic :: Software Development :: Code Generators",
     "Programming Language :: Python :: 3",

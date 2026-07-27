@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# VERTO on GitLab CI/CD — the plain "just a job" form.
+#
+# HOW TO USE: paste this job into your project's .gitlab-ci.yml. It runs on every
+# Merge Request, finds provably correct-AND-faster changes on the files the MR
+# touched, and (optionally) posts them as MR notes. Nothing is applied without you.
+#
+# This is the same VERTO engine as the GitHub Action — GitLab just has different
+# CI syntax. Every setting maps to a `verto` CLI flag, so it ports 1:1.
+# (For a reusable, input-driven version, see templates/verto.yml — a CI/CD Component.)
+# ─────────────────────────────────────────────────────────────────────────────
+verto:
+  image: ghcr.io/verto/action:v1          # the same Docker image the GitHub Action uses
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"   # run on Merge Requests
+  variables:
+    VERTO_MODE: "comment"                  # comment | suggest | pr  (delivery; Prevent = --fail-on any)
+    VERTO_MODEL: "rules"                    # rules (no key) | local | frontier
+    VERTO_MIN_SPEEDUP: "2"                  # reject wins below this %
+    VERTO_MIN_RUNG: "3"                     # 1 = differential test, 3 = + sanitizers
+  script:
+    # 1) VERTO needs your real compile flags — generate compile_commands.json.
+    - cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    # 2) Run VERTO on just the files this MR changed (diff vs the target branch).
+    - >
+      verto optimize
+      --changed "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+      -p build/compile_commands.json
+      --model "$VERTO_MODEL"
+      --min-speedup "$VERTO_MIN_SPEEDUP"
+      --min-rung "$VERTO_MIN_RUNG"
+      --json > verto.json
+    # 3) Post the findings to the MR (the one per-platform bit — uses GitLab's API).
+    #    Needs $GITLAB_TOKEN (a project/CI token) + the predefined MR variables:
+    #    CI_API_V4_URL, CI_PROJECT_ID, CI_MERGE_REQUEST_IID. A thin poster script
+    #    turns verto.json into an MR note. (For frontier models, add OPENAI_API_KEY
+    #    as a masked CI/CD variable.)
+    # - verto-gitlab-comment verto.json
+  artifacts:
+    paths: [verto.json]                    # keep the machine-readable report
+    when: always
