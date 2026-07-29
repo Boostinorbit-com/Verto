@@ -59,6 +59,7 @@ class Evidence:
     profile: Profile | None = None
     hotspot_rank: int = 0
     skips: list["Skip"] = field(default_factory=list)   # sites seen but not optimized (item #4)
+    func_source: str = ""              # the chosen function's exact text — the rewrite-cache key
 
 
 @dataclass
@@ -121,6 +122,7 @@ class Verdict:
     tests_confirmed: bool = False      # True iff the project's own test suite re-confirmed it (item #3)
     via: str = "harness"               # correctness basis: "harness" (sanitizers) | "tests" (project suite, 2A)
     metamorphic: str = ""              # property confirmed by the metamorphic rung, if any (2D)
+    cached: bool = False               # True iff reused from the best-so-far rewrite cache (not re-gated)
 
 
 @dataclass

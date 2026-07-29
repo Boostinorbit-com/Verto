@@ -35,10 +35,13 @@ def test_unharnessable_candidate_is_skipped_with_reason():
     try:
         results = Engine(_cfg()).optimize_codebase(str(d / "compile_commands.json"), apply=False)
         skips = next(sk for f, _v, err, sk in results if f.endswith("report.cpp") and not err)
-        # gather() takes a raw pointer → still unsynthesizable → an honest skip
-        s = next(x for x in skips if x.func == "gather")
+        # mix() takes a NON-const int* (writable BY TYPE) → still
+        # unsynthesizable → an honest skip. (gather(), a const-ptr+length pair, is now
+        # harness-able via B2-a, so it must NOT appear as a skip.)
+        s = next(x for x in skips if x.func == "mix")
         assert s.stage == "harness"
         assert "pointer" in s.reason or "*" in s.reason, f"reason should name the offending type; got {s.reason!r}"
+        assert not any(x.func == "gather" for x in skips), "gather is synthesizable via B2-a → not a skip"
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -58,9 +61,10 @@ def test_supported_function_produces_no_skip():
 def test_unsupported_reason_is_specific():
     """The reason string names WHY, so a real-repo scan is actionable."""
     src = Path(LINKED / "report.cpp").read_text()
-    assert not supported(src, "gather")                       # raw pointer param
-    reason = unsupported_reason(src, "gather")
+    assert not supported(src, "mix")                          # non-const pointer (writable by type)
+    reason = unsupported_reason(src, "mix")
     assert reason and ("pointer" in reason or "*" in reason)
+    assert supported(src, "gather")                           # const-ptr + length → B2-a synthesizes it
     # a plain harnessable function has no reason
     good = "#include <vector>\n#include <cstddef>\n"\
            "std::vector<int> f(std::size_t n){ std::vector<int> o; for(std::size_t i=0;i<n;++i) o.push_back((int)i); return o; }"

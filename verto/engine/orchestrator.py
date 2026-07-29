@@ -11,7 +11,8 @@ from dataclasses import dataclass
 
 from .gate import InvariantGate
 from .ledger import JsonlLedger
-from .models import Episode, Target, Verdict
+from .models import (Candidate, Contract, CorrectnessVerdict, Episode, PerfVerdict, Target,
+                     Verdict, Witness)
 from .ports import Mutator, Proposer, Sensor
 
 _SOUND_RUNG = 3            # sanitizer-clean; below this a change is not auto-written
@@ -25,15 +26,18 @@ class AdapterSet:
     gate: InvariantGate
     inputs: object                       # held-out input generator (domain-supplied)
     budget: object | None = None         # #12: LLM cost meter (offline: inert)
+    floor_proposer: Proposer | None = None  # deterministic rule floor, added under an LLM model
+                                            # so a weak rewrite never loses the guaranteed rule win
 
 
 class Orchestrator:
     def __init__(self, adapters: AdapterSet, ledger: JsonlLedger, max_rounds: int = 8,
-                 config=None) -> None:
+                 config=None, cache=None) -> None:
         self._a = adapters
         self._ledger = ledger
         self._max_rounds = max_rounds
         self._config = config
+        self._cache = cache                  # best-so-far rewrite cache (may be None)
         self.last_skips: list = []           # sites seen but not optimized (item #4)
 
     def _n_candidates(self) -> int:
@@ -42,17 +46,63 @@ class Orchestrator:
             return max(1, int(getattr(self._config, "candidates", 1) or 1))
         return 1
 
+    def _evaluate(self, cand, ev, current, seen: set, attempts: list):
+        """Precondition → apply → gate → record ONE candidate. Returns (verdict, variant)
+        if it was ACCEPTED, else None. Rejected / unappliable candidates are recorded in
+        `attempts` — an untrusted proposer's bad rewrite is a REJECT, never a crash."""
+        if not _precondition_holds(cand, ev):
+            v = Verdict(False, cand, None, None, reason="precondition_failed")
+            self._ledger.record(Episode(ev, cand, v)); attempts.append(v)
+            return None
+        try:
+            var = self._a.mutator.apply(current, cand.transform)
+        except ValueError:
+            v = Verdict(False, cand, None, None, reason="mutation_failed")
+            self._ledger.record(Episode(ev, cand, v)); attempts.append(v)
+            return None
+        if var.source_after in seen:            # identical rewrite → don't re-verify it
+            return None
+        seen.add(var.source_after)
+        v = self._a.gate.decide(current, var, cand, self._a.inputs)
+        v.diff = var.patch
+        v.udiff = _unified_diff(current.file, ev.source, var.source_after)
+        self._ledger.record(Episode(ev, cand, v)); attempts.append(v)
+        return (v, var) if v.accepted else None
+
     def _best_of_n(self, ev, priors, current, n: int, tried_here: set):
-        """#11: draw up to `n` candidates for this hotspot, gate each, and return
+        """#11: gate a pool of candidates for this hotspot and return
         ((best_verdict, best_variant) | None, all_attempt_verdicts). "Best" = the accepted
-        rewrite with the largest p50 speedup. Deterministic proposers (rules) stop after one
-        draw; identical variants are deduped so we never re-verify the same rewrite."""
+        rewrite with the largest p50 speedup. The pool is the deterministic RULE floor (when
+        an LLM model is selected — so a weak/garbled rewrite can never lose the guaranteed
+        rule win) PLUS up to `n` LLM draws. Identical variants are deduped."""
         if self._a.budget is not None:
             self._a.budget.start_hotspot()    # #12: one per-hotspot budget across all n draws
         best = None
         best_delta = float("-inf")
         attempts: list[Verdict] = []
         seen: set[str] = set()
+
+        def _consider(cand):
+            nonlocal best, best_delta
+            res = self._evaluate(cand, ev, current, seen, attempts)
+            if res is not None:
+                v, var = res
+                delta = v.performance.vector.get("p50_delta_pct", 0.0) if v.performance else 0.0
+                if delta > best_delta:
+                    best_delta, best = delta, (v, var)
+
+        # Rule FLOOR (LLM models only): always put the deterministic rule win in the pool, so
+        # `--model local|frontier` can only ever do BETTER than `--model rules`, never worse —
+        # the gate keeps whichever ACCEPTED candidate (floor or an LLM rewrite) is fastest.
+        floor = self._a.floor_proposer
+        if floor is not None:
+            fc = floor.propose(ev, priors)
+            if fc is not None:
+                fname = getattr(fc.transform, "name", "?")
+                if fname not in tried_here:
+                    tried_here.add(fname)
+                    _consider(fc)
+
         for _ in range(max(1, n)):
             cand = self._a.proposer.propose(ev, priors)
             if cand is None:
@@ -63,40 +113,7 @@ class Orchestrator:
                 if tname in tried_here:         # a rule transform already tried this run
                     break
                 tried_here.add(tname)
-            if not _precondition_holds(cand, ev):
-                v = Verdict(False, cand, None, None, reason="precondition_failed")
-                self._ledger.record(Episode(ev, cand, v))
-                attempts.append(v)
-                if not varies:
-                    break
-                continue
-            try:
-                var = self._a.mutator.apply(current, cand.transform)
-            except ValueError:
-                # Untrusted proposer: a candidate that can't be applied — an LLM rewrite
-                # that changed nothing or couldn't be located, a transform whose
-                # precondition slipped — is a REJECTED proposal, never a crash. Record it
-                # and move on (LLM: try the next draw; rules: stop).
-                v = Verdict(False, cand, None, None, reason="mutation_failed")
-                self._ledger.record(Episode(ev, cand, v))
-                attempts.append(v)
-                if not varies:
-                    break
-                continue
-            if var.source_after in seen:        # identical rewrite → don't re-verify it
-                if not varies:
-                    break
-                continue
-            seen.add(var.source_after)
-            v = self._a.gate.decide(current, var, cand, self._a.inputs)
-            v.diff = var.patch
-            v.udiff = _unified_diff(current.file, ev.source, var.source_after)
-            self._ledger.record(Episode(ev, cand, v))
-            attempts.append(v)
-            if v.accepted:
-                delta = v.performance.vector.get("p50_delta_pct", 0.0) if v.performance else 0.0
-                if delta > best_delta:
-                    best_delta, best = delta, (v, var)
+            _consider(cand)
             if not varies:                      # rules: one draw is enough
                 break
         return best, attempts
@@ -107,25 +124,43 @@ class Orchestrator:
         self.last_skips = []                  # sites seen but not optimized (item #4)
         current = target
         no_accept = 0
-        tried_here: set[str] = set()          # in-run dedup — one transform per hotspot
-        optimized_funcs: set[str] = set()     # multi-hotspot: functions already optimized this run
+        visited_funcs: set[str] = set()       # multi-hotspot: functions already PROCESSED this run
+                                              # (accepted or rejected) — excluded so each round advances
         n = self._n_candidates()
 
         for round_i in range(self._max_rounds):
-            # 1. EVIDENCE — exclude functions already optimized, so a re-profile of the applied
-            # source moves on to the NEXT hotspot instead of re-picking the one just done.
-            ev = self._a.sensor.collect(current, exclude=frozenset(optimized_funcs))
+            # PER-HOTSPOT dedup — reset every round. It stops best-of-n from re-drawing the SAME
+            # transform for THIS function; it must NOT carry across hotspots, or a later function
+            # would be denied a transform (e.g. reserve) just because an earlier one already used it.
+            tried_here: set[str] = set()
+            # 1. EVIDENCE — exclude functions already VISITED this run (accepted OR rejected), so
+            # each round advances to a NEW hotspot. This is what makes multi-function pickup work
+            # even in DRY-RUN (analyze / --diff without --apply): the file is untouched, but the
+            # exclude set — not a source change — is what moves the sensor to the next function.
+            ev = self._a.sensor.collect(current, exclude=frozenset(visited_funcs))
             if round_i == 0:                  # skips describe the ORIGINAL source
                 self.last_skips = list(getattr(ev, "skips", []))
             sym = getattr(ev.target, "symbol", None)
-            if round_i > 0 and (not sym or sym in optimized_funcs):
-                break                         # no NEW hotspot left to optimize
+            if round_i > 0 and (not sym or sym in visited_funcs):
+                break                         # no NEW harness-able hotspot left
             # 2. priors
             priors = self._ledger.recall(ev)
-            # 3-6. PROPOSAL + VERIFICATION — best-of-n (untrusted proposer, trusted gate)
-            best, attempts = self._best_of_n(ev, priors, current, n, tried_here)
+            # 3-6. PROPOSAL + VERIFICATION. Best-so-far cache first: on a re-run, reuse this
+            # function's best VERIFIED rewrite and skip the (slow) proposer. --refine ignores the
+            # cached answer, re-runs the proposer, and the cache keeps whichever is faster. A cached
+            # entry is RE-VERIFIED before any --apply write; a dry-run reuses its stored verdict.
+            best, attempts = None, []
+            fc = self._cache_lookup(ev, sym)
+            if fc is not None:
+                best, attempts = self._from_cache(fc, ev, current, sym, apply)
+            if not attempts:                  # miss / --refine / stale cache → run the proposer
+                best, attempts = self._best_of_n(ev, priors, current, n, tried_here)
+                if best is not None:
+                    self._cache_store(ev, sym, best)
             if not attempts:                  # proposer offered nothing
                 break
+            if sym:
+                visited_funcs.add(sym)        # processed — the next round targets a DIFFERENT fn
             if best is not None:
                 v, var = best                 # the accepted winner (largest speedup)
             else:
@@ -134,8 +169,6 @@ class Orchestrator:
 
             if best is not None:
                 no_accept = 0
-                if sym:
-                    optimized_funcs.add(sym)  # done — the next round targets a different hotspot
                 # write only a SOUND change (sanitizer-clean) unless --force overrides;
                 # this refuses to auto-apply a --fast (unverified-safe) result. A 2A
                 # test-verified change (via='tests') is sound on the project's OWN
@@ -151,15 +184,81 @@ class Orchestrator:
                     current = var.target      # 8. re-profile the mutated source
             else:
                 no_accept += 1
-                if no_accept >= 2:
+                # optimize: stop grinding a barren file after two dud hotspots in a row.
+                # analyze / dry-run keeps walking so it reports EVERY function's opportunity.
+                if apply and no_accept >= 2:
                     break
-
-            # Re-profiling only surfaces something new after the source changes.
-            # With apply=False the file is untouched, so a second round just
-            # re-parses and re-proposes the same transform — skip it.
-            if not apply:
-                break
         return verdicts
+
+    # --- best-so-far rewrite cache (skip the slow proposer on a re-run) ---
+    def _model(self) -> str:
+        return getattr(self._config, "model", "rules") if self._config else "rules"
+
+    def _min_rung(self) -> int:
+        return int(getattr(self._config, "min_rung", 3)) if self._config else 3
+
+    def _cache_enabled(self) -> bool:
+        return self._cache is not None and bool(self._config) and getattr(self._config, "use_cache", True)
+
+    def _func_text(self, source: str, func: str) -> str:
+        from ..adapters.language.cpp.regex_detect import detect_func_span
+        span = detect_func_span(source, func)
+        return source[span[0]:span[1]] if span else ""
+
+    def _cache_lookup(self, ev, sym):
+        # --refine ignores the cached answer so the proposer runs again (and may beat it).
+        if not self._cache_enabled() or getattr(self._config, "refine", False):
+            return None
+        fs = getattr(ev, "func_source", "")
+        return self._cache.get(fs, self._model(), self._min_rung()) if (fs and sym) else None
+
+    def _cache_store(self, ev, sym, best) -> None:
+        if not self._cache_enabled():
+            return
+        fs = getattr(ev, "func_source", "")
+        v, var = best
+        new_code = self._func_text(var.source_after, sym) if (fs and sym) else ""
+        if not new_code:
+            return
+        self._cache.put(fs, self._model(), self._min_rung(), {
+            "func": sym, "new_code": new_code, "accepted": True,
+            "delta_pct": (v.performance.vector.get("p50_delta_pct", 0.0) if v.performance else 0.0),
+            "rung": (v.correctness.rung if v.correctness else 0),
+            "transform": getattr(getattr(v.candidate, "transform", None), "name", "?"),
+        })
+
+    def _from_cache(self, entry, ev, current, sym, apply: bool):
+        """Rebuild the cached winning rewrite. On --apply it is RE-VERIFIED (a cached win must
+        still hold on this machine/state before we write); on a dry-run its stored verdict is
+        reused (skips compile + benchmark → the fast path). Returns (best|None, attempts)."""
+        from ..adapters.language.cpp.transforms.verbatim import VerbatimRewrite
+        rewrite = VerbatimRewrite(sym, entry.get("new_code", ""))
+        if entry.get("transform"):
+            rewrite.name = entry["transform"]     # display the ORIGINAL transform's name, not "llm_rewrite"
+        try:
+            contract = rewrite.contract()
+        except Exception:
+            contract = Contract()
+        cand = Candidate(transform=rewrite, contract=contract,
+                         rationale=f"best-so-far cache ({entry.get('transform', '?')})")
+        try:
+            var = self._a.mutator.apply(current, rewrite)
+        except Exception:
+            return None, []                   # the function changed under it → caller re-optimizes
+        udiff = _unified_diff(current.file, ev.source, var.source_after)
+        if apply:
+            v = self._a.gate.decide(current, var, cand, self._a.inputs)
+            v.diff, v.udiff, v.cached = var.patch, udiff, True
+            self._ledger.record(Episode(ev, cand, v))
+            return ((v, var) if v.accepted else None), [v]
+        v = Verdict(accepted=True, candidate=cand,
+                    correctness=CorrectnessVerdict(rung=int(entry.get("rung", 0)), passed=True,
+                                                   witness=Witness()),
+                    performance=PerfVerdict(vector={"p50_delta_pct": float(entry.get("delta_pct", 0.0))},
+                                            pareto_pass=True, samples=0),
+                    reason="cached", cached=True)
+        v.diff, v.udiff = var.patch, udiff
+        return (v, var), [v]
 
 
 def _unified_diff(path: str, before: str, after: str) -> str:

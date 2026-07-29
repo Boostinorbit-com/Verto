@@ -121,11 +121,16 @@ def _common(sp, *, apply: bool = False) -> None:
     out.add_argument("--budget-per-hotspot", metavar="SPEC", dest="budget_per_hotspot",
                      help="#12: per-hotspot LLM spend sub-limit (same SPEC forms as --budget)")
     out.add_argument("--llm-model", metavar="NAME", dest="llm_model",
-                     help="#10: LLM name for --model local|frontier (default qwen3:1.7b)")
+                     help="#10: LLM name for --model local|frontier (default qwen2.5-coder:7b)")
     out.add_argument("--llm-url", metavar="URL", dest="llm_base_url",
                      help="#10: LLM host base URL (default http://127.0.0.1:11434 — local Ollama)")
     out.add_argument("--candidates", type=int, metavar="N", dest="candidates",
                      help="#11: ask the LLM for N rewrites per hotspot; gate each, keep the best (default 1)")
+    out.add_argument("--refine", action="store_true", dest="refine",
+                     help="re-run the proposer even if a cached best exists, and keep whichever is faster "
+                          "(the cached 'high score' only ever rises)")
+    out.add_argument("--no-cache", action="store_true", dest="no_cache",
+                     help="ignore the best-so-far rewrite cache — recompute from scratch this run")
 
 
 class _HelpFormatter(argparse.RawDescriptionHelpFormatter):

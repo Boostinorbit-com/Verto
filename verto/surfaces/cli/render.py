@@ -59,7 +59,8 @@ def _render_human(verdicts: list, *, quiet: bool = False, show_diff: bool = Fals
             continue
         name = v.candidate.transform.name if v.candidate else "?"
         mark = _col("ACCEPT", "32") if v.accepted else f"{_col('REJECT', '31')} ({v.reason})"
-        print(f"\n  {name}  →  {mark}")
+        cached = _col(" (cached)", "36") if getattr(v, "cached", False) else ""
+        print(f"\n  {name}  →  {mark}{cached}")
         if quiet:
             if v.diff:
                 print("\n" + _indent(_diff(v.diff)))
@@ -130,7 +131,8 @@ def _render_codebase(results: list, *, show_diff: bool = False) -> None:
                 tag = _col("✓ applied", "32") if v.applied else _col("ACCEPT", "32")
                 n_applied += bool(v.applied)
                 confirmed = _col("  ✓ tests", "32") if getattr(v, "tests_confirmed", False) else ""
-                print(f"    {tag}  {name} [{fn}]{delta}{confirmed}")
+                cached = _col("  (cached)", "36") if getattr(v, "cached", False) else ""
+                print(f"    {tag}  {name} [{fn}]{delta}{confirmed}{cached}")
                 if show_diff and v.diff:                 # --diff: show the change, in codebase mode too
                     print("\n" + _indent(_diff(v.diff), pad="      ") + "\n")
             elif v.reason.startswith("skipped"):        # gate couldn't verify (item #1/#4)

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VERTO Premium — Build Roadmap</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+      --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+      --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+    --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+    --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .layout{display:grid; grid-template-columns:270px 1fr; max-width:1240px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);}
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:19px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-radius:7px; border-left:2px solid transparent;}
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:32px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:74ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{font-size:23px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  h3{font-size:16px; margin:22px 0 8px; color:var(--accent);}
+  p{max-width:80ch;} li{max-width:78ch;}
+  a{color:var(--accent);}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.86em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.5;}
+  pre.diagram{background:var(--diagram-bg); color:var(--diagram-fg); border:none;}
+  pre.diagram code{color:var(--diagram-fg); background:none;}
+  table{border-collapse:collapse; width:100%; margin:12px 0; font-size:13.5px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  .warnbox{border-left:4px solid var(--warn);} .okbox{border-left:4px solid var(--ok);} .accentbox{border-left:4px solid var(--accent);}
+  ul.check{list-style:none; padding-left:2px; margin:10px 0;}
+  ul.check li{margin:7px 0; display:flex; gap:9px; align-items:flex-start;}
+  ul.check input{margin-top:4px; width:15px; height:15px; accent-color:var(--accent); flex:0 0 auto;}
+  ul.check b.step{color:var(--accent); font-variant-numeric:tabular-nums;}
+  .ok{color:var(--ok); font-weight:700;} .warn{color:var(--warn); font-weight:700;} .bad{color:var(--bad); font-weight:700;} .muted{color:var(--muted);}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+    nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+    main{padding:28px 20px 80px;}
+    header.doc h1{font-size:25px;}
+  }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">VER<span>TO</span> · Premium Roadmap</div>
+    <div class="tagline">Skeleton → sellable service, one small step at a time. Plain words, right order, tickable steps.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li class="num"><a href="#s0">The one rule (the gate)</a></li>
+      <li class="num"><a href="#s1">Where we're heading</a></li>
+      <li class="num"><a href="#s2">Start here: the leanest test</a></li>
+      <li class="num"><a href="#s3">Phase 1 — the stronger AI</a></li>
+      <li class="num"><a href="#s4">Phase 2 — billing &amp; accounts</a></li>
+      <li class="num"><a href="#s5">Phase 3 — exact speed numbers</a></li>
+      <li class="num"><a href="#s6">Phase 4 — team features</a></li>
+      <li class="num"><a href="#s7">Phase 5 — enterprise</a></li>
+      <li class="num"><a href="#s8">Runs through everything</a></li>
+      <li class="num"><a href="#s9">Where a design is needed</a></li>
+      <li class="num"><a href="#s10">Honest status</a></li>
+      <li class="num"><a href="#s11">Related docs</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc">
+      <h1>VERTO Premium — Build Roadmap</h1>
+      <p class="lede">How to go from today's <b>skeleton</b> to a <b>sellable paid service</b>, one small step at a time — in plain words, in the right order, with the reason for each. The "how to build it" companion to <a href="VERTO_Premium.html">VERTO_Premium</a> ("what it is"). <span class="muted">Boxes are tickable in your browser.</span></p>
+    </header>
+
+    <section id="s0">
+      <h2><span class="n">0</span>The one rule before any step (the gate)</h2>
+      <blockquote><p><b>Do not build any of this until the <em>free</em> version is published and has real users.</b></p></blockquote>
+      <p>Premium is a whole online service (servers, logins, billing, powerful machines). Building it before anyone uses the free tool is <b>spending money on a guess</b>. First ship free, get users, and listen for the ask (<em>"I wish the AI were faster," "I wish the numbers were exact"</em>). <b>That demand is the green light.</b> Everything below assumes the light is green.</p>
+    </section>
+
+    <section id="s1">
+      <h2><span class="n">1</span>Where we're heading (the picture)</h2>
+      <p>Turn the <b>skeleton</b> (already built — <code>verto_server/</code>) into a real service, adding the <b>smallest paid thing first</b> and growing outward:</p>
+      <pre class="diagram"><code>skeleton  ──▶  Pro (strong AI)  ──▶  + exact numbers  ──▶  + team  ──▶  + enterprise
+(today)        Phase 1–2             Phase 3               Phase 4      Phase 5</code></pre>
+      <p>Each stage is <b>sellable on its own</b> — you make money at Pro, long before team/enterprise exist.</p>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>Start here: the leanest test <span class="muted" style="font-size:14px;font-weight:400">(my #1 recommendation)</span></h2>
+      <p>Before building the full thing, answer the <b>only question that matters: will anyone actually pay for the hosted AI?</b> Build the cheapest version that can answer it:</p>
+      <ul class="check">
+        <li><input type="checkbox"><span><b class="step">2.1</b> &nbsp;Rent <b>one</b> cloud server with a graphics card (GPU).</span></li>
+        <li><input type="checkbox"><span><b class="step">2.2</b> &nbsp;Put a <b>strong code AI</b> on it (bigger/smarter than the local one).</span></li>
+        <li><input type="checkbox"><span><b class="step">2.3</b> &nbsp;Point the skeleton at it, and <b>run each request in its own sealed box</b> (safety — §9).</span></li>
+        <li><input type="checkbox"><span><b class="step">2.4</b> &nbsp;Add <b><code>--model hosted</code></b> to the free tool (sends code + token to your server).</span></li>
+        <li><input type="checkbox"><span><b class="step">2.5</b> &nbsp;<b>Skip billing code.</b> Use a simple <b>payment link</b>; when someone pays, <b>email them a token by hand</b> (or a tiny script).</span></li>
+        <li><input type="checkbox"><span><b class="step">2.6</b> &nbsp;Sell <b>"Pro"</b> to ~10 early users. Watch: <b>do they pay, and do they come back?</b></span></li>
+      </ul>
+      <div class="callout accentbox">
+        <p><b>The decision:</b></p>
+        <p><span class="ok">✅ They pay</span> → build proper billing + the rest, in order below.<br>
+        <span class="bad">❌ They don't</span> → stop. You just saved months building a cloud nobody wanted.</p>
+        <p style="margin-top:6px" class="muted">This is days of work, not months. Do it before Phase 1's polish.</p>
+      </div>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>Phase 1 — The stronger AI ("managed model")</h2>
+      <p>The first real paid ability. (Steps 2.1–2.4 are its rough version; here's the production version.)</p>
+      <ul class="check">
+        <li><input type="checkbox"><span><b class="step">3.1</b> &nbsp;Rent the GPU server(s) and put the strong code AI on it.</span></li>
+        <li><input type="checkbox"><span><b class="step">3.2</b> &nbsp;Connect <code>verto_server</code>'s <code>managed_model.py</code> to that AI (replace the stub).</span></li>
+        <li><input type="checkbox"><span><b class="step">3.3</b> &nbsp;<b>Sealed box per request</b> — isolate every user's code run (safety, §9).</span></li>
+        <li><input type="checkbox"><span><b class="step">3.4</b> &nbsp;<b>Real accounts/login</b> — replace the fake token list with real auth (API keys or accounts).</span></li>
+        <li><input type="checkbox"><span><b class="step">3.5</b> &nbsp;Finish <b><code>--model hosted</code></b> in the free tool (token + errors handled).</span></li>
+        <li><input type="checkbox"><span><b class="step">3.6</b> &nbsp;Put the server <b>online</b> — a web address, HTTPS (the padlock), always-on.</span></li>
+        <li><input type="checkbox"><span><b class="step">3.7</b> &nbsp;<b>Test end to end</b> — a paying user runs <code>--model hosted</code> and gets a result from your GPU AI.</span></li>
+      </ul>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>Phase 2 — Let people actually pay (billing &amp; accounts)</h2>
+      <ul class="check">
+        <li><input type="checkbox"><span><b class="step">4.1</b> &nbsp;A <b>sign-up page</b> — create an account.</span></li>
+        <li><input type="checkbox"><span><b class="step">4.2</b> &nbsp;<b>Payment</b> — hook up a provider (e.g. Stripe) with the Pro plan.</span></li>
+        <li><input type="checkbox"><span><b class="step">4.3</b> &nbsp;<b>Issue a token when they pay</b> — paying → they get their secret key.</span></li>
+        <li><input type="checkbox"><span><b class="step">4.4</b> &nbsp;<b>Count usage</b> — track how much each token uses; enforce limits; tie to billing.</span></li>
+        <li><input type="checkbox"><span><b class="step">4.5</b> &nbsp;A tiny <b>account page</b> — see your plan, usage, and token.</span></li>
+      </ul>
+      <div class="callout okbox"><p>✅ <b>After Phase 2 you have a real, sellable product: "Pro" = the strong AI, paid for automatically.</b></p></div>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>Phase 3 — Exact speed numbers ("clean-room")</h2>
+      <p>The second paid ability — the honest-caveat upsell.</p>
+      <ul class="check">
+        <li><input type="checkbox"><span><b class="step">5.1</b> &nbsp;Set up <b>dedicated, quiet machines</b> (nothing else runs on them).</span></li>
+        <li><input type="checkbox"><span><b class="step">5.2</b> &nbsp;Send the <b>"measure speed" step</b> to those machines for hosted users.</span></li>
+        <li><input type="checkbox"><span><b class="step">5.3</b> &nbsp;Return the <b>steady, trustworthy number</b>.</span></li>
+        <li><input type="checkbox"><span><b class="step">5.4</b> &nbsp;<b>Lock it</b> to the paying plans that include it.</span></li>
+      </ul>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">6</span>Phase 4 — Team features (and the one place design matters)</h2>
+      <p>For several people sharing a codebase.</p>
+      <ul class="check">
+        <li><input type="checkbox"><span><b class="step">6.1</b> &nbsp;Move <b>history</b> from each laptop to a <b>shared database</b> on the server.</span></li>
+        <li><input type="checkbox"><span><b class="step">6.2</b> &nbsp;<b>Build the web dashboard</b> — the page the team looks at. <b class="warn">← the one screen worth a Figma/mockup, and only now (§9).</b></span></li>
+        <li><input type="checkbox"><span><b class="step">6.3</b> &nbsp;<b>Company rules</b> — one shared settings the lead controls.</span></li>
+        <li><input type="checkbox"><span><b class="step">6.4</b> &nbsp;<b>Seats</b> — many users under one account.</span></li>
+        <li><input type="checkbox"><span><b class="step">6.5</b> &nbsp;<b>Company login (SSO)</b> + an <b>audit trail</b>.</span></li>
+      </ul>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">7</span>Phase 5 — Enterprise (big companies)</h2>
+      <ul class="check">
+        <li><input type="checkbox"><span><b class="step">7.1</b> &nbsp;Corporate login (SSO with Okta/Entra, etc.).</span></li>
+        <li><input type="checkbox"><span><b class="step">7.2</b> &nbsp;Audit / compliance features.</span></li>
+        <li><input type="checkbox"><span><b class="step">7.3</b> &nbsp;<b>On-premise option</b> — run it inside the company's own cloud.</span></li>
+        <li><input type="checkbox"><span><b class="step">7.4</b> &nbsp;Contracts, SLAs (guarantees), and support.</span></li>
+      </ul>
+    </section>
+
+    <section id="s8">
+      <h2><span class="n">8</span>Runs through everything (don't skip)</h2>
+      <p>Not a phase — these apply to <b>every</b> step from Phase 1 on:</p>
+      <ul class="check">
+        <li><input type="checkbox"><span><b>Security</b> — the sealed box per request (§9); never expose the skeleton as-is.</span></li>
+        <li><input type="checkbox"><span><b>Monitoring</b> — know when the server is down or slow.</span></li>
+        <li><input type="checkbox"><span><b>Reliability</b> — backups, restarts, sensible limits.</span></li>
+      </ul>
+    </section>
+
+    <section id="s9">
+      <h2><span class="n">9</span>Where a design / Figma is actually needed</h2>
+      <p>Almost nowhere — because almost nothing in Premium has a screen:</p>
+      <table>
+        <tr><th>Piece</th><th>Needs a design?</th></tr>
+        <tr><td>CLI, <code>--model hosted</code>, the API</td><td class="bad">❌ text / code</td></tr>
+        <tr><td>Managed AI, clean-room</td><td class="bad">❌ invisible backend</td></tr>
+        <tr><td>Hosted PR comment</td><td class="bad">❌ just a text comment</td></tr>
+        <tr><td>Sign-up / account / billing pages</td><td>~ standard SaaS screens (light)</td></tr>
+        <tr><td><b>The team dashboard (Phase 4)</b></td><td class="ok">✅ yes — the one real UI, and only at Phase 4</td></tr>
+      </table>
+      <p>So: <b>no Figma needed until Phase 4</b>, and even then a simple mockup is enough to start.</p>
+    </section>
+
+    <section id="s10">
+      <h2><span class="n">10</span>Honest status &amp; how to read this</h2>
+      <ul>
+        <li><b>Nothing here is built</b> beyond the skeleton (<code>verto_server/</code>), which proves the design works.</li>
+        <li><b>Each phase is sellable on its own</b> — you don't build all five before earning; you sell <b>Pro</b> after Phase 2 and grow from revenue.</li>
+        <li><b>The order is deliberate:</b> cheapest, highest-value thing first (the strong AI), then the next, gated by real demand.</li>
+        <li><b>Timelines aren't given on purpose</b> — they depend on the team and shouldn't be guessed here.</li>
+      </ul>
+    </section>
+
+    <section id="s11">
+      <h2><span class="n">11</span>Related docs</h2>
+      <table>
+        <tr><th>Document</th><th>What it's for</th></tr>
+        <tr><td><a href="VERTO_Premium.html">VERTO_Premium</a></td><td><b>What</b> Premium is — every paid ability explained with examples.</td></tr>
+        <tr><td><a href="VERTO_Tiers.html">VERTO_Tiers</a></td><td>The exact free-vs-paid line, command by command.</td></tr>
+        <tr><td><a href="VERTO_Hosted.html">VERTO_Hosted</a></td><td>The "our-servers" idea from scratch.</td></tr>
+        <tr><td><code>verto_server/README</code></td><td>The working skeleton + its production to-do list.</td></tr>
+        <tr><td><a href="VERTO_Roadmap.html">VERTO_Roadmap</a></td><td>The overall product roadmap (Premium is Phase 5, #19–21).</td></tr>
+      </table>
+      <p class="foot">One fact, one home. Build free first; build premium after demand; sell Pro before team/enterprise exist.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('verto-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('verto-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        if(map[en.target.id]) map[en.target.id].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

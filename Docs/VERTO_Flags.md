@@ -78,7 +78,7 @@ Inspect optimization opportunities without changing anything.
 | `--sandbox-mem MB` | #13: cgroup memory cap (MB) for isolated runs (default 2048) |
 | `--budget SPEC` | #12: per-run LLM spend cap — tokens ('500k'), money ('$2'), or time ('90s') |
 | `--budget-per-hotspot SPEC` | #12: per-hotspot LLM spend sub-limit (same SPEC forms as --budget) |
-| `--llm-model NAME` | #10: LLM name for --model local\|frontier (default qwen3:1.7b) |
+| `--llm-model NAME` | #10: LLM name for --model local\|frontier (default qwen2.5-coder:7b) |
 | `--llm-url URL` | #10: LLM host base URL (default http://127.0.0.1:11434 — local Ollama) |
 | `--candidates N` | #11: ask the LLM for N rewrites per hotspot; gate each, keep the best (default 1) |
 
@@ -158,7 +158,7 @@ Find, verify, and apply performance improvements.
 | `--sandbox-mem MB` | #13: cgroup memory cap (MB) for isolated runs (default 2048) |
 | `--budget SPEC` | #12: per-run LLM spend cap — tokens ('500k'), money ('$2'), or time ('90s') |
 | `--budget-per-hotspot SPEC` | #12: per-hotspot LLM spend sub-limit (same SPEC forms as --budget) |
-| `--llm-model NAME` | #10: LLM name for --model local\|frontier (default qwen3:1.7b) |
+| `--llm-model NAME` | #10: LLM name for --model local\|frontier (default qwen2.5-coder:7b) |
 | `--llm-url URL` | #10: LLM host base URL (default http://127.0.0.1:11434 — local Ollama) |
 | `--candidates N` | #11: ask the LLM for N rewrites per hotspot; gate each, keep the best (default 1) |
 

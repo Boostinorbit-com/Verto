@@ -15,7 +15,8 @@ from __future__ import annotations
 import re
 
 from ....language.cpp import analysis as _ast
-from .synth import _builder, _classify, _classify_param, _consume, _serialize
+from .synth import (_builder, _classify_param, _classify_ret, _consume, _ptr_builder,
+                    _serialize)
 
 # Real-world .cpp files ship their own `int main()`; the harness appends its OWN driver
 # main, so we rename the file's main out of the way (it's dead code in the harness — the
@@ -27,7 +28,7 @@ _MAIN_RE = re.compile(r"\bint\s+main\s*\(")
 def _neutralize_main(source: str) -> str:
     return _MAIN_RE.sub("int _verto_user_main(", source)
 
-_PRELUDE = ("#include <cstdio>\n#include <cstdlib>\n#include <cstdint>\n"
+_PRELUDE = ("#include <cstdio>\n#include <cstdlib>\n#include <cstdint>\n#include <cmath>\n"
             "#include <chrono>\n#include <vector>\n#include <string>\n#include <thread>\n")
 
 _TEMPLATE = """<<PRELUDE>>
@@ -84,22 +85,32 @@ def generate(source: str, func: str) -> str | None:
     if sig is None:
         return None
     params, ret = sig
-    pcats = [_classify_param(p, source) for p in params]
-    rcat = _classify(ret)
+    pairs = _ast.pointer_length_pairs(source, func)      # B2-a: {ptr_idx: (elem, len_idx)}
+    pcats = [("ptrbuf",) + pairs[i] if i in pairs else _classify_param(p, source)
+             for i, p in enumerate(params)]
+    rcat = _classify_ret(ret, source)
     if any(c is None for c in pcats) or rcat is None:
         return None
-    rc, rsub = rcat
 
     names = [f"a{i}" for i in range(len(params))]
-    build = "\n".join(_builder(spec, names[i]) for i, spec in enumerate(pcats))
+    pre, ptr, call_args = [], [], []                     # length params BEFORE the buffers that use them
+    for i, spec in enumerate(pcats):
+        if spec[0] == "ptrbuf":
+            _, elem, len_idx = spec
+            ptr.append(_ptr_builder(elem, names[i], names[len_idx]))
+            call_args.append(f"{names[i]}_buf.data()")
+        else:
+            pre.append(_builder(spec, names[i]))
+            call_args.append(names[i])
+    build = "\n".join(pre + ptr)
     call = _ast.qualified_name(source, func)             # ns::func so a namespaced fn resolves
     return (_TEMPLATE
             .replace("<<PRELUDE>>", _PRELUDE)
             .replace("<<SOURCE>>", _neutralize_main(source))
             .replace("<<BUILD>>", build)
-            .replace("<<CALL>>", f"{call}(" + ", ".join(names) + ")")
-            .replace("<<SERIALIZE>>", _serialize(rc, rsub))
-            .replace("<<CONSUME>>", _consume(rc)))
+            .replace("<<CALL>>", f"{call}(" + ", ".join(call_args) + ")")
+            .replace("<<SERIALIZE>>", _serialize(rcat))
+            .replace("<<CONSUME>>", _consume(rcat)))
 
 
 def supported(source: str, func: str) -> bool:
@@ -113,10 +124,12 @@ def unsupported_reason(source: str, func: str) -> str | None:
     if sig is None:
         return "signature not resolvable (custom/templated types?)"
     params, ret = sig
+    pairs = _ast.pointer_length_pairs(source, func)       # B2-a: safe const-ptr+length pairs
     for i, p in enumerate(params):
+        if i in pairs:                                    # const T* + length → synthesizable as a buffer
+            continue
         if _classify_param(p, source) is None:
             return f"parameter {i} type {p!r} can't be synthesized as an input"
-    rcat = _classify(ret)
-    if rcat is None:
+    if _classify_ret(ret, source) is None:
         return f"return type {ret!r} can't be checksummed"
     return None

@@ -18,6 +18,7 @@ from pathlib import Path
 DIRNAME = ".verto"
 _SUBDIRS = ("baselines", "cache")
 _LEDGER = "ledger.jsonl"
+_CACHE = "cache/rewrites.jsonl"
 _MODEL = "model"
 _ROOT_CONFIG = ".verto.toml"
 
@@ -42,6 +43,13 @@ def ledger_path(start: str | Path | None = None) -> str:
     repo-root `ledger.jsonl` (so everything works before `verto init` is ever run)."""
     ws = find(start)
     return str(ws / _LEDGER) if ws else _LEDGER
+
+
+def cache_path(start: str | Path | None = None) -> str | None:
+    """Where the best-so-far rewrite cache lives — inside the `.verto/` workspace, or None if
+    there's no workspace (no init → no persistent cache; the run just recomputes each time)."""
+    ws = find(start)
+    return str(ws / _CACHE) if ws else None
 
 
 def read_model(ws: str | Path) -> dict:
