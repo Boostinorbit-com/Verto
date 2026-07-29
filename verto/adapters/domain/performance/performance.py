@@ -33,16 +33,33 @@ class PerformanceOracleImpl:
 
         own_wd = tempfile.mkdtemp(prefix="verto-perf-") if ctx is None else None
         wd = own_wd if ctx is None else ctx.workdir
+        vector: dict = {}
+        ok, reason, samples = False, "", 0
         try:
             a, b = get_or_build_pair(ctx, wd, make_program(orig_src, func), "orig",
                                      make_program(var.source_after, func), "var")
-            if not (a.build_ok and b.build_ok):
-                return PerfVerdict(vector={}, pareto_pass=False, samples=0)
-            before, after = self._benchmark(a.binary_path, b.binary_path)
+            if a.build_ok and b.build_ok:
+                before, after = self._benchmark(a.binary_path, b.binary_path)
+                ok, reason, vector = self._verdict(before, after)
+                samples = len(after.raw)
+                # CONFIRMATION — a real win REPRODUCES; a noise spike doesn't. On a would-be
+                # ACCEPT, re-time (a fresh, independent measurement) and require the win to hold;
+                # otherwise it was a lucky measurement clearing the threshold → REJECT. This closes
+                # the false-accept where benchmark noise reads a no-op change as a big speedup.
+                # (Binaries must still exist, so this runs inside the try, before wd cleanup.)
+                if ok and getattr(self._config, "confirm_accepts", True):
+                    before2, after2 = self._benchmark(a.binary_path, b.binary_path)
+                    samples += len(after2.raw)
+                    ok, reason, vector = self._confirm(
+                        (ok, reason, vector), self._verdict(before2, after2))
         finally:
             if own_wd:
                 shutil.rmtree(own_wd, ignore_errors=True)
 
+        return PerfVerdict(vector=vector, pareto_pass=ok, samples=samples, reason=reason)
+
+    def _verdict(self, before, after) -> tuple[bool, str, dict]:
+        """Pareto decision + the reported vector for ONE (before, after) measurement."""
         bv = {"p50": before.p50, "p99": before.p99,
               "peak_memory": before.peak_memory, "binary_size": before.binary_size}
         av = {"p50": after.p50, "p99": after.p99,
@@ -51,7 +68,18 @@ class PerformanceOracleImpl:
         vector["p50_before"] = before.p50
         vector["p50_delta_pct"] = _pct(before.p50, after.p50)
         ok, reason = self._pareto(bv, av)
-        return PerfVerdict(vector=vector, pareto_pass=ok, samples=len(after.raw), reason=reason)
+        return ok, reason, vector
+
+    @staticmethod
+    def _confirm(v1: tuple, v2: tuple) -> tuple:
+        """Combine a would-be ACCEPT `v1` with its independent re-measurement `v2`. The win must
+        REPRODUCE (v2 also accepts) or it's noise → REJECT; on agreement, report the CONSERVATIVE
+        (smaller-gain) measurement so a lucky spike never inflates the reported speedup."""
+        ok1, r1, vec1 = v1
+        ok2, r2, vec2 = v2
+        if not ok2:
+            return False, f"win did not reproduce on re-measure — within noise ({r2})", vec1
+        return (True, r2, vec2) if vec2["p50_delta_pct"] < vec1["p50_delta_pct"] else (True, r1, vec1)
 
     def _benchmark(self, a_bin: str, b_bin: str):
         """Adaptive timing: run at reps_min first; escalate to the full `reps` when

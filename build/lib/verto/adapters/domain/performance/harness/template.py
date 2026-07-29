@@ -15,7 +15,8 @@ from __future__ import annotations
 import re
 
 from ....language.cpp import analysis as _ast
-from .synth import _builder, _classify, _classify_param, _consume, _ptr_builder, _serialize
+from .synth import (_builder, _classify_param, _classify_ret, _consume, _ptr_builder,
+                    _serialize)
 
 # Real-world .cpp files ship their own `int main()`; the harness appends its OWN driver
 # main, so we rename the file's main out of the way (it's dead code in the harness — the
@@ -27,7 +28,7 @@ _MAIN_RE = re.compile(r"\bint\s+main\s*\(")
 def _neutralize_main(source: str) -> str:
     return _MAIN_RE.sub("int _verto_user_main(", source)
 
-_PRELUDE = ("#include <cstdio>\n#include <cstdlib>\n#include <cstdint>\n"
+_PRELUDE = ("#include <cstdio>\n#include <cstdlib>\n#include <cstdint>\n#include <cmath>\n"
             "#include <chrono>\n#include <vector>\n#include <string>\n#include <thread>\n")
 
 _TEMPLATE = """<<PRELUDE>>
@@ -87,10 +88,9 @@ def generate(source: str, func: str) -> str | None:
     pairs = _ast.pointer_length_pairs(source, func)      # B2-a: {ptr_idx: (elem, len_idx)}
     pcats = [("ptrbuf",) + pairs[i] if i in pairs else _classify_param(p, source)
              for i, p in enumerate(params)]
-    rcat = _classify(ret)
+    rcat = _classify_ret(ret, source)
     if any(c is None for c in pcats) or rcat is None:
         return None
-    rc, rsub = rcat
 
     names = [f"a{i}" for i in range(len(params))]
     pre, ptr, call_args = [], [], []                     # length params BEFORE the buffers that use them
@@ -109,8 +109,8 @@ def generate(source: str, func: str) -> str | None:
             .replace("<<SOURCE>>", _neutralize_main(source))
             .replace("<<BUILD>>", build)
             .replace("<<CALL>>", f"{call}(" + ", ".join(call_args) + ")")
-            .replace("<<SERIALIZE>>", _serialize(rc, rsub))
-            .replace("<<CONSUME>>", _consume(rc)))
+            .replace("<<SERIALIZE>>", _serialize(rcat))
+            .replace("<<CONSUME>>", _consume(rcat)))
 
 
 def supported(source: str, func: str) -> bool:
@@ -130,7 +130,6 @@ def unsupported_reason(source: str, func: str) -> str | None:
             continue
         if _classify_param(p, source) is None:
             return f"parameter {i} type {p!r} can't be synthesized as an input"
-    rcat = _classify(ret)
-    if rcat is None:
+    if _classify_ret(ret, source) is None:
         return f"return type {ret!r} can't be checksummed"
     return None

@@ -7,6 +7,8 @@ site (and vector additionally rewrites push_back → emplace_back).
 """
 from __future__ import annotations
 
+import re
+
 from .....engine.models import Contract
 from ..regex_detect import (detect_all_growth, detect_all_string_growth,
                             detect_all_umap_growth, detect_growth, detect_growth_in,
@@ -68,7 +70,13 @@ class ReserveBeforePushback(_ReserveBase):
         return detect_all_growth(source)
 
     def _extra_rewrite(self, s, new: str) -> str:
-        return new.replace(f"{s.var}.push_back", f"{s.var}.emplace_back")
+        # push_back → emplace_back (construct in place), EXCEPT for a braced-init-list argument:
+        # `emplace_back({...})` is invalid C++ (a braced-init-list has no type to perfect-forward),
+        # so leave `push_back({...})` untouched — the reserve() win stands regardless. (Robustness:
+        # this rewrite used to emit uncompilable code, which the gate caught as build_failed — a
+        # spurious REJECT of a real opportunity, now recovered.)
+        return re.sub(rf"{re.escape(s.var)}\.push_back\((?!\s*\{{)",
+                      f"{s.var}.emplace_back(", new)
 
     def _patch(self, s) -> str:
         return (f"@@ {s.func}() @@\n"

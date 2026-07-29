@@ -11,7 +11,8 @@ from dataclasses import dataclass
 
 from .gate import InvariantGate
 from .ledger import JsonlLedger
-from .models import Episode, Target, Verdict
+from .models import (Candidate, Contract, CorrectnessVerdict, Episode, PerfVerdict, Target,
+                     Verdict, Witness)
 from .ports import Mutator, Proposer, Sensor
 
 _SOUND_RUNG = 3            # sanitizer-clean; below this a change is not auto-written
@@ -31,11 +32,12 @@ class AdapterSet:
 
 class Orchestrator:
     def __init__(self, adapters: AdapterSet, ledger: JsonlLedger, max_rounds: int = 8,
-                 config=None) -> None:
+                 config=None, cache=None) -> None:
         self._a = adapters
         self._ledger = ledger
         self._max_rounds = max_rounds
         self._config = config
+        self._cache = cache                  # best-so-far rewrite cache (may be None)
         self.last_skips: list = []           # sites seen but not optimized (item #4)
 
     def _n_candidates(self) -> int:
@@ -143,8 +145,18 @@ class Orchestrator:
                 break                         # no NEW harness-able hotspot left
             # 2. priors
             priors = self._ledger.recall(ev)
-            # 3-6. PROPOSAL + VERIFICATION — best-of-n (untrusted proposer, trusted gate)
-            best, attempts = self._best_of_n(ev, priors, current, n, tried_here)
+            # 3-6. PROPOSAL + VERIFICATION. Best-so-far cache first: on a re-run, reuse this
+            # function's best VERIFIED rewrite and skip the (slow) proposer. --refine ignores the
+            # cached answer, re-runs the proposer, and the cache keeps whichever is faster. A cached
+            # entry is RE-VERIFIED before any --apply write; a dry-run reuses its stored verdict.
+            best, attempts = None, []
+            fc = self._cache_lookup(ev, sym)
+            if fc is not None:
+                best, attempts = self._from_cache(fc, ev, current, sym, apply)
+            if not attempts:                  # miss / --refine / stale cache → run the proposer
+                best, attempts = self._best_of_n(ev, priors, current, n, tried_here)
+                if best is not None:
+                    self._cache_store(ev, sym, best)
             if not attempts:                  # proposer offered nothing
                 break
             if sym:
@@ -177,6 +189,76 @@ class Orchestrator:
                 if apply and no_accept >= 2:
                     break
         return verdicts
+
+    # --- best-so-far rewrite cache (skip the slow proposer on a re-run) ---
+    def _model(self) -> str:
+        return getattr(self._config, "model", "rules") if self._config else "rules"
+
+    def _min_rung(self) -> int:
+        return int(getattr(self._config, "min_rung", 3)) if self._config else 3
+
+    def _cache_enabled(self) -> bool:
+        return self._cache is not None and bool(self._config) and getattr(self._config, "use_cache", True)
+
+    def _func_text(self, source: str, func: str) -> str:
+        from ..adapters.language.cpp.regex_detect import detect_func_span
+        span = detect_func_span(source, func)
+        return source[span[0]:span[1]] if span else ""
+
+    def _cache_lookup(self, ev, sym):
+        # --refine ignores the cached answer so the proposer runs again (and may beat it).
+        if not self._cache_enabled() or getattr(self._config, "refine", False):
+            return None
+        fs = getattr(ev, "func_source", "")
+        return self._cache.get(fs, self._model(), self._min_rung()) if (fs and sym) else None
+
+    def _cache_store(self, ev, sym, best) -> None:
+        if not self._cache_enabled():
+            return
+        fs = getattr(ev, "func_source", "")
+        v, var = best
+        new_code = self._func_text(var.source_after, sym) if (fs and sym) else ""
+        if not new_code:
+            return
+        self._cache.put(fs, self._model(), self._min_rung(), {
+            "func": sym, "new_code": new_code, "accepted": True,
+            "delta_pct": (v.performance.vector.get("p50_delta_pct", 0.0) if v.performance else 0.0),
+            "rung": (v.correctness.rung if v.correctness else 0),
+            "transform": getattr(getattr(v.candidate, "transform", None), "name", "?"),
+        })
+
+    def _from_cache(self, entry, ev, current, sym, apply: bool):
+        """Rebuild the cached winning rewrite. On --apply it is RE-VERIFIED (a cached win must
+        still hold on this machine/state before we write); on a dry-run its stored verdict is
+        reused (skips compile + benchmark → the fast path). Returns (best|None, attempts)."""
+        from ..adapters.language.cpp.transforms.verbatim import VerbatimRewrite
+        rewrite = VerbatimRewrite(sym, entry.get("new_code", ""))
+        if entry.get("transform"):
+            rewrite.name = entry["transform"]     # display the ORIGINAL transform's name, not "llm_rewrite"
+        try:
+            contract = rewrite.contract()
+        except Exception:
+            contract = Contract()
+        cand = Candidate(transform=rewrite, contract=contract,
+                         rationale=f"best-so-far cache ({entry.get('transform', '?')})")
+        try:
+            var = self._a.mutator.apply(current, rewrite)
+        except Exception:
+            return None, []                   # the function changed under it → caller re-optimizes
+        udiff = _unified_diff(current.file, ev.source, var.source_after)
+        if apply:
+            v = self._a.gate.decide(current, var, cand, self._a.inputs)
+            v.diff, v.udiff, v.cached = var.patch, udiff, True
+            self._ledger.record(Episode(ev, cand, v))
+            return ((v, var) if v.accepted else None), [v]
+        v = Verdict(accepted=True, candidate=cand,
+                    correctness=CorrectnessVerdict(rung=int(entry.get("rung", 0)), passed=True,
+                                                   witness=Witness()),
+                    performance=PerfVerdict(vector={"p50_delta_pct": float(entry.get("delta_pct", 0.0))},
+                                            pareto_pass=True, samples=0),
+                    reason="cached", cached=True)
+        v.diff, v.udiff = var.patch, udiff
+        return (v, var), [v]
 
 
 def _unified_diff(path: str, before: str, after: str) -> str:

@@ -1,5 +1,12 @@
+// examples/linked/report.cpp — a showcase of VERTO's HARNESS REACH.
+//   Try:  python3 -m verto.surfaces.cli analyze examples/linked/report.cpp --model rules
+//   Every function below is now HARNESS-ABLE (VERTO produces a verified ACCEPT / REJECT),
+//   EXCEPT mix(), which stays an honest SKIP with a reason. The `[today: …]`-tagged ones are
+//   the reach added on 2026-07-28 — before that they were skipped ("can't build the input" /
+//   "can't checksum the return type").
 #include <vector>
 #include <cstddef>
+#include <unordered_map>
 
 // Config is a simple aggregate (all public primitive fields, no constructor), so
 // VERTO can now SYNTHESIZE an input for scaled_series — the reserve opportunity is
@@ -33,5 +40,55 @@ std::vector<int> mix(int* src, std::size_t n) {
     std::vector<int> out;
     for (std::size_t i = 0; i < n; ++i)
         out.push_back(src[i] + 1);
+    return out;
+}
+
+// [today: bool] A `bool` return used to be an honest skip ("can't checksum bool"). `bool` is now
+// a primitive (serialized 0/1), so this is harness-able and the reserve on `v` wins → ACCEPT.
+bool any_present(std::size_t n) {
+    std::vector<int> v;
+    for (std::size_t i = 0; i < n; ++i)
+        v.push_back((int)(i % 500));
+    return v.size() > 0;
+}
+
+// [today: struct return] A struct return is now serialized field-by-field (symmetric to the
+// aggregate-INPUT synthesis that scaled_series uses). Reserve on the helper `tmp` wins → ACCEPT.
+struct Summary { long total; int count; };
+Summary summarize(std::size_t n) {
+    Summary s{0, 0};
+    std::vector<int> tmp;
+    for (std::size_t i = 0; i < n; ++i) { tmp.push_back((int)(i % 100)); s.total += (int)(i % 100); }
+    s.count = (int)tmp.size();
+    return s;
+}
+
+// [today: (unordered_)map return] A map return is serialized with an ORDER-INDEPENDENT
+// (commutative) checksum, so the map's unspecified iteration order can't cause a false reject.
+// Reserve on `tmp` wins → ACCEPT.
+std::unordered_map<int, int> histogram(std::size_t n) {
+    std::unordered_map<int, int> h;
+    std::vector<int> tmp;
+    for (std::size_t i = 0; i < n; ++i) { tmp.push_back((int)i); h[(int)(i % 256)]++; }
+    return h;
+}
+
+// [today: vector<vector<>> RETURN] A nested-vector return is now checksummable. Reserve on the
+// outer vector `m` wins → ACCEPT.
+std::vector<std::vector<int>> tabulate(std::size_t n) {
+    std::vector<std::vector<int>> m;
+    for (std::size_t i = 0; i < n; ++i)
+        m.push_back({(int)i, (int)(i * 3)});
+    return m;
+}
+
+// [today: vector<vector<>> PARAM] Taking a 2D-grid parameter used to be unsynthesizable; VERTO
+// now fabricates a bounded DIM×DIM matrix just to build the harness — this function only runs at
+// all because the grid can now be synthesized. The reserve on `out` (sized by `n`) is a clean
+// win → ACCEPT (kept separate from the grid so the win isn't a marginal, noise-flippy 2D case).
+std::vector<int> blend(const std::vector<std::vector<int>>& g, std::size_t n) {
+    std::vector<int> out;
+    for (std::size_t i = 0; i < n; ++i)
+        out.push_back((int)(i % 97) + (int)g.size());
     return out;
 }

@@ -59,3 +59,25 @@ if __name__ == "__main__":
         if name.startswith("test_") and callable(fn):
             fn(); print(f"  PASS {name}")
     print("ok")
+
+
+def test_braced_initlist_pushback_not_emplaced():
+    """Robustness: the reserve transform rewrites push_back → emplace_back, but a braced-init-list
+    arg — `push_back({a, b})` — must stay push_back, because `emplace_back({...})` is INVALID C++
+    (a braced-init-list can't be perfect-forwarded). Previously this emitted uncompilable code
+    (a build_failed → spurious REJECT of a real reserve opportunity)."""
+    from verto.adapters.language.cpp.transforms import ALL
+    from verto.adapters.language.cpp.mutator import CppMutator
+    from verto.engine.models import Target
+    import tempfile, os
+    src = ("#include <vector>\n#include <cstddef>\n"
+           "std::vector<std::vector<int>> f(std::size_t n){ std::vector<std::vector<int>> m;\n"
+           "  for(std::size_t i=0;i<n;++i) m.push_back({(int)i, (int)(i*2)});\n"
+           "  return m; }\n")
+    d = tempfile.mkdtemp(); fp = os.path.join(d, "f.cpp"); open(fp, "w").write(src)
+    t = next(x for x in ALL if x.name == "reserve_before_pushback").bind("f")
+    assert t.matches(src)
+    after = CppMutator(Config()).apply(Target(file=fp, symbol="f", line=0, language="cpp"), t).source_after
+    assert "m.reserve(" in after                          # reserve still applied
+    assert "emplace_back({" not in after                  # braced-init-list NOT emplaced (invalid)
+    assert "push_back({" in after                          # left as push_back

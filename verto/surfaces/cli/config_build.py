@@ -77,6 +77,10 @@ def _build_config(args):
         cfg.llm_base_url = args.llm_base_url
     if getattr(args, "candidates", None) is not None:
         cfg.candidates = args.candidates        # #11: N LLM rewrites per hotspot
+    if getattr(args, "refine", False):
+        cfg.refine = True                       # re-run the proposer, keep the faster of it/cache
+    if getattr(args, "no_cache", False):
+        cfg.use_cache = False                   # ignore the best-so-far rewrite cache this run
     if cfg.model == "frontier" and not cfg.llm_api_key:
         # #10: secrets come from the ENVIRONMENT, never a flag (argv leaks into
         # `ps`/shell history). VERTO_LLM_API_KEY wins; OPENAI_API_KEY is the

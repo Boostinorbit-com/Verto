@@ -46,9 +46,16 @@ class Config:
         default_factory=lambda: {"binary_size": 0.10, "peak_memory": 0.12})
     min_speedup_pct: float = 2.0          # reject gains below this (kills noise)
     fp_tolerance: float = 0.0             # >0 → compare FP output within this relative tol (item #1b)
+    hotspot_floor_pct: float = 5.0        # multi-hotspot walk: a NEXT function is optimized only if
+                                          # its profiled cost is >= this % of the file's hottest (else
+                                          # it's negligibly cold — don't waste a pointless change on it)
     reps: int = 12                        # benchmark repetitions (upper bound when adaptive)
     reps_min: int = 5                     # adaptive floor — escalate to `reps` only if borderline
     adaptive: bool = True                 # stop early when the gain is unambiguous vs threshold
+    confirm_accepts: bool = True          # re-measure a would-be ACCEPT and require the win to
+                                          # REPRODUCE — kills a lucky-measurement false accept
+                                          # (a noise spike reading a no-op as a speedup); ~2x
+                                          # bench time on accepts only, never on rejects
     fast: bool = False                    # --fast: skip Rung-3 sanitizer (UNSOUND — opt-in only)
     # evidence
     profile: str | None = None            # path to a real profile (perf/gprof/json) → hot-code selection (item #5)
@@ -86,6 +93,10 @@ class Config:
     llm_api_key: str | None = None        # frontier only; local (Ollama) needs none
     llm_timeout_sec: int = 180
     candidates: int = 1                   # #11: LLM proposals per hotspot; gate each, keep the best
+    use_cache: bool = True                # best-so-far rewrite cache: reuse a function's best verified
+                                          # rewrite (skip the slow proposer) unless the code/model changed
+    refine: bool = False                  # --refine: ignore the cache for PROPOSING (re-run the proposer)
+                                          # and keep whichever result is faster — the high score only rises
     # runtime
     fuzz_inputs: int = 1000
     seed: int = 0

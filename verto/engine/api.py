@@ -19,10 +19,13 @@ from .orchestrator import Orchestrator
 class Engine:
     def __init__(self, config: Config | None = None) -> None:
         from . import workspace
+        from .cache import RewriteCache
         self.config = config or Config()
         # Ledger lives in the `.verto/` workspace when one exists (post `verto init`),
         # else the legacy repo-root `ledger.jsonl` — so nothing breaks without init.
         self.ledger = JsonlLedger(workspace.ledger_path())
+        # Best-so-far rewrite cache (workspace-scoped; None → recompute each run, no persistence).
+        self.cache = RewriteCache(workspace.cache_path())
 
     def analyze(self, file: str, *, build: dict | None = None) -> list[Verdict]:
         """Non-destructive: run the loop, write nothing, don't pollute the Ledger."""
@@ -70,7 +73,7 @@ class Engine:
                                 build={"parse_flags": tu.flags, "compile_flags": tu.flags,
                                        "opt_flags": tu.opt_flags,
                                        "link_inputs": [archive] if archive else []})
-                orch = Orchestrator(adapters, ledger)
+                orch = Orchestrator(adapters, ledger, config=self.config, cache=self.cache)
                 verdicts = orch.run(target, apply=apply, backup=backup, force=force, txn=txn)
                 return (tu.file, verdicts, None, orch.last_skips)
             except ApplyError:
@@ -122,7 +125,7 @@ class Engine:
         ledger = self.ledger if persist else JsonlLedger(os.devnull)
         txn = ApplyTransaction(backup=backup) if apply else None    # item #9
         try:
-            verdicts = Orchestrator(adapters, ledger, config=self.config).run(
+            verdicts = Orchestrator(adapters, ledger, config=self.config, cache=self.cache).run(
                 target, apply=apply, backup=backup, force=force, txn=txn)
         except BaseException:
             if txn is not None:

@@ -56,3 +56,24 @@ def test_rejects_slower_even_if_correct():
     g = InvariantGate(_OK(), _Slower(), Config())
     v = g.decide(t, var, cand, None)
     assert v.accepted is False and v.reason == "slower"
+
+
+def test_confirm_rejects_unreproduced_win():
+    """Noise-hardening (perf gate): a would-be ACCEPT whose independent re-measurement does NOT
+    reproduce is REJECTED — this is the false-accept where benchmark noise reads a no-op change
+    as a big speedup. On agreement, the CONSERVATIVE (smaller) gain is reported so a lucky spike
+    can never inflate the stated number."""
+    from verto.adapters.domain.performance.performance import PerformanceOracleImpl as P
+
+    def accept(g):
+        return (True, "", {"p50_delta_pct": g})
+    reject = (False, "not faster (p50 +0.3% < 2%)", {"p50_delta_pct": 0.3})
+
+    ok, reason, _ = P._confirm(accept(16.0), reject)            # noise spike didn't reproduce
+    assert ok is False and "did not reproduce" in reason
+
+    ok, _, vec = P._confirm(accept(50.0), accept(30.0))         # reproduced, 2nd smaller
+    assert ok is True and vec["p50_delta_pct"] == 30.0          # report the conservative gain
+
+    ok, _, vec = P._confirm(accept(30.0), accept(50.0))         # reproduced, 2nd larger
+    assert ok is True and vec["p50_delta_pct"] == 30.0          # keep the smaller (first)

@@ -122,25 +122,33 @@ class Orchestrator:
         self.last_skips = []                  # sites seen but not optimized (item #4)
         current = target
         no_accept = 0
-        tried_here: set[str] = set()          # in-run dedup — one transform per hotspot
-        optimized_funcs: set[str] = set()     # multi-hotspot: functions already optimized this run
+        visited_funcs: set[str] = set()       # multi-hotspot: functions already PROCESSED this run
+                                              # (accepted or rejected) — excluded so each round advances
         n = self._n_candidates()
 
         for round_i in range(self._max_rounds):
-            # 1. EVIDENCE — exclude functions already optimized, so a re-profile of the applied
-            # source moves on to the NEXT hotspot instead of re-picking the one just done.
-            ev = self._a.sensor.collect(current, exclude=frozenset(optimized_funcs))
+            # PER-HOTSPOT dedup — reset every round. It stops best-of-n from re-drawing the SAME
+            # transform for THIS function; it must NOT carry across hotspots, or a later function
+            # would be denied a transform (e.g. reserve) just because an earlier one already used it.
+            tried_here: set[str] = set()
+            # 1. EVIDENCE — exclude functions already VISITED this run (accepted OR rejected), so
+            # each round advances to a NEW hotspot. This is what makes multi-function pickup work
+            # even in DRY-RUN (analyze / --diff without --apply): the file is untouched, but the
+            # exclude set — not a source change — is what moves the sensor to the next function.
+            ev = self._a.sensor.collect(current, exclude=frozenset(visited_funcs))
             if round_i == 0:                  # skips describe the ORIGINAL source
                 self.last_skips = list(getattr(ev, "skips", []))
             sym = getattr(ev.target, "symbol", None)
-            if round_i > 0 and (not sym or sym in optimized_funcs):
-                break                         # no NEW hotspot left to optimize
+            if round_i > 0 and (not sym or sym in visited_funcs):
+                break                         # no NEW harness-able hotspot left
             # 2. priors
             priors = self._ledger.recall(ev)
             # 3-6. PROPOSAL + VERIFICATION — best-of-n (untrusted proposer, trusted gate)
             best, attempts = self._best_of_n(ev, priors, current, n, tried_here)
             if not attempts:                  # proposer offered nothing
                 break
+            if sym:
+                visited_funcs.add(sym)        # processed — the next round targets a DIFFERENT fn
             if best is not None:
                 v, var = best                 # the accepted winner (largest speedup)
             else:
@@ -149,8 +157,6 @@ class Orchestrator:
 
             if best is not None:
                 no_accept = 0
-                if sym:
-                    optimized_funcs.add(sym)  # done — the next round targets a different hotspot
                 # write only a SOUND change (sanitizer-clean) unless --force overrides;
                 # this refuses to auto-apply a --fast (unverified-safe) result. A 2A
                 # test-verified change (via='tests') is sound on the project's OWN
@@ -166,14 +172,10 @@ class Orchestrator:
                     current = var.target      # 8. re-profile the mutated source
             else:
                 no_accept += 1
-                if no_accept >= 2:
+                # optimize: stop grinding a barren file after two dud hotspots in a row.
+                # analyze / dry-run keeps walking so it reports EVERY function's opportunity.
+                if apply and no_accept >= 2:
                     break
-
-            # Re-profiling only surfaces something new after the source changes.
-            # With apply=False the file is untouched, so a second round just
-            # re-parses and re-proposes the same transform — skip it.
-            if not apply:
-                break
         return verdicts
 
 

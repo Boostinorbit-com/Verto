@@ -19,6 +19,7 @@ LINKED = Path(__file__).resolve().parent.parent / "examples" / "linked"
 def _cfg():
     c = Config()
     c.model = "rules"
+    c.use_cache = False        # determinism check: both runs must recompute, not reuse a cached best
     return c
 
 

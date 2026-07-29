@@ -126,6 +126,11 @@ def _common(sp, *, apply: bool = False) -> None:
                      help="#10: LLM host base URL (default http://127.0.0.1:11434 — local Ollama)")
     out.add_argument("--candidates", type=int, metavar="N", dest="candidates",
                      help="#11: ask the LLM for N rewrites per hotspot; gate each, keep the best (default 1)")
+    out.add_argument("--refine", action="store_true", dest="refine",
+                     help="re-run the proposer even if a cached best exists, and keep whichever is faster "
+                          "(the cached 'high score' only ever rises)")
+    out.add_argument("--no-cache", action="store_true", dest="no_cache",
+                     help="ignore the best-so-far rewrite cache — recompute from scratch this run")
 
 
 class _HelpFormatter(argparse.RawDescriptionHelpFormatter):
