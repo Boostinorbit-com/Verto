@@ -89,7 +89,8 @@ class Variant:
 class Witness:
     build_ok: bool = True
     inputs_run: int = 0
-    first_divergence: Any | None = None
+    first_divergence: Any | None = None   # set ONLY when the two runs disagreed
+    build_error: str = ""                 # set ONLY when a build failed — never mix the two
     sanitizer: str = "clean"           # "clean" | "asan:..." | "ubsan:..." | "tsan:..."
 
 

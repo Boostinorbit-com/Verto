@@ -128,6 +128,8 @@ def write_starter_config(root: str | Path = ".", *, model: str, host: str) -> bo
         f'llm_model    = "{model}"\n'
         f'# llm_base_url = "{host}"\n'
         "# min_rung   = 3                 # 1 = differential test, 3 = sanitizers\n"
-        "# candidates = 1                 # N LLM rewrites per hotspot (best-of-N)\n",
+        "# candidates = 1                 # N LLM rewrites per hotspot (best-of-N)\n"
+        "# repair_rounds = 3              # retries for a rewrite that won't COMPILE "
+        "(the error goes back to the model)\n",
         encoding="utf-8")
     return True

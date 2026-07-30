@@ -23,6 +23,18 @@ def _col(text: str, code: str) -> str:
     return f"\033[{code}m{text}\033[0m" if _COLOR else text
 
 
+def _speed(d) -> str:
+    """A speed change in WORDS: "26.1% faster" / "26.1% slower".
+
+    `p50_delta_pct` is positive for an improvement. The old render hardcoded a leading
+    "-" and always coloured green, so a -26.1 REGRESSION printed as "--26.1%" in green
+    and read like a win. Direction belongs in the text; colour only reinforces it.
+    """
+    if not d:
+        return "n/a"
+    return _col(f"{d:.1f}% faster", "32") if d > 0 else _col(f"{abs(d):.1f}% slower", "31")
+
+
 def _indent(text: str, pad: str = "    ") -> str:
     return "\n".join(pad + ln for ln in text.rstrip("\n").splitlines())
 
@@ -69,10 +81,14 @@ def _render_human(verdicts: list, *, quiet: bool = False, show_diff: bool = Fals
             print(f"    rationale: {v.candidate.rationale}")
         if v.correctness:
             w = v.correctness.witness
-            if w.first_divergence:
+            # build_ok FIRST: a build failure means the two never ran, so it can never
+            # be "output differs" — reporting it that way blamed the rewrite for a
+            # compile error in the ORIGINAL harness.
+            if not w.build_ok:
+                err = getattr(w, "build_error", "")
+                detail = f"build failed — {err}" if err else "build failed"
+            elif w.first_divergence:
                 detail = f"output differs — {w.first_divergence}"
-            elif not w.build_ok:
-                detail = "build failed"
             else:
                 detail = w.sanitizer
             print(f"    correctness: Rung {v.correctness.rung} ({detail})")
@@ -83,9 +99,8 @@ def _render_human(verdicts: list, *, quiet: bool = False, show_diff: bool = Fals
                                     "diff-tested only, not memory-safety verified", "33"))
         if v.performance:
             d = v.performance.vector.get("p50_delta_pct")
-            delta = _col("-%.1f%%" % d, "32") if d else "n/a"   # the win — green
             print(f"    performance: p50 {v.performance.vector.get('p50')} ms "
-                  f"({delta})  pareto={v.performance.pareto_pass}")
+                  f"({_speed(d)})  pareto={v.performance.pareto_pass}")
         if v.accepted:
             if v.applied:
                 print(f"    {_col('✓ applied to source', '32')}")
@@ -127,7 +142,7 @@ def _render_codebase(results: list, *, show_diff: bool = False) -> None:
                 n_cand += 1
                 n_acc += 1
                 d = v.performance.vector.get("p50_delta_pct") if v.performance else None
-                delta = _col(f"  (−{d:.1f}%)", "32") if d else ""   # the win — green
+                delta = f"  ({_speed(d)})" if d else ""
                 tag = _col("✓ applied", "32") if v.applied else _col("ACCEPT", "32")
                 n_applied += bool(v.applied)
                 confirmed = _col("  ✓ tests", "32") if getattr(v, "tests_confirmed", False) else ""
