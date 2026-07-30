@@ -220,9 +220,11 @@ class Orchestrator:
         new_code = self._func_text(var.source_after, sym) if (fs and sym) else ""
         if not new_code:
             return
+        vec = v.performance.vector if v.performance else {}
         self._cache.put(fs, self._model(), self._min_rung(), {
             "func": sym, "new_code": new_code, "accepted": True,
-            "delta_pct": (v.performance.vector.get("p50_delta_pct", 0.0) if v.performance else 0.0),
+            "delta_pct": vec.get("p50_delta_pct", 0.0),
+            "p50": vec.get("p50", 0.0),            # absolute time too, so a cached result renders fully
             "rung": (v.correctness.rung if v.correctness else 0),
             "transform": getattr(getattr(v.candidate, "transform", None), "name", "?"),
         })
@@ -254,7 +256,8 @@ class Orchestrator:
         v = Verdict(accepted=True, candidate=cand,
                     correctness=CorrectnessVerdict(rung=int(entry.get("rung", 0)), passed=True,
                                                    witness=Witness()),
-                    performance=PerfVerdict(vector={"p50_delta_pct": float(entry.get("delta_pct", 0.0))},
+                    performance=PerfVerdict(vector={"p50": float(entry.get("p50", 0.0)),
+                                                    "p50_delta_pct": float(entry.get("delta_pct", 0.0))},
                                             pareto_pass=True, samples=0),
                     reason="cached", cached=True)
         v.diff, v.udiff = var.patch, udiff

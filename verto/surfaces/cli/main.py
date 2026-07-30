@@ -37,8 +37,11 @@ def _run_command(args) -> int:
             print(json.dumps(Engine().report(), indent=2))
             return 0
 
+        cfg = _build_config(args)
+        if getattr(cfg, "model", "") == "hosted":       # PREMIUM: runs on our server, not locally
+            return _run_hosted(args, cfg)
         from ...engine.api import Engine
-        engine = Engine(_build_config(args))
+        engine = Engine(cfg)
         do_apply = bool(getattr(args, "apply", False) and not getattr(args, "dry_run", False))
         backup = bool(getattr(args, "backup", False))
         force = bool(getattr(args, "force", False))
@@ -93,6 +96,39 @@ def _run_command(args) -> int:
     except (ValueError, NotImplementedError) as e:
         print(f"verto: error: {e}", file=sys.stderr)
         return 2
+
+
+def _run_hosted(args, cfg) -> int:
+    """PREMIUM (`--model hosted`): run the optimization on VERTO's server, then render its verdicts
+    with the normal renderer (so it looks identical to a local run). Single-file only for now."""
+    from ..hosted_client import run as hosted_run
+    if _codebase_db(args) is not None:
+        raise ValueError("--model hosted: single-file only for now (codebase mode stays local)")
+    if not args.path:
+        raise ValueError("no target: give a source <path>")
+    do_apply = bool(getattr(args, "apply", False) and not getattr(args, "dry_run", False))
+    # SAFE preferences forwarded to the server — it only ever tightens the check with these, never
+    # weakens it (min-speedup can only rise, metamorphic only turns on, candidates is clamped).
+    options = {"min_speedup_pct": getattr(cfg, "min_speedup_pct", None),
+               "metamorphic": bool(getattr(cfg, "metamorphic", False)),
+               "candidates": getattr(cfg, "candidates", None)}
+    verdicts = hosted_run(args.path, url=cfg.hosted_url, token=cfg.verto_token, apply=do_apply,
+                          backup=bool(getattr(args, "backup", False)), options=options,
+                          timeout=getattr(cfg, "llm_timeout_sec", 300))
+    export = getattr(args, "export", None)
+    if export:                                           # --export: same as the local path
+        return _export(verdicts, export)
+    if getattr(args, "emit_patches", None):              # --emit-patches: reuse the server's diffs
+        _emit_patches(verdicts, args.emit_patches, single_file=args.path)
+    if getattr(args, "json", False):
+        _render_json(verdicts)
+    else:
+        _render_human(verdicts, quiet=bool(getattr(args, "quiet", False)),
+                      show_diff=bool(getattr(args, "diff", False)), applying=do_apply)
+    fail_on = getattr(args, "fail_on", None)
+    if fail_on:
+        return _fail_on_exit(fail_on, accepted=any(v.accepted for v in verdicts))
+    return _exit_code(verdicts)
 
 
 def _codebase_progress(i: int, total: int, file: str, verdicts: list,
@@ -310,8 +346,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "serve":
         return daemon.serve(stop=args.stop)
 
-    # thin-client fast path: hand analyze/optimize to a warm daemon if one is up
-    if args.cmd in ("analyze", "optimize") and not args.no_daemon:
+    # thin-client fast path: hand analyze/optimize to a warm daemon if one is up.
+    # (skip for --model hosted — that runs on OUR server, not the local daemon.)
+    if (args.cmd in ("analyze", "optimize") and not args.no_daemon
+            and getattr(args, "model", None) != "hosted"):
         resp = daemon.try_client(argv)
         if resp is not None:
             out, err, code = resp

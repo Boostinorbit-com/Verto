@@ -122,6 +122,18 @@
       <pre class="diagram"><code>skeleton  ──▶  Pro (strong AI)  ──▶  + exact numbers  ──▶  + team  ──▶  + enterprise
 (today)        Phase 1–2             Phase 3               Phase 4      Phase 5</code></pre>
       <p>Each stage is <b>sellable on its own</b> — you make money at Pro, long before team/enterprise exist.</p>
+      <div class="callout okbox">
+        <p><b>Progress — 2026-07-29 (dev mode).</b> The skeleton (<code>verto_server/</code>) and the free tool's <b><code>--model hosted</code></b> link are <b>built and working end-to-end locally</b>: <code>verto optimize f.cpp --model hosted --verto-token vt_demo_trial</code> → sends to the local server → runs the real engine → shows the verified result, <b>gated by the token</b> (missing/bad token is refused). That's <b>steps 2.4 &amp; 3.5 done</b>, plus the client↔server↔engine plumbing and the entitlement gate.</p>
+        <p style="margin-top:8px"><b>Also done since:</b></p>
+        <ul style="margin:4px 0">
+          <li><b>hosted <code>--apply</code></b> — the server returns the fully-optimized file; the client writes it locally (dry-run still writes nothing).</li>
+          <li>the <b><code>pro</code> token wired to a real AI</b> — <code>verto2.5-coder:7b</code> via Ollama (a genuine AI answer through the hosted path, no GPU).</li>
+          <li><b>full hosted flag coverage</b> — all client-side output/apply flags now work (<code>--json --diff --apply --dry-run --backup --export --emit-patches --fail-on</code>).</li>
+          <li><b>safe preference forwarding</b> — <code>--min-speedup --metamorphic --candidates</code> are sent to the server, which enforces they can only <b>tighten</b> the check, never weaken it (min-speedup only rises, metamorphic only turns on, candidates clamped ≤8); gate-<b>weakening</b> knobs and model choice stay <b>server-locked</b>.</li>
+          <li><b>server DX</b> — restart <b>takes over the same port</b>, and it prints <b>IP/port + a request→response log</b> on the terminal.</li>
+        </ul>
+        <p style="margin-top:8px">In dev, the pieces we haven't built yet run on <b>stand-ins</b>: the <code>trial</code> token uses <code>rules</code>, the <code>pro</code> token uses the <b>local</b> coder model, and the "server" is <code>localhost</code>. <b>The plumbing is real; the heavy infra (GPU model, deployed hosting, sealed boxes, billing) is still stand-ins.</b> Next: billing/accounts (Phase 2).</p>
+      </div>
     </section>
 
     <section id="s2">
@@ -131,7 +143,7 @@
         <li><input type="checkbox"><span><b class="step">2.1</b> &nbsp;Rent <b>one</b> cloud server with a graphics card (GPU).</span></li>
         <li><input type="checkbox"><span><b class="step">2.2</b> &nbsp;Put a <b>strong code AI</b> on it (bigger/smarter than the local one).</span></li>
         <li><input type="checkbox"><span><b class="step">2.3</b> &nbsp;Point the skeleton at it, and <b>run each request in its own sealed box</b> (safety — §9).</span></li>
-        <li><input type="checkbox"><span><b class="step">2.4</b> &nbsp;Add <b><code>--model hosted</code></b> to the free tool (sends code + token to your server).</span></li>
+        <li><input type="checkbox" checked><span><b class="step">2.4</b> &nbsp;Add <b><code>--model hosted</code></b> to the free tool (sends code + token to your server). <b class="ok">✅ done</b> — <code>hosted_client.py</code> (thin caller) + <code>--verto-token</code>/<code>--hosted-url</code>.</span></li>
         <li><input type="checkbox"><span><b class="step">2.5</b> &nbsp;<b>Skip billing code.</b> Use a simple <b>payment link</b>; when someone pays, <b>email them a token by hand</b> (or a tiny script).</span></li>
         <li><input type="checkbox"><span><b class="step">2.6</b> &nbsp;Sell <b>"Pro"</b> to ~10 early users. Watch: <b>do they pay, and do they come back?</b></span></li>
       </ul>
@@ -151,7 +163,7 @@
         <li><input type="checkbox"><span><b class="step">3.2</b> &nbsp;Connect <code>verto_server</code>'s <code>managed_model.py</code> to that AI (replace the stub).</span></li>
         <li><input type="checkbox"><span><b class="step">3.3</b> &nbsp;<b>Sealed box per request</b> — isolate every user's code run (safety, §9).</span></li>
         <li><input type="checkbox"><span><b class="step">3.4</b> &nbsp;<b>Real accounts/login</b> — replace the fake token list with real auth (API keys or accounts).</span></li>
-        <li><input type="checkbox"><span><b class="step">3.5</b> &nbsp;Finish <b><code>--model hosted</code></b> in the free tool (token + errors handled).</span></li>
+        <li><input type="checkbox" checked><span><b class="step">3.5</b> &nbsp;Finish <b><code>--model hosted</code></b> in the free tool (token + errors handled). <b class="ok">✅ done</b> — clean 401 / bad-token / server-down messages; <code>VERTO_TOKEN</code> env var; honest engine label.</span></li>
         <li><input type="checkbox"><span><b class="step">3.6</b> &nbsp;Put the server <b>online</b> — a web address, HTTPS (the padlock), always-on.</span></li>
         <li><input type="checkbox"><span><b class="step">3.7</b> &nbsp;<b>Test end to end</b> — a paying user runs <code>--model hosted</code> and gets a result from your GPU AI.</span></li>
       </ul>

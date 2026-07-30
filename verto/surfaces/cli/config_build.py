@@ -1,6 +1,8 @@
 """Build a Config from parsed CLI args (args → Config), plus KEY=VAL coercion."""
 from __future__ import annotations
 
+import os
+
 
 def _coerce(cur, val: str):
     """Coerce a KEY=VAL string to the type of the existing config field."""
@@ -81,11 +83,14 @@ def _build_config(args):
         cfg.refine = True                       # re-run the proposer, keep the faster of it/cache
     if getattr(args, "no_cache", False):
         cfg.use_cache = False                   # ignore the best-so-far rewrite cache this run
+    if getattr(args, "hosted_url", None):
+        cfg.hosted_url = args.hosted_url        # PREMIUM: --model hosted server URL
+    # PREMIUM token: flag wins, else the VERTO_TOKEN env var (keeps it out of shell history/argv logs)
+    cfg.verto_token = getattr(args, "verto_token", None) or os.environ.get("VERTO_TOKEN", "") or cfg.verto_token
     if cfg.model == "frontier" and not cfg.llm_api_key:
         # #10: secrets come from the ENVIRONMENT, never a flag (argv leaks into
         # `ps`/shell history). VERTO_LLM_API_KEY wins; OPENAI_API_KEY is the
         # de-facto standard. Self-hosted OpenAI-compatible hosts may need none.
-        import os
         cfg.llm_api_key = (os.environ.get("VERTO_LLM_API_KEY")
                            or os.environ.get("OPENAI_API_KEY"))
         if not cfg.llm_api_key:

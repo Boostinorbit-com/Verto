@@ -26,12 +26,22 @@ _TOKENS = {
     # a free hosted trial — rules only, so it costs us ~nothing but demonstrates the seam
     "vt_demo_trial": Entitlement(plan="hosted-trial", features=frozenset({"hosted-model"}),
                                  model="rules", monthly_quota=100),
-    # a paid plan maps to a MANAGED frontier model on our GPUs + clean-room benchmarking
+    # a paid plan → in PRODUCTION this maps to a managed FRONTIER model on our GPUs (+ clean-room).
+    # in DEV we stub it with the local coder model (Ollama, CPU) so you see a REAL AI answer through
+    # the hosted path with no GPU/API key. At release: model="frontier" + the real endpoint.
     "vt_demo_pro":   Entitlement(plan="pro",
                                  features=frozenset({"hosted-model", "cleanroom"}),
-                                 model="frontier", llm_model="verto-managed-coder",
+                                 model="local", llm_model="verto2.5-coder:7b",
                                  monthly_quota=5000),
 }
+
+
+def engine_label(ent: Entitlement) -> str:
+    """A user-facing name for the engine this plan actually ran — so the CLI never mislabels it."""
+    if ent.model == "rules":
+        return "rules (dev stand-in — no AI)"
+    who = "managed AI" if ent.model == "frontier" else "local AI"
+    return f"{ent.llm_model or ent.model} ({who})"
 
 
 def check(token: str | None) -> Entitlement | None:

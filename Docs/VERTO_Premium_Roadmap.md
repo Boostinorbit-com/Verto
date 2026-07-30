@@ -23,6 +23,15 @@ We turn the **skeleton** (already built — the `verto_server/` folder) into a r
 
 Each stage is **sellable on its own** — you make money at Pro, long before team/enterprise exist.
 
+> **Progress — 2026-07-29 (dev mode).** The skeleton (`verto_server/`) and the free tool's **`--model hosted`** link are **built and working end-to-end locally**: `verto optimize f.cpp --model hosted --verto-token vt_demo_trial` → sends to the local server → runs the real engine → shows the verified result, **gated by the token** (a missing/bad token is refused). That's roadmap **steps 2.4 & 3.5 done**, plus the client↔server↔engine plumbing and the entitlement gate. **Also done since:**
+> - **hosted `--apply`** — the server returns the fully-optimized file; the client writes it locally (dry-run still writes nothing).
+> - the **`pro` token wired to a real AI** — `verto2.5-coder:7b` via Ollama (a genuine AI answer through the hosted path, no GPU).
+> - **full hosted flag coverage** — all client-side output/apply flags now work (`--json` `--diff` `--apply` `--dry-run` `--backup` `--export` `--emit-patches` `--fail-on`).
+> - **safe preference forwarding** — `--min-speedup` `--metamorphic` `--candidates` are sent to the server, which enforces they can only **tighten** the check, never weaken it (min-speedup only rises, metamorphic only turns on, candidates clamped ≤8); gate-**weakening** knobs and model choice stay **server-locked**.
+> - **server DX** — restart **takes over the same port**, and it prints **IP/port + a request→response log** on the terminal.
+>
+> In dev the pieces we haven't built yet run on **stand-ins**: the `trial` token uses the **`rules`** engine, the `pro` token uses the **local** coder model, and the "server" is `localhost`. **The plumbing is real; the heavy infra (GPU model, deployed hosting, sealed boxes, billing) is still stand-ins.** Next: billing/accounts (Phase 2).
+
 ---
 
 ## 2. Start here: the leanest test (my #1 recommendation)
@@ -32,7 +41,7 @@ Before building the full thing, answer the **only question that matters: will an
 - [ ] **2.1** Rent **one** cloud server with a graphics card (GPU).
 - [ ] **2.2** Put a **strong code AI** on it (bigger/smarter than the local one).
 - [ ] **2.3** Point the skeleton at it, and **run each request in its own sealed box** (safety — see §9).
-- [ ] **2.4** Add **`--model hosted`** to the free tool (sends code + token to your server).
+- [x] **2.4** Add **`--model hosted`** to the free tool (sends code + token to your server). **✅ done** — `verto/surfaces/hosted_client.py` (thin caller) + CLI `--verto-token`/`--hosted-url`.
 - [ ] **2.5** **Skip billing code.** Use a simple **payment link**; when someone pays, **email them a token by hand** (or a tiny script).
 - [ ] **2.6** Sell **"Pro"** to ~10 early users. Watch: **do they pay, and do they come back?**
 
@@ -52,7 +61,7 @@ The first real paid ability. (Steps 2.1–2.4 above are its rough version; here'
 - [ ] **3.2** Connect `verto_server`'s `managed_model.py` to that AI (replace the stub).
 - [ ] **3.3** **Sealed box per request** — isolate every user's code run (safety, §9).
 - [ ] **3.4** **Real accounts/login** — replace the fake token list with real auth (API keys or accounts).
-- [ ] **3.5** Finish **`--model hosted`** in the free tool (token + errors handled).
+- [x] **3.5** Finish **`--model hosted`** in the free tool (token + errors handled). **✅ done** — clean 401 / bad-token / server-down messages; `VERTO_TOKEN` env var; honest engine label (shows the *real* engine, e.g. "rules (dev stand-in)").
 - [ ] **3.6** Put the server **online** — a web address, HTTPS (the padlock), always-on.
 - [ ] **3.7** **Test end to end** — a paying user runs `--model hosted` and gets a result from your GPU AI.
 
