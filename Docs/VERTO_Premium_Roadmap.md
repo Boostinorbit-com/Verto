@@ -29,8 +29,20 @@ Each stage is **sellable on its own** — you make money at Pro, long before tea
 > - **full hosted flag coverage** — all client-side output/apply flags now work (`--json` `--diff` `--apply` `--dry-run` `--backup` `--export` `--emit-patches` `--fail-on`).
 > - **safe preference forwarding** — `--min-speedup` `--metamorphic` `--candidates` are sent to the server, which enforces they can only **tighten** the check, never weaken it (min-speedup only rises, metamorphic only turns on, candidates clamped ≤8); gate-**weakening** knobs and model choice stay **server-locked**.
 > - **server DX** — restart **takes over the same port**, and it prints **IP/port + a request→response log** on the terminal.
+> - **accounts & metering (Phase 2 core)** — a **persistent token store** (`store.py`) replaced the hard-coded dict: tokens survive restarts, an **admin CLI** issues/revokes them, and every run is **metered per month** with a hard cap (**429** over quota). Steps **4.3 & 4.4 done (dev)**.
+> - **boundary is now test-locked** — the proprietary `verto_server` is excluded from the public wheel, and two tests (`test_boundary.py`) fail the build if it ever slips into the wheel or if the free client ever imports it (the paywall is architectural, so it's enforced, not just documented).
+> - **Stripe webhook seam (money→token)** — `billing.py` + `POST /v1/webhooks/stripe` verify a **real Stripe signature** and mint a token on a paid checkout via `store.issue()`. Proven end-to-end in dev: *signed webhook → token → that token runs an optimize*. Only external bits (Stripe account/keys, email delivery) remain for 4.2.
 >
-> In dev the pieces we haven't built yet run on **stand-ins**: the `trial` token uses the **`rules`** engine, the `pro` token uses the **local** coder model, and the "server" is `localhost`. **The plumbing is real; the heavy infra (GPU model, deployed hosting, sealed boxes, billing) is still stand-ins.** Next: billing/accounts (Phase 2).
+> In dev the pieces we haven't built yet run on **stand-ins**: the `trial` token uses the **`rules`** engine, the `pro` token uses the **local** coder model, the "server" is `localhost`, and tokens are issued by the **admin CLI** instead of a payment webhook. **The plumbing is real; the heavy infra (GPU model, deployed hosting, sealed boxes, real payment) is still stand-ins.** Next: the payment provider (Stripe) + real sign-up/account UI (rest of Phase 2).
+
+**Hosted flag coverage so far** (`--model hosted`):
+
+| Category | Flags | Status |
+|---|---|---|
+| **Output / apply** (client) | `--json` `--quiet` `--diff` `--apply` `--dry-run` `--backup` `--export` `--emit-patches` `--fail-on` `--verto-token` `--hosted-url` | ✅ wired |
+| **Safe preferences** (forwarded; the server can only *tighten*, never weaken) | `--min-speedup` `--metamorphic` `--candidates` | ✅ forwarded |
+| **Gate / model** (locked to your plan, decided server-side) | `--min-rung` `--fuzz` `--seed` `--reps` `--no-adaptive` `--fp-tolerance` `--objectives` `--llm-model` `--llm-url` `--refine` `--no-cache` `--budget` `--fast` `--transforms` | 🔒 server-side |
+| **Local / codebase** (n/a to hosted single-file) | `--test-command` `--bench-command` `--ctest-dir` `--profile` `--changed` `--jobs` `--force` | ⏭️ n/a |
 
 ---
 
@@ -39,7 +51,7 @@ Each stage is **sellable on its own** — you make money at Pro, long before tea
 Before building the full thing, answer the **only question that matters: will anyone actually pay for the hosted AI?** Build the cheapest version that can answer it:
 
 - [ ] **2.1** Rent **one** cloud server with a graphics card (GPU).
-- [ ] **2.2** Put a **strong code AI** on it (bigger/smarter than the local one).
+- [x] **2.2** Put a **strong code AI** on it (bigger/smarter than the local one). **◑ dev** — the `pro` token uses the local `verto2.5-coder:7b` as a stand-in (real GPU model at release).
 - [ ] **2.3** Point the skeleton at it, and **run each request in its own sealed box** (safety — see §9).
 - [x] **2.4** Add **`--model hosted`** to the free tool (sends code + token to your server). **✅ done** — `verto/surfaces/hosted_client.py` (thin caller) + CLI `--verto-token`/`--hosted-url`.
 - [ ] **2.5** **Skip billing code.** Use a simple **payment link**; when someone pays, **email them a token by hand** (or a tiny script).
@@ -58,22 +70,22 @@ Before building the full thing, answer the **only question that matters: will an
 The first real paid ability. (Steps 2.1–2.4 above are its rough version; here's the production version.)
 
 - [ ] **3.1** Rent the GPU server(s) and put the strong code AI on it.
-- [ ] **3.2** Connect `verto_server`'s `managed_model.py` to that AI (replace the stub).
+- [x] **3.2** Connect `verto_server`'s `managed_model.py` to that AI (replace the stub). **◑ dev done** — it runs the real engine with the plan's model (via the entitlement); the `pro` token points at the local coder AI. Same code → the GPU endpoint at release.
 - [ ] **3.3** **Sealed box per request** — isolate every user's code run (safety, §9).
 - [ ] **3.4** **Real accounts/login** — replace the fake token list with real auth (API keys or accounts).
 - [x] **3.5** Finish **`--model hosted`** in the free tool (token + errors handled). **✅ done** — clean 401 / bad-token / server-down messages; `VERTO_TOKEN` env var; honest engine label (shows the *real* engine, e.g. "rules (dev stand-in)").
 - [ ] **3.6** Put the server **online** — a web address, HTTPS (the padlock), always-on.
-- [ ] **3.7** **Test end to end** — a paying user runs `--model hosted` and gets a result from your GPU AI.
+- [x] **3.7** **Test end to end** — a paying user runs `--model hosted` and gets a result. **✅ done** — the full loop is verified in dev (call → verify → show → `--apply`), incl. safe-preference forwarding; a GPU AI swaps in at release with no client change.
 
 ---
 
 ## 4. Phase 2 — Let people actually pay (billing & accounts)
 
 - [ ] **4.1** A **sign-up page** — create an account.
-- [ ] **4.2** **Payment** — hook up a provider (e.g. Stripe) with the Pro plan.
-- [ ] **4.3** **Issue a token when they pay** — paying → they get their secret key.
-- [ ] **4.4** **Count usage** — track how much each token uses; enforce limits; tie to billing.
-- [ ] **4.5** A tiny **account page** — see your plan, usage, and token.
+- [ ] **4.2** **Payment** — hook up a provider (e.g. Stripe) with the Pro plan. **◑ partial** — the **webhook seam is built** (`verto_server/billing.py` + `POST /v1/webhooks/stripe`): it does the **real Stripe signature check** (HMAC-SHA256) and, on a paid checkout, calls `store.issue()` to mint the token — proven end-to-end in dev (signed webhook → token → the token runs an optimize). What's left is *external*: a real Stripe account, the price→plan IDs (`$STRIPE_PRICE_MAP` or `metadata.plan`), the signing secret (`$STRIPE_WEBHOOK_SECRET`), and emailing the token instead of logging it.
+- [x] **4.3** **Issue a token when they pay** — paying → they get their secret key. **◑ dev done** — a **persistent token store** (`verto_server/store.py`) + an **admin CLI** (`python -m verto_server.admin issue --plan pro`) mints the secret; tokens survive restarts and can be revoked. At release the payment webhook (4.2) calls the same `store.issue()` — nothing else changes.
+- [x] **4.4** **Count usage** — track how much each token uses; enforce limits; tie to billing. **✅ done (dev)** — **per-token, per-month metering**: the server reserves a run against the plan's monthly quota and returns **429** over the cap (0 = unlimited); usage is echoed in the response + the request log. *Tie-to-billing* is the only piece left (needs Stripe, 4.2).
+- [ ] **4.5** A tiny **account page** — see your plan, usage, and token. **◑ partial** — no web page yet, but `admin usage <token>` / `admin list` already show plan + usage from the CLI.
 
 > ✅ **After Phase 2 you have a real, sellable product: "Pro" = the strong AI, paid for automatically.**
 

@@ -131,9 +131,20 @@
           <li><b>full hosted flag coverage</b> — all client-side output/apply flags now work (<code>--json --diff --apply --dry-run --backup --export --emit-patches --fail-on</code>).</li>
           <li><b>safe preference forwarding</b> — <code>--min-speedup --metamorphic --candidates</code> are sent to the server, which enforces they can only <b>tighten</b> the check, never weaken it (min-speedup only rises, metamorphic only turns on, candidates clamped ≤8); gate-<b>weakening</b> knobs and model choice stay <b>server-locked</b>.</li>
           <li><b>server DX</b> — restart <b>takes over the same port</b>, and it prints <b>IP/port + a request→response log</b> on the terminal.</li>
+          <li><b>accounts &amp; metering (Phase 2 core)</b> — a <b>persistent token store</b> (<code>store.py</code>) replaced the hard-coded dict: tokens survive restarts, an <b>admin CLI</b> issues/revokes them, and every run is <b>metered per month</b> with a hard cap (<b>429</b> over quota). Steps <b>4.3 &amp; 4.4 done (dev)</b>.</li>
+          <li><b>boundary is now test-locked</b> — the proprietary <code>verto_server</code> is excluded from the public wheel, and two tests (<code>test_boundary.py</code>) fail the build if it ever slips into the wheel or if the free client ever imports it (the paywall is architectural, so it's enforced, not just documented).</li>
+          <li><b>Stripe webhook seam (money→token)</b> — <code>billing.py</code> + <code>POST /v1/webhooks/stripe</code> verify a <b>real Stripe signature</b> and mint a token on a paid checkout via <code>store.issue()</code>. Proven end-to-end in dev: <em>signed webhook → token → that token runs an optimize</em>. Only external bits (Stripe account/keys, email delivery) remain for 4.2.</li>
         </ul>
-        <p style="margin-top:8px">In dev, the pieces we haven't built yet run on <b>stand-ins</b>: the <code>trial</code> token uses <code>rules</code>, the <code>pro</code> token uses the <b>local</b> coder model, and the "server" is <code>localhost</code>. <b>The plumbing is real; the heavy infra (GPU model, deployed hosting, sealed boxes, billing) is still stand-ins.</b> Next: billing/accounts (Phase 2).</p>
+        <p style="margin-top:8px">In dev, the pieces we haven't built yet run on <b>stand-ins</b>: the <code>trial</code> token uses <code>rules</code>, the <code>pro</code> token uses the <b>local</b> coder model, the "server" is <code>localhost</code>, and tokens are issued by the <b>admin CLI</b> instead of a payment webhook. <b>The plumbing is real; the heavy infra (GPU model, deployed hosting, sealed boxes, real payment) is still stand-ins.</b> Next: the payment provider (Stripe) + real sign-up/account UI (rest of Phase 2).</p>
       </div>
+      <h3>Hosted flag coverage so far (<code>--model hosted</code>)</h3>
+      <table>
+        <tr><th>Category</th><th>Flags</th><th>Status</th></tr>
+        <tr><td><b>Output / apply</b> (client)</td><td><code>--json --quiet --diff --apply --dry-run --backup --export --emit-patches --fail-on --verto-token --hosted-url</code></td><td class="ok">✅ wired</td></tr>
+        <tr><td><b>Safe preferences</b> (forwarded; the server can only <em>tighten</em>, never weaken)</td><td><code>--min-speedup --metamorphic --candidates</code></td><td class="ok">✅ forwarded</td></tr>
+        <tr><td><b>Gate / model</b> (locked to your plan, decided server-side)</td><td><code>--min-rung --fuzz --seed --reps --no-adaptive --fp-tolerance --objectives --llm-model --llm-url --refine --no-cache --budget --fast --transforms</code></td><td class="warn">🔒 server-side</td></tr>
+        <tr><td><b>Local / codebase</b> (n/a to hosted single-file)</td><td><code>--test-command --bench-command --ctest-dir --profile --changed --jobs --force</code></td><td class="muted">⏭️ n/a</td></tr>
+      </table>
     </section>
 
     <section id="s2">
@@ -141,7 +152,7 @@
       <p>Before building the full thing, answer the <b>only question that matters: will anyone actually pay for the hosted AI?</b> Build the cheapest version that can answer it:</p>
       <ul class="check">
         <li><input type="checkbox"><span><b class="step">2.1</b> &nbsp;Rent <b>one</b> cloud server with a graphics card (GPU).</span></li>
-        <li><input type="checkbox"><span><b class="step">2.2</b> &nbsp;Put a <b>strong code AI</b> on it (bigger/smarter than the local one).</span></li>
+        <li><input type="checkbox" checked><span><b class="step">2.2</b> &nbsp;Put a <b>strong code AI</b> on it (bigger/smarter than the local one). <b class="warn">◑ dev</b> — the <code>pro</code> token uses the local <code>verto2.5-coder:7b</code> as a stand-in (real GPU model at release).</span></li>
         <li><input type="checkbox"><span><b class="step">2.3</b> &nbsp;Point the skeleton at it, and <b>run each request in its own sealed box</b> (safety — §9).</span></li>
         <li><input type="checkbox" checked><span><b class="step">2.4</b> &nbsp;Add <b><code>--model hosted</code></b> to the free tool (sends code + token to your server). <b class="ok">✅ done</b> — <code>hosted_client.py</code> (thin caller) + <code>--verto-token</code>/<code>--hosted-url</code>.</span></li>
         <li><input type="checkbox"><span><b class="step">2.5</b> &nbsp;<b>Skip billing code.</b> Use a simple <b>payment link</b>; when someone pays, <b>email them a token by hand</b> (or a tiny script).</span></li>
@@ -160,12 +171,12 @@
       <p>The first real paid ability. (Steps 2.1–2.4 are its rough version; here's the production version.)</p>
       <ul class="check">
         <li><input type="checkbox"><span><b class="step">3.1</b> &nbsp;Rent the GPU server(s) and put the strong code AI on it.</span></li>
-        <li><input type="checkbox"><span><b class="step">3.2</b> &nbsp;Connect <code>verto_server</code>'s <code>managed_model.py</code> to that AI (replace the stub).</span></li>
+        <li><input type="checkbox" checked><span><b class="step">3.2</b> &nbsp;Connect <code>verto_server</code>'s <code>managed_model.py</code> to that AI (replace the stub). <b class="warn">◑ dev done</b> — runs the real engine with the plan's model (via the entitlement); the <code>pro</code> token points at the local coder AI. Same code → the GPU endpoint at release.</span></li>
         <li><input type="checkbox"><span><b class="step">3.3</b> &nbsp;<b>Sealed box per request</b> — isolate every user's code run (safety, §9).</span></li>
         <li><input type="checkbox"><span><b class="step">3.4</b> &nbsp;<b>Real accounts/login</b> — replace the fake token list with real auth (API keys or accounts).</span></li>
         <li><input type="checkbox" checked><span><b class="step">3.5</b> &nbsp;Finish <b><code>--model hosted</code></b> in the free tool (token + errors handled). <b class="ok">✅ done</b> — clean 401 / bad-token / server-down messages; <code>VERTO_TOKEN</code> env var; honest engine label.</span></li>
         <li><input type="checkbox"><span><b class="step">3.6</b> &nbsp;Put the server <b>online</b> — a web address, HTTPS (the padlock), always-on.</span></li>
-        <li><input type="checkbox"><span><b class="step">3.7</b> &nbsp;<b>Test end to end</b> — a paying user runs <code>--model hosted</code> and gets a result from your GPU AI.</span></li>
+        <li><input type="checkbox" checked><span><b class="step">3.7</b> &nbsp;<b>Test end to end</b> — a paying user runs <code>--model hosted</code> and gets a result. <b class="ok">✅ done</b> — full loop verified in dev (call → verify → show → <code>--apply</code>), incl. safe-preference forwarding; a GPU AI swaps in at release with no client change.</span></li>
       </ul>
     </section>
 
@@ -173,10 +184,10 @@
       <h2><span class="n">4</span>Phase 2 — Let people actually pay (billing &amp; accounts)</h2>
       <ul class="check">
         <li><input type="checkbox"><span><b class="step">4.1</b> &nbsp;A <b>sign-up page</b> — create an account.</span></li>
-        <li><input type="checkbox"><span><b class="step">4.2</b> &nbsp;<b>Payment</b> — hook up a provider (e.g. Stripe) with the Pro plan.</span></li>
-        <li><input type="checkbox"><span><b class="step">4.3</b> &nbsp;<b>Issue a token when they pay</b> — paying → they get their secret key.</span></li>
-        <li><input type="checkbox"><span><b class="step">4.4</b> &nbsp;<b>Count usage</b> — track how much each token uses; enforce limits; tie to billing.</span></li>
-        <li><input type="checkbox"><span><b class="step">4.5</b> &nbsp;A tiny <b>account page</b> — see your plan, usage, and token.</span></li>
+        <li><input type="checkbox"><span><b class="step">4.2</b> &nbsp;<b>Payment</b> — hook up a provider (e.g. Stripe) with the Pro plan. <span class="warn">◑ partial</span> — the <b>webhook seam is built</b> (<code>verto_server/billing.py</code> + <code>POST /v1/webhooks/stripe</code>): it does the <b>real Stripe signature check</b> (HMAC-SHA256) and, on a paid checkout, calls <code>store.issue()</code> to mint the token — proven end-to-end in dev (signed webhook → token → the token runs an optimize). What's left is <em>external</em>: a real Stripe account, the price→plan IDs (<code>$STRIPE_PRICE_MAP</code> or <code>metadata.plan</code>), the signing secret (<code>$STRIPE_WEBHOOK_SECRET</code>), and emailing the token instead of logging it.</span></li>
+        <li><input type="checkbox" checked><span><b class="step">4.3</b> &nbsp;<b>Issue a token when they pay</b> — paying → they get their secret key. <span class="warn">◑ dev done</span> — a <b>persistent token store</b> (<code>verto_server/store.py</code>) + an <b>admin CLI</b> (<code>python -m verto_server.admin issue --plan pro</code>) mints the secret; tokens survive restarts and can be revoked. At release the payment webhook (4.2) calls the same <code>store.issue()</code> — nothing else changes.</span></li>
+        <li><input type="checkbox" checked><span><b class="step">4.4</b> &nbsp;<b>Count usage</b> — track how much each token uses; enforce limits; tie to billing. <span class="ok">✅ done (dev)</span> — <b>per-token, per-month metering</b>: the server reserves a run against the plan's monthly quota and returns <b>429</b> over the cap (0 = unlimited); usage is echoed in the response + request log. <em>Tie-to-billing</em> is the only piece left (needs Stripe, 4.2).</span></li>
+        <li><input type="checkbox"><span><b class="step">4.5</b> &nbsp;A tiny <b>account page</b> — see your plan, usage, and token. <span class="warn">◑ partial</span> — no web page yet, but <code>admin usage &lt;token&gt;</code> / <code>admin list</code> already show plan + usage from the CLI.</span></li>
       </ul>
       <div class="callout okbox"><p>✅ <b>After Phase 2 you have a real, sellable product: "Pro" = the strong AI, paid for automatically.</b></p></div>
     </section>

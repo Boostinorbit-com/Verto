@@ -53,3 +53,7 @@ verto = "verto.surfaces.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["verto*"]
+# `verto_server` is the PROPRIETARY hosted tier — it must NEVER ship in the public wheel.
+# Without this, the "verto*" glob would bundle it (one-way boundary: verto_server imports
+# verto, never the reverse). See Docs/VERTO_Premium.md and the open-core invariant.
+exclude = ["verto_server*"]

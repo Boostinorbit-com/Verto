@@ -15,7 +15,7 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import entitlement
+from . import billing, entitlement, store
 from .managed_model import optimize_hosted
 
 
@@ -28,6 +28,8 @@ class _Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         self._t0 = time.monotonic()                            # marks a request we log (not /healthz)
         self._log("→", f"{self.command} {self.path}  (received, working…)")
+        if self.path == "/v1/webhooks/stripe":                 # billing: gated by Stripe SIGNATURE,
+            return self._stripe_webhook()                      # NOT a verto-token — so it's handled first
         if self.path != "/v1/optimize":
             return self._json(404, {"error": "not found"})
 
@@ -38,14 +40,23 @@ class _Handler(BaseHTTPRequestHandler):
         if not entitlement.has(ent, "hosted-model"):
             return self._json(403, {"error": f"plan {ent.plan!r} does not include the hosted model"})
 
-        # 2) parse the request
+        # 2) parse the request (before metering, so a malformed body never burns a run)
         try:
             body = json.loads(self._read_body())
             source = body["source"]
         except (ValueError, KeyError):
             return self._json(400, {"error": "expected JSON body {source, filename?}"})
 
-        # 3) run the CORE engine on our compute — same gate, same proof — and return it
+        # 3) METER — reserve one run against this token's monthly quota (Phase 2). Over cap → 429,
+        #    without touching the engine. quota=0 (enterprise) is unlimited.
+        token = self._token()
+        ok, used, quota = store.default_store().consume(token, ent.monthly_quota)
+        if not ok:
+            return self._json(429, {"error": f"monthly quota reached ({used}/{quota} runs this "
+                                             f"period) — plan {ent.plan!r}", "used": used,
+                                    "quota": quota})
+
+        # 4) run the CORE engine on our compute — same gate, same proof — and return it
         try:
             results, final = optimize_hosted(
                 source, body.get("filename", "input.cpp"), ent,
@@ -53,19 +64,45 @@ class _Handler(BaseHTTPRequestHandler):
                 options=body.get("options") if isinstance(body.get("options"), dict) else None)
         except Exception as e:                                  # never leak a stack trace to callers
             return self._json(500, {"error": f"{type(e).__name__}"})
-        resp = {"plan": ent.plan, "engine": entitlement.engine_label(ent), "results": results}
+        resp = {"plan": ent.plan, "engine": entitlement.engine_label(ent), "results": results,
+                "usage": {"used": used, "quota": quota}}      # so the caller can show what's left
         if final is not None:                                  # apply: the fully-optimized file
             resp["applied_source"] = final
         self._json(200, resp)
+
+    # --- billing webhook (Stripe → token) ---
+    def _stripe_webhook(self) -> None:
+        payload = self._read_body_bytes()                      # RAW bytes — the signature is over these
+        secret = billing.signing_secret()
+        if not secret:
+            self._log("!", "STRIPE_WEBHOOK_SECRET unset — skipping signature check (DEV ONLY)")
+        try:
+            billing.verify_signature(payload, self.headers.get("Stripe-Signature", ""), secret)
+            event = json.loads(payload.decode("utf-8"))
+            result = billing.handle_event(event)
+        except billing.WebhookError as e:
+            return self._json(e.code, {"error": e.msg})
+        except ValueError:
+            return self._json(400, {"error": "invalid JSON in webhook body"})
+        if result.get("issued"):                               # DEV: log the secret so you can test;
+            self._log("✓", f"issued {result['plan']} token for "  # production emails it instead
+                            f"{result.get('email') or '?'} → {result['token']}")
+        return self._json(200, result)
 
     # --- helpers ---
     def _token(self) -> str:
         h = self.headers.get("Authorization", "")
         return h[7:].strip() if h.startswith("Bearer ") else self.headers.get("X-Verto-Token", "")
 
+    def _read_body_bytes(self) -> bytes:
+        if getattr(self, "_body", None) is None:
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            self._body = self.rfile.read(n) if n else b""
+        return self._body
+
     def _read_body(self) -> str:
-        n = int(self.headers.get("Content-Length", 0) or 0)
-        return self.rfile.read(n).decode("utf-8") if n else "{}"
+        raw = self._read_body_bytes()
+        return raw.decode("utf-8") if raw else "{}"
 
     def _json(self, code: int, obj: dict) -> None:
         body = json.dumps(obj).encode("utf-8")
@@ -85,8 +122,18 @@ class _Handler(BaseHTTPRequestHandler):
         ms = (time.monotonic() - self._t0) * 1000
         if isinstance(obj, dict) and "results" in obj:
             acc = sum(1 for r in obj["results"] if r.get("accepted"))
+            u = obj.get("usage", {})
+            quota = "∞" if not u.get("quota") else u.get("quota")
             detail = (f"plan={obj.get('plan')} engine={obj.get('engine')!r} "
-                      f"results={len(obj['results'])} accepted={acc}")
+                      f"results={len(obj['results'])} accepted={acc} "
+                      f"usage={u.get('used', '?')}/{quota}")
+        elif isinstance(obj, dict) and "handled" in obj:      # stripe webhook
+            if obj.get("issued"):
+                detail = f"webhook: issued {obj.get('plan')} token"
+            elif "revoked" in obj:
+                detail = f"webhook: revoked={obj.get('revoked')}"
+            else:
+                detail = f"webhook: ignored {obj.get('ignored')!r}"
         elif isinstance(obj, dict) and "error" in obj:
             detail = f"error: {obj['error']}"
         else:
