@@ -1,6 +1,6 @@
 """2A-1 — CMake/ctest test-target discovery + 2A-3 test-timing fallback.
 
-Point VERTO at a CMake build dir; it enumerates ctest, derives the test + bench commands,
+Point BOOSTOPT at a CMake build dir; it enumerates ctest, derives the test + bench commands,
 and verifies an unharnessable-signature function via the project's OWN suite — no manually
 typed commands. Requires cmake/ctest/clang++ (skips otherwise). The fixture is copied to a
 tmp dir so the committed source is never mutated by the variant swap.
@@ -12,9 +12,9 @@ import tempfile
 
 import pytest
 
-from verto.adapters.language.cpp.cmake_ctest import discover_ctest
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.adapters.language.cpp.cmake_ctest import discover_ctest
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 _HAVE = all(shutil.which(t) for t in ("cmake", "ctest")) and (
     shutil.which("clang++") or shutil.which("g++"))
@@ -79,7 +79,7 @@ def test_end_to_end_via_discovered_commands(built_project):
 
 
 def test_no_bench_is_perf_unproven(built_project):
-    """With no bench signal (no discovered *bench* test, no --bench-command), VERTO does NOT
+    """With no bench signal (no discovered *bench* test, no --bench-command), BOOSTOPT does NOT
     fall back to timing a trivial test (noise → false accepts): it honestly says perf_unproven."""
     proj, build = built_project
     c = Config(); c.model = "rules"

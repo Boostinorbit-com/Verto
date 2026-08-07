@@ -1,11 +1,11 @@
 """Gate tests — the trusted core. The invariant: accept ⟺ correct ∧ faster.
 
-These pin the ONE behavior that must never regress (VERTO.md §7). As the real
+These pin the ONE behavior that must never regress (BOOSTOPT.md §7). As the real
 oracles land (v0 step 3), extend these to prove the gate REJECTS a UB rewrite.
 """
-from verto.engine.config import Config
-from verto.engine.gate import InvariantGate
-from verto.engine.models import (
+from boostopt.engine.config import Config
+from boostopt.engine.gate import InvariantGate
+from boostopt.engine.models import (
     Candidate, Contract, CorrectnessVerdict, PerfVerdict, Target, Variant, Witness,
 )
 
@@ -63,7 +63,7 @@ def test_confirm_rejects_unreproduced_win():
     reproduce is REJECTED — this is the false-accept where benchmark noise reads a no-op change
     as a big speedup. On agreement, the CONSERVATIVE (smaller) gain is reported so a lucky spike
     can never inflate the stated number."""
-    from verto.adapters.domain.performance.performance import PerformanceOracleImpl as P
+    from boostopt.adapters.domain.performance.performance import PerformanceOracleImpl as P
 
     def accept(g):
         return (True, "", {"p50_delta_pct": g})

@@ -1,7 +1,7 @@
 """2A — oracle reach via the test-reuse PRIMARY oracle.
 
 A function taking a std::map parameter can't be synth-harnessed, so without 2A it's an
-honest SKIP. With --test-command (correctness) + --bench-command (perf), VERTO verifies a
+honest SKIP. With --test-command (correctness) + --bench-command (perf), BOOSTOPT verifies a
 BODY-ONLY change (reserve) against the project's OWN test + bench — reaching a real win the
 synthetic harness alone cannot. Requires clang++ (like the other build-backed tests).
 """
@@ -9,10 +9,10 @@ import shutil
 
 import pytest
 
-from verto.adapters.language.cpp.sensor import CppSensor
-from verto.engine.api import Engine
-from verto.engine.config import Config
-from verto.engine.models import Target
+from boostopt.adapters.language.cpp.sensor import CppSensor
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
+from boostopt.engine.models import Target
 
 pytestmark = pytest.mark.skipif(shutil.which("clang++") is None, reason="needs clang++")
 
@@ -58,7 +58,7 @@ def test_perf_unproven_without_bench():
 def test_pareto_gate_rejects_tail_and_memory_regressions():
     """2A-3: the project-bench gate is a full Pareto gate, not a p50 threshold — a p50 win
     that regresses p99 (tail) or peak_memory past budget is rejected."""
-    from verto.adapters.domain.performance.reuse import TestReuseOracle
+    from boostopt.adapters.domain.performance.reuse import TestReuseOracle
     o = TestReuseOracle(Config())
     assert o._pareto({"p50": 1.0, "p99": 1.0, "peak_memory": 100},
                      {"p50": 0.5, "p99": 0.5, "peak_memory": 100})[0]          # clean win

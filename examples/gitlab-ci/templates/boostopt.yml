@@ -1,0 +1,84 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# BOOSTOPT — GitLab CI/CD Component (the reusable, input-driven form).
+#
+# This is GitLab's analog of GitHub's action.yml: the `spec: inputs:` block below
+# declares the same entries as the Action, and a consumer includes it with values.
+# It would live at  templates/boostopt.yml  in a component project (e.g. the "boostopt-ci"
+# project), and is referenced as:
+#
+#   include:
+#     - component: $CI_SERVER_FQDN/boostopt/boostopt-ci/boostopt@v1
+#       inputs:
+#         compile_commands: build/compile_commands.json
+#         mode: suggest
+#         min_speedup: "3"
+#
+# Note: GitLab input names use underscores (compile_commands) and are read with the
+# $[[ inputs.NAME ]] interpolation syntax — the only differences from the GitHub keys.
+# ─────────────────────────────────────────────────────────────────────────────
+spec:
+  inputs:
+    compile_commands:
+      default: "build/compile_commands.json"
+      description: "Path to compile_commands.json (or a build dir holding one)."
+    build_command:
+      default: "cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+      description: "Command run first to generate the compilation database."
+    mode:
+      default: "comment"
+      options: ["comment", "suggest", "pr"]   # delivery; Prevent = fail_on: any
+      description: "How findings are delivered."
+    model:
+      default: "rules"
+      options: ["rules", "local", "frontier"]
+      description: "Proposer: deterministic rules | local Ollama | hosted."
+    min_speedup:
+      default: "2"
+      description: "Reject wins below this percent."
+    min_rung:
+      default: "3"
+      description: "Correctness rung: 1 = differential test, 3 = + sanitizers."
+    objectives:
+      default: "p50,p99,peak_memory"
+      description: "Performance dimensions to gate on."
+    jobs:
+      default: ""
+      description: "Translation units to verify in parallel."
+    budget:
+      default: ""
+      description: "LLM spend cap — tokens (500k) | money ($2) | time (90s)."
+    fail_on:
+      default: "none"
+      options: ["none", "any"]   # "regression" (vs baseline) is planned
+      description: "Make the job fail on this condition."
+    image:
+      default: "ghcr.io/boostopt/action:v1"
+      description: "The BOOSTOPT container image."
+    stage:
+      default: "test"
+      description: "Pipeline stage to run in."
+
+---
+
+boostopt:
+  stage: $[[ inputs.stage ]]
+  image: $[[ inputs.image ]]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - $[[ inputs.build_command ]]
+    - >
+      boostopt optimize
+      --changed "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+      -p "$[[ inputs.compile_commands ]]"
+      --model "$[[ inputs.model ]]"
+      --min-speedup "$[[ inputs.min_speedup ]]"
+      --min-rung "$[[ inputs.min_rung ]]"
+      --objectives "$[[ inputs.objectives ]]"
+      --json > boostopt.json
+    # Then post boostopt.json to the MR via GitLab's API (needs $GITLAB_TOKEN + the
+    # predefined CI_MERGE_REQUEST_* variables). For model:frontier, pass the model
+    # key as a masked CI/CD variable ($OPENAI_API_KEY).
+  artifacts:
+    paths: [boostopt.json]
+    when: always

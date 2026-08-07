@@ -1,17 +1,17 @@
-# VERTO — the verified C++ optimizer
+# BOOSTOPT — the verified C++ optimizer
 
-**VERTO proposes an optimization to your C++ and applies it *only* after proving the change is byte-identical in behavior AND measurably faster.** An untrusted proposer (a local LLM, or deterministic rules) suggests changes; a trusted gate re-compiles, differential-tests, runs sanitizers, and benchmarks each one — and keeps only what passes.
+**BOOSTOPT proposes an optimization to your C++ and applies it *only* after proving the change is byte-identical in behavior AND measurably faster.** An untrusted proposer (a local LLM, or deterministic rules) suggests changes; a trusted gate re-compiles, differential-tests, runs sanitizers, and benchmarks each one — and keeps only what passes.
 
-> **VERTO proves your code on *your* machine — the source never leaves your box.**
+> **BOOSTOPT proves your code on *your* machine — the source never leaves your box.**
 
-[![CI](https://github.com/Boostinorbit-com/Verto/actions/workflows/ci.yml/badge.svg)](https://github.com/Boostinorbit-com/Verto/actions/workflows/ci.yml)
+[![CI](https://github.com/Boostinorbit-com/Boostopt/actions/workflows/ci.yml/badge.svg)](https://github.com/Boostinorbit-com/Boostopt/actions/workflows/ci.yml)
 &nbsp;License: Proprietary (all rights reserved) &nbsp;·&nbsp; Status: beta (v0, C++)
 
 ---
 
 ## The one invariant
 
-VERTO accepts a change **if and only if**:
+BOOSTOPT accepts a change **if and only if**:
 
 ```
 correctness.rung ≥ min_rung   AND   performance.pareto_pass
@@ -27,10 +27,10 @@ The proposer can be wrong, slow, or adversarial — a bad suggestion is a *rejec
 Requires **`clang++`** with sanitizers (that's the one real system dependency — `libclang` ships with the pip package).
 
 ```bash
-pip install verto-optimizer          # installs the `verto` command
+pip install boostopt          # installs the `boostopt` command
 
 # Optimize a file: really compiles, differential-tests, runs ASan/UBSan, and benchmarks.
-verto optimize examples/packet_stats.cpp --offline
+boostopt optimize examples/packet_stats.cpp --offline
 ```
 
 Output (numbers vary by machine — the *acceptance* is what's guaranteed):
@@ -45,7 +45,7 @@ Output (numbers vary by machine — the *acceptance* is what's guaranteed):
 `--offline` uses the deterministic rule proposer (no model, no key). To use a **local LLM** instead — free, private, nothing leaves your machine:
 
 ```bash
-verto optimize hot.cpp --model local        # via a local Ollama (e.g. qwen3)
+boostopt optimize hot.cpp --model local        # via a local Ollama (e.g. qwen3)
 ```
 
 ## What you get
@@ -56,41 +56,41 @@ verto optimize hot.cpp --model local        # via a local Ollama (e.g. qwen3)
 - **Beyond a compiler's reach** — data-structure swaps, signature changes, container-type changes.
 - **Inspectable** — read the diff and the proof; untrusted binaries run in a sandbox.
 
-VERTO's built-in **wedge test** — 14 pre-registered cases — shows it **accepts** real wins (reserve, `map`→`unordered_map`, `list`→`vector`, pass-by-const-ref…) **and rejects** deliberately-broken ones (an out-of-bounds write that passes the diff test but ASan catches; a memoization that's faster but blows the memory budget). Run it yourself: `python -m wedge.run`.
+BOOSTOPT's built-in **wedge test** — 14 pre-registered cases — shows it **accepts** real wins (reserve, `map`→`unordered_map`, `list`→`vector`, pass-by-const-ref…) **and rejects** deliberately-broken ones (an out-of-bounds write that passes the diff test but ASan catches; a memoization that's faster but blows the memory budget). Run it yourself: `python -m wedge.run`.
 
 ## Commands
 
 ```bash
-verto init                       # set up a .verto/ workspace (like `git init`) + prep the local model
-verto analyze  foo.cpp           # non-destructive: what would you optimize, and why
-verto optimize foo.cpp --apply   # verify, then write the accepted change (transactional, sound-only)
-verto optimize -p build/ --all   # whole codebase (a compile_commands.json)
-verto report                     # the ledger — every accept/reject, its rung, its measured Δ
+boostopt init                       # set up a .boostopt/ workspace (like `git init`) + prep the local model
+boostopt analyze  foo.cpp           # non-destructive: what would you optimize, and why
+boostopt optimize foo.cpp --apply   # verify, then write the accepted change (transactional, sound-only)
+boostopt optimize -p build/ --all   # whole codebase (a compile_commands.json)
+boostopt report                     # the ledger — every accept/reject, its rung, its measured Δ
 ```
 
-Key flags: `--offline` (rules) · `--model local|frontier` (LLM) · `--min-rung N` · `--metamorphic` · `--diff` · `--json` · `--jobs N`. Full reference: [`Docs/VERTO_Flags.md`](Docs/VERTO_Flags.md).
+Key flags: `--offline` (rules) · `--model local|frontier` (LLM) · `--min-rung N` · `--metamorphic` · `--diff` · `--json` · `--jobs N`. Full reference: [`Docs/BOOSTOPT_Flags.md`](Docs/BOOSTOPT_Flags.md).
 
 ## Install
 
 **From PyPI** (recommended):
 ```bash
-pip install verto-optimizer
+pip install boostopt
 ```
 
 **From source** (Python 3.11+):
 ```bash
-git clone https://github.com/Boostinorbit-com/Verto && cd Verto
+git clone https://github.com/Boostinorbit-com/Boostopt && cd Boostopt
 pip install -e '.[dev]'
-verto analyze --verify-setup     # checks clang, sanitizers, ccache, linker
+boostopt analyze --verify-setup     # checks clang, sanitizers, ccache, linker
 ```
 
 **Docker** (zero setup — bundles clang + sanitizers):
 ```bash
-docker build -t verto .
-docker run --rm -v "$PWD:/src" -w /src verto optimize examples/packet_stats.cpp --offline
+docker build -t boostopt .
+docker run --rm -v "$PWD:/src" -w /src boostopt optimize examples/packet_stats.cpp --offline
 ```
 
-Optional extras: a **local LLM** via [Ollama](https://ollama.com) (`--model local`); **bubblewrap** for network/filesystem sandboxing of untrusted binaries; **ccache** for faster repeat runs. `verto analyze --verify-setup` reports what's present.
+Optional extras: a **local LLM** via [Ollama](https://ollama.com) (`--model local`); **bubblewrap** for network/filesystem sandboxing of untrusted binaries; **ccache** for faster repeat runs. `boostopt analyze --verify-setup` reports what's present.
 
 ## How it works
 
@@ -111,7 +111,7 @@ Untrusted binaries run in a **bubblewrap sandbox** (no network, read-only filesy
 
 - ✅ Trusted gate (differential + ASan/UBSan/TSan; Pareto vector; opt-in metamorphic)
 - ✅ LLM proposer (local Ollama or any OpenAI-compatible host), best-of-N, cost cap, sandbox
-- ✅ `verto init` workspace, codebase mode, patch export, CI
+- ✅ `boostopt init` workspace, codebase mode, patch export, CI
 - ⬜ Next: more languages (Axis A), formal verification (Alive2), hosted/CI product surfaces
 
 **Scope:** v0 is **C++** and **Linux**. Multi-language (Python → Rust / Java / Go / JS) is designed for but not built.
@@ -120,10 +120,10 @@ Untrusted binaries run in a **bubblewrap sandbox** (no network, read-only filesy
 
 | Doc | For |
 |---|---|
-| [VERTO.md](Docs/VERTO.md) | the idea, the invariant, prior art — *why it's sound* |
-| [VERTO_Architecture.md](Docs/VERTO_Architecture.md) | the engine + the C++ instance — *how it's built* |
-| [VERTO_Surfaces.md](Docs/VERTO_Surfaces.md) | CLI / CI / IDE / config — *what you run* |
-| [VERTO_Roadmap.md](Docs/VERTO_Roadmap.md) | what's done, what's next |
+| [BOOSTOPT.md](Docs/BOOSTOPT.md) | the idea, the invariant, prior art — *why it's sound* |
+| [BOOSTOPT_Architecture.md](Docs/BOOSTOPT_Architecture.md) | the engine + the C++ instance — *how it's built* |
+| [BOOSTOPT_Surfaces.md](Docs/BOOSTOPT_Surfaces.md) | CLI / CI / IDE / config — *what you run* |
+| [BOOSTOPT_Roadmap.md](Docs/BOOSTOPT_Roadmap.md) | what's done, what's next |
 
 Every `.md` has a styled `.html` twin for reading in a browser.
 

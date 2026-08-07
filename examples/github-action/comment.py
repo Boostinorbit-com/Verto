@@ -1,6 +1,6 @@
-"""VERTO Action — PR/MR comment rendering (#18, step 3, the pure half).
+"""BOOSTOPT Action — PR/MR comment rendering (#18, step 3, the pure half).
 
-Turns the `verto … --json` verdict report into the Markdown a developer sees, and
+Turns the `boostopt … --json` verdict report into the Markdown a developer sees, and
 extracts GitHub review-suggestion payloads from each finding's unified diff. No
 network here — this is all deterministic string work, so it's fully unit-tested.
 The actual posting lives in `gh.py`. Layout follows `pr-comment.md`.
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 
-MARKER = "<!-- verto:summary -->"   # hidden tag → the next push edits this comment in place
+MARKER = "<!-- boostopt:summary -->"   # hidden tag → the next push edits this comment in place
 
 
 # ---- small helpers --------------------------------------------------------------
@@ -121,22 +121,22 @@ def render_comment(report, *, repo_root: str | None = None, blocking: bool = Fal
     skips = _skip_count(report)
 
     if not found:
-        body = ["### VERTO — no verified optimizations",
+        body = ["### BOOSTOPT — no verified optimizations",
                 "", f"Checked the changed files; nothing cleared the correct-and-faster "
                 f"bar this run.{f' <sub>({skips} skipped.)</sub>' if skips else ''}"]
         return MARKER + "\n" + "\n".join(body)
 
     n = len(found)
     if blocking:
-        head = [f"### ❌ VERTO — {n} verified optimization"
+        head = [f"### ❌ BOOSTOPT — {n} verified optimization"
                 f"{'s' if n > 1 else ''} left unapplied", "",
                 "This check is **failing** because `fail-on: any` is set: a proven, "
                 "correct-and-faster change is available. Apply the suggestion(s) below, "
-                "or set `fail-on: none` to make VERTO advisory. "
+                "or set `fail-on: none` to make BOOSTOPT advisory. "
                 "<sub>Behavior is proven unchanged — this blocks only *missed speed-ups*, "
                 "never correctness.</sub>"]
     else:
-        head = [f"### ⚡ VERTO — {n} verified optimization{'s' if n > 1 else ''}", "",
+        head = [f"### ⚡ BOOSTOPT — {n} verified optimization{'s' if n > 1 else ''}", "",
                 "Each change is **proven behavior-identical** (differential test + "
                 "sanitizers) and **measurably faster** on the files this PR touched. "
                 "Nothing is applied automatically."]
@@ -151,7 +151,7 @@ def render_comment(report, *, repo_root: str | None = None, blocking: bool = Fal
 
     footer = ""
     if skips:
-        footer = ("\n\n---\n<sub>🔎 " + str(skips) + " site(s) skipped. VERTO proves every "
+        footer = ("\n\n---\n<sub>🔎 " + str(skips) + " site(s) skipped. BOOSTOPT proves every "
                   "change **correct-and-faster** before suggesting it — a weaker model "
                   "produces *fewer* suggestions, never an unsafe one.</sub>")
 
@@ -193,7 +193,7 @@ def extract_suggestions(report, *, repo_root: str | None = None) -> list[dict]:
             new_body = "\n".join(h["new_lines"])
             start = h["old_start"]
             end = start + max(h["old_count"], 1) - 1
-            note = (f"**VERTO** · verified **{_pct(v)}**, {_proof(v)}, behavior-identical. "
+            note = (f"**BOOSTOPT** · verified **{_pct(v)}**, {_proof(v)}, behavior-identical. "
                     f"Apply to {v.get('candidate', {}).get('rationale', 'optimize')}:")
             out.append({
                 "path": _rel(file, repo_root),

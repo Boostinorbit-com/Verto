@@ -4,13 +4,13 @@ Usage:  PYTHONPATH=. python3 -m wedge.run
 """
 from __future__ import annotations
 
-from verto.adapters.domain.performance.correctness import PerfCorrectnessOracle
-from verto.adapters.domain.performance.inputs import HeldOutInputs
-from verto.adapters.domain.performance.performance import PerformanceOracleImpl
-from verto.engine.api import Engine
-from verto.engine.config import Config
-from verto.engine.gate import InvariantGate
-from verto.engine.models import Candidate, Contract, Target, Variant
+from boostopt.adapters.domain.performance.correctness import PerfCorrectnessOracle
+from boostopt.adapters.domain.performance.inputs import HeldOutInputs
+from boostopt.adapters.domain.performance.performance import PerformanceOracleImpl
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
+from boostopt.engine.gate import InvariantGate
+from boostopt.engine.models import Candidate, Contract, Target, Variant
 
 from .cases import CASES, Case
 
@@ -58,8 +58,8 @@ def _run_gate(case: Case) -> tuple[bool, str]:
 
 
 def main() -> int:
-    print(f"\n{BOLD}VERTO — Wedge Test scorecard{RST}")
-    print("VERTO is the judge; competitors (Codeflash / CompilerGPT) compared structurally.\n")
+    print(f"\n{BOLD}BOOSTOPT — Wedge Test scorecard{RST}")
+    print("BOOSTOPT is the judge; competitors (Codeflash / CompilerGPT) compared structurally.\n")
     header = f"  {'CASE':16} {'EXPECT':7} {'ACTUAL':22} {'RESULT':7} WHY IT'S A WEDGE"
     print(header)
     print("  " + "-" * (len(header) + 20))

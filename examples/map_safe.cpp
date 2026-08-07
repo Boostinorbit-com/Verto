@@ -1,6 +1,6 @@
 // SAFE case for map -> unordered_map.
 // The map is used only for lookups; keys are queried in a FIXED order (0..999),
-// so the map's iteration order is never observed. The swap is legal → VERTO
+// so the map's iteration order is never observed. The swap is legal → BOOSTOPT
 // should ACCEPT it (and it's faster: hash lookups instead of a tree).
 #include <map>
 #include <vector>

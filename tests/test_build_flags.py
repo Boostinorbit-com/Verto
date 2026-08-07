@@ -10,9 +10,9 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from verto.adapters.language.cpp import compile_db
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.adapters.language.cpp import compile_db
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 LINKED = Path(__file__).resolve().parent.parent / "examples" / "linked"
 
@@ -47,7 +47,7 @@ def test_repeated_isystem_survive_dedup():
 
 
 def test_load_populates_opt_flags():
-    d = Path(tempfile.mkdtemp(prefix="verto-optflag-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-optflag-"))
     try:
         (d / "a.cpp").write_text("int a(){return 0;}")
         (d / "compile_commands.json").write_text(json.dumps([
@@ -62,7 +62,7 @@ def test_load_populates_opt_flags():
 
 def test_project_o3_still_verifies():
     """A project shipping -O3 must still verify+accept (flags applied, build intact)."""
-    d = Path(tempfile.mkdtemp(prefix="verto-o3-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-o3-"))
     try:
         for name in ("geo.h", "geo.cpp", "route.cpp"):
             shutil.copy2(LINKED / name, d / name)

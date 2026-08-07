@@ -1,14 +1,14 @@
 """--apply writes VERIFIED changes; the soundness guard refuses unsound writes.
 
-Pins the write behavior (VERTO_Surfaces §CLI). Uses real compilation, so it's a
+Pins the write behavior (BOOSTOPT_Surfaces §CLI). Uses real compilation, so it's a
 few seconds — run with `python -m tests.test_apply` or pytest.
 """
 import shutil
 import tempfile
 from pathlib import Path
 
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 SRC = Path(__file__).resolve().parent.parent / "examples" / "packet_stats.cpp"
 
@@ -22,7 +22,7 @@ def _cfg(**kw):
 
 
 def _tmp_copy():
-    d = tempfile.mkdtemp(prefix="verto-apply-test-")
+    d = tempfile.mkdtemp(prefix="boostopt-apply-test-")
     f = Path(d) / "p.cpp"
     shutil.copy2(SRC, f)
     return d, f

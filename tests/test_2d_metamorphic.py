@@ -8,9 +8,9 @@ import shutil
 
 import pytest
 
-from verto.adapters.domain.performance.metamorphic import MetamorphicOracle
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.adapters.domain.performance.metamorphic import MetamorphicOracle
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 pytestmark = pytest.mark.skipif(shutil.which("clang++") is None and shutil.which("g++") is None,
                                 reason="needs a C++ compiler")

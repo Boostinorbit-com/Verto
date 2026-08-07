@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOOSTOPT Premium — explained simply and completely</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+      --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+      --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+    --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+    --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .layout{display:grid; grid-template-columns:270px 1fr; max-width:1240px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);}
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:19px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-radius:7px; border-left:2px solid transparent;}
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:32px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:74ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{font-size:23px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  h3{font-size:16px; margin:24px 0 8px; color:var(--accent);}
+  p{max-width:80ch;} li{max-width:78ch;}
+  a{color:var(--accent);}
+  .picture{background:var(--accent-soft); border-radius:8px; padding:12px 16px; margin:12px 0; max-width:80ch;}
+  .picture b:first-child{color:var(--accent);}
+  .plainly{color:var(--muted); font-style:italic;}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.86em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.5;}
+  pre code{background:none; padding:0;}
+  pre.diagram{background:var(--diagram-bg); color:var(--diagram-fg); border:none;}
+  pre.diagram code{color:var(--diagram-fg);}
+  table{border-collapse:collapse; width:100%; margin:12px 0; font-size:13.5px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0 0 6px;} blockquote p:last-child{margin:0;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  .warnbox{border-left:4px solid var(--warn);} .okbox{border-left:4px solid var(--ok);}
+  dl.gloss{margin:8px 0;} dl.gloss dt{font-weight:700; color:var(--accent); margin-top:12px;} dl.gloss dd{margin:2px 0 0; max-width:80ch;}
+  details{border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:14px 0; background:var(--card);}
+  details summary{cursor:pointer; font-weight:600;}
+  .ok{color:var(--ok); font-weight:700;} .warn{color:var(--warn); font-weight:700;} .bad{color:var(--bad); font-weight:700;} .muted{color:var(--muted);}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+    nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+    main{padding:28px 20px 80px;}
+    header.doc h1{font-size:25px;}
+  }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">VER<span>TO</span> · Premium</div>
+    <div class="tagline">The paid version, explained from scratch — every term defined, every paid ability with a real example.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#words">The words you'll need</a></li>
+      <li class="num"><a href="#s1">What Premium is</a></li>
+      <li class="num"><a href="#s2">The one idea (analogy)</a></li>
+      <li class="num"><a href="#s3">Why would anyone pay?</a></li>
+      <li class="num"><a href="#s4">What it costs</a></li>
+      <li class="num"><a href="#s5">How it's built (not a copy)</a></li>
+      <li class="num"><a href="#s6">How your computer talks to us</a></li>
+      <li class="num"><a href="#s7">How paying is enforced</a></li>
+      <li class="num"><a href="#s8">Is it safe?</a></li>
+      <li class="num"><a href="#s9">What about my private code?</a></li>
+      <li class="num"><a href="#s10">When should we build this?</a></li>
+      <li class="num"><a href="#s11">What we never charge for</a></li>
+      <li class="num"><a href="#s12">Honest status</a></li>
+      <li class="num"><a href="#s13">Where to read more</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc">
+      <h1>BOOSTOPT Premium — explained simply and completely</h1>
+      <p class="lede">The <b>paid version of BOOSTOPT from scratch</b>. Every term is defined in plain words, and every paid ability comes with a real <b>"picture it"</b> example and a <b>before/after</b>. Read it top to bottom and you should have <b>no unanswered questions</b>.</p>
+    </header>
+
+    <section id="words">
+      <h2>The words you'll need <span class="muted" style="font-size:14px;font-weight:400">(read this first — 60 seconds)</span></h2>
+      <p>Just six terms. Everything else builds on these.</p>
+      <dl class="gloss">
+        <dt>BOOSTOPT</dt><dd>A tool that rewrites your C++ code to run faster, and <b>proves</b> the rewrite is still correct and actually faster before you keep it.</dd>
+        <dt>The check</dt><dd>BOOSTOPT's built-in safety inspector. It re-tests every rewrite and only accepts one that is <em>still correct</em> <b>and</b> <em>measurably faster</em>. This is the heart of BOOSTOPT. <b>It is always free.</b></dd>
+        <dt>Free version</dt><dd>BOOSTOPT running entirely <b>on your own computer</b>: the tool, the check, the built-in rules, and a small AI you run locally. <b>Nothing you write ever leaves your machine.</b></dd>
+        <dt>Premium (paid) version</dt><dd>A few <em>extra</em> abilities that run on <b>BOOSTOPT's computers (servers)</b> instead of yours. You pay for these. It's optional.</dd>
+        <dt>Token</dt><dd>A secret key that proves you've paid (like a password for the paid features). The free version needs none.</dd>
+        <dt>Server</dt><dd>A computer that BOOSTOPT runs and owns, reached over the internet. "Hosted" and "on our servers" mean the same thing.</dd>
+      </dl>
+    </section>
+
+    <section id="s1">
+      <h2><span class="n">1</span>What Premium is, in one paragraph</h2>
+      <p>BOOSTOPT is <b>free when it runs on your machine</b> — the whole tool, and the whole proof that your code is correct and faster. <b>Premium is an optional paid add-on</b> where a few heavy jobs run on <b>our</b> computers instead of yours: a <b>stronger AI</b>, <b>exact speed measurements</b>, and <b>team features</b>. You never pay for the proof itself. You only pay for our computers doing work your computer can't do well.</p>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>The one idea (an analogy)</h2>
+      <blockquote><p>Think of BOOSTOPT like a <b>free photo app</b> on your phone. The app is free and does everything on your phone. <b>Premium is like sending a photo to a professional print lab</b> — you pay for the lab's expensive equipment and nice paper, not for the app. The photo is the same photo; you're paying for better equipment and convenience.</p></blockquote>
+      <p>That's the whole model: <b>the app (and its proof) is free; you pay only for our lab.</b></p>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>Why would anyone pay? (each paid thing, with a real example)</h2>
+      <p>Four paid abilities. Each solves a real problem your own computer is bad at. For each: <em>the problem</em>, a <em>picture-it</em> example, and a <em>before/after</em>.</p>
+
+      <h3>3.1 A stronger AI, with nothing to install ("managed model")</h3>
+      <p><b>The problem:</b> the AI that suggests rewrites, in the free version, runs on your computer's normal processor (its "CPU"). It's a <b>small</b> AI and <b>slow</b> — about <b>20 seconds per function</b> — and its ideas are hit-or-miss.</p>
+      <p class="picture"><b>Picture it:</b> you type <code>boostopt optimize hot_loop.cpp</code>. In the <b>free</b> version, the little AI thinks for ~20 seconds and suggests a decent-but-basic change. In the <b>paid</b> version, the same command sends the request to our <b>big, fast AI on a powerful graphics card (a "GPU")</b> — it answers in a second or two with a <em>smarter</em> rewrite (say, pre-sizing a list <b>and</b> removing an unnecessary copy). You installed nothing; you just have a token.</p>
+      <table>
+        <tr><th></th><th>Free local AI</th><th>Paid managed AI</th></tr>
+        <tr><td>Speed</td><td>~20 sec/function (your CPU)</td><td>~1–2 sec (our GPU)</td></tr>
+        <tr><td>Quality of ideas</td><td>small model, hit-or-miss</td><td>large model, smarter rewrites</td></tr>
+        <tr><td>Setup</td><td>install an AI runner + download a model</td><td>nothing — just a token</td></tr>
+        <tr><td>Your code</td><td>never leaves your machine</td><td>is sent to our server</td></tr>
+      </table>
+      <p class="plainly">Plainly: "skip the slow little AI on your laptop; use our big one."</p>
+
+      <h3>3.2 Exact speed numbers ("clean-room benchmarking")</h3>
+      <p><b>The problem:</b> to claim <em>"this is faster,"</em> BOOSTOPT has to <b>time</b> the code with a stopwatch. But a stopwatch on a busy machine is unreliable — while BOOSTOPT is timing, your other apps (or a shared build server) grab the processor for a moment, and the number <b>jumps around</b>.</p>
+      <p class="picture"><b>Picture it:</b> BOOSTOPT says a change is <b>−30% faster</b>. You run it again — now it says <b>−16%</b>. Which is true? On your busy laptop, <em>both</em> readings are noisy. On our <b>clean-room</b> — a <b>dedicated machine doing nothing else</b> — you get the <em>same steady number every time</em>, say <b>−24%</b>, one you can put in a report. This also removes a real risk: a noisy stopwatch can occasionally make BOOSTOPT <em>think</em> a change is faster when it isn't.</p>
+      <table>
+        <tr><th></th><th>Your laptop / shared CI</th><th>Our clean-room</th></tr>
+        <tr><td>The number</td><td>wobbles (−30%, then −16%)</td><td>steady and repeatable</td></tr>
+        <tr><td>Can you trust it?</td><td>comes with a "usually bigger on real hardware" caveat</td><td>a number you can quote</td></tr>
+        <tr><td>Risk</td><td>noise can fake a win</td><td>isolated, no noise</td></tr>
+      </table>
+      <p class="plainly">Plainly: "get a speed number you can actually trust." (The free version is honest about the wobble for free — paid is what <b>removes</b> it.)</p>
+
+      <h3>3.3 Team features — how several people work together</h3>
+      <p><b>The problem:</b> without team features, <b>each developer is an island.</b> BOOSTOPT runs on Alice's laptop and keeps its notes on <em>Alice's</em> laptop; it runs on Bob's laptop and keeps notes on <em>Bob's</em> laptop. They can't see each other's work. Team features <b>connect the islands</b> by moving the shared parts onto our server — one shared brain instead of five separate ones.</p>
+      <p class="picture"><b>Picture it — a day at a 5-person C++ team ("Acme"):</b></p>
+      <ol>
+        <li><b>The lead sets one rule for everyone.</b> Dana sets the team <b>policy</b> once: <em>"every accepted change must be sanitizer-clean, at least 5% faster, and must not use more memory."</em> Now <b>everyone's BOOSTOPT automatically obeys it</b> — no one can accept a weak or risky change by accident.</li>
+        <li><b>Alice optimizes something, and the team remembers it.</b> Alice gets a proven <b>−40%</b> on the <code>match()</code> function and applies it. That result is saved to the <b>shared history on the server</b>, not just her laptop.</li>
+        <li><b>Bob doesn't repeat her work.</b> A week later Bob edits near <code>match()</code>. His BOOSTOPT shows <em>"already optimized by Alice — −40%, Mar 3,"</em> so he <b>doesn't waste a day re-discovering it.</b></li>
+        <li><b>Dana checks progress without the command line.</b> She opens the <b>dashboard</b> (a web page) and sees: <em>"12 verified speedups this month, 8 applied, 4 waiting for review,"</em> and which files.</li>
+        <li><b>A new hire gets instant context.</b> Chen joins; IT gives him access via <b>company login</b> (he signs in with his normal Acme work account — no separate password). Day one, he sees all the team's history and rules.</li>
+        <li><b>Security can prove what happened.</b> For a review, they export the <b>audit trail</b> — a permanent log of <em>"who applied which change, when, with the proof."</em></li>
+      </ol>
+      <p><b>Every tiny team term, defined:</b></p>
+      <table>
+        <tr><th>Term</th><th>Plain meaning</th><th>What it does for the team</th></tr>
+        <tr><td><b>Shared history</b></td><td>BOOSTOPT's notebook of what it tried/accepted, kept on the server not one laptop</td><td>Everyone sees everyone's wins → no duplicate work, lasting team memory</td></tr>
+        <tr><td><b>Dashboard</b></td><td>A web page (not the command line) showing the team's state</td><td>The lead sees progress at a glance, no commands</td></tr>
+        <tr><td><b>Company policy</b></td><td>One shared settings file the lead controls</td><td>Every dev's BOOSTOPT uses the same safety/quality bar</td></tr>
+        <tr><td><b>Seats</b></td><td>Paid slots, one per team member (5 people = 5 seats)</td><td>How the team plan is priced</td></tr>
+        <tr><td><b>Company login (SSO)</b></td><td>Sign in with your existing work account (Google/Okta), not a new password</td><td>IT controls access; easy on/off-boarding</td></tr>
+        <tr><td><b>Audit trail</b></td><td>A permanent log of who did what, when</td><td>Compliance, security reviews, accountability</td></tr>
+      </table>
+      <table>
+        <tr><th></th><th>Solo / free</th><th>Team / paid</th></tr>
+        <tr><td>Where history lives</td><td>your laptop only</td><td>shared server, whole team sees it</td></tr>
+        <tr><td>Rules</td><td>each person sets their own</td><td>lead sets one policy for everyone</td></tr>
+        <tr><td>Seeing progress</td><td>run a command yourself</td><td>a web dashboard anyone can open</td></tr>
+        <tr><td>A new teammate</td><td>starts from zero</td><td>inherits all history + rules instantly</td></tr>
+        <tr><td>Proof of changes</td><td>in your local logs</td><td>a company-wide audit trail</td></tr>
+      </table>
+      <p class="plainly">Plainly: "for a team sharing a codebase — not a solo dev." A solo developer genuinely doesn't need any of this.</p>
+
+      <h3>3.4 Automatic checks on your pull requests, run by us ("hosted PR service")</h3>
+      <p><b>First, a definition:</b> a <b>pull request</b> (PR) is a <em>proposed</em> code change someone opens for review before it's merged into the shared codebase (on GitHub, GitLab, etc.).</p>
+      <p><b>The problem:</b> BOOSTOPT already has a <b>free</b> tool that checks each PR automatically — but you have to <b>set it up to run inside your own system</b> (add a small config file, run it on your own machines).</p>
+      <p class="picture"><b>Picture it:</b> Alice opens a PR that touches <code>match()</code>. With the <b>hosted</b> service, you connected BOOSTOPT once, and now <em>every</em> PR is automatically checked <b>on our machines</b> — a comment appears on the PR: <em>"BOOSTOPT found a verified −40% speedup in <code>match()</code> — apply?"</em> — using the <b>strong AI</b> and <b>exact timing</b>, with <b>zero setup</b> on your side.</p>
+      <table>
+        <tr><th></th><th>Free self-run</th><th>Paid hosted</th></tr>
+        <tr><td>Where it runs</td><td>your own CI / machines</td><td>our machines</td></tr>
+        <tr><td>Setup</td><td>add a config file to your repo</td><td>connect once, then automatic</td></tr>
+        <tr><td>AI + timing used</td><td>your local model + your runner</td><td>managed AI + clean-room</td></tr>
+      </table>
+      <p class="plainly">Plainly: "the free auto-checker, but hosted and hands-off." (The self-run free version stays free.)</p>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>What it costs (the plans)</h2>
+      <p>Four levels. <b>The actual prices are not decided yet</b> — this is only the <em>shape</em>. Everything on your own machine stays free at every level; a paid level only <b>adds</b> the hosted abilities above.</p>
+      <table>
+        <tr><th>Level</th><th>Who it's for</th><th>Includes</th><th>Price</th></tr>
+        <tr><td><b>Free Trial (hosted)</b></td><td>just trying the hosted side</td><td>a taste, with tight limits</td><td>free</td></tr>
+        <tr><td><b>Pro</b></td><td>one developer</td><td>the strong AI + exact speed numbers</td><td><em>to be decided</em></td></tr>
+        <tr><td><b>Team</b></td><td>a small team</td><td>Pro + shared history, dashboard, company rules, seats</td><td><em>to be decided</em></td></tr>
+        <tr><td><b>Enterprise</b></td><td>a whole company</td><td>Team + company login, audit trail, guarantees, on-premise option</td><td><em>to be decided</em></td></tr>
+      </table>
+      <p class="picture"><b>Which am I?</b> One person tinkering → <b>Free</b> (local) is plenty. One person wanting the strong AI / trustworthy numbers → <b>Pro</b>. Several people sharing a codebase → <b>Team</b>. A company needing login control and audit → <b>Enterprise</b>.</p>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>How Premium is built (and why it isn't a copy)</h2>
+      <p><b>We do not copy BOOSTOPT into a second project.</b> We keep <b>one</b> project and add a <b>separate private folder</b> (called <code>boostopt_server</code>) that <b>borrows</b> the free BOOSTOPT engine.</p>
+      <ul>
+        <li><b>Why not copy it?</b> A copy would mean fixing every bug <b>twice</b>, and the two copies slowly <b>drifting apart</b> into two different products. Bad.</li>
+        <li><b>So instead:</b> the paid server <b>uses</b> the free engine directly. The free tool, on the other hand, <b>knows nothing</b> about the paid server.</li>
+      </ul>
+      <p>Picture it as a one-way arrow — the paid side depends on the free side, never the reverse:</p>
+      <pre class="diagram"><code>your free tool  ──▶  our paid server  ──▶  the free BOOSTOPT engine
+(asks nicely)        (checks payment,        (does the actual
+                      then borrows ▼)          optimizing + proof)</code></pre>
+      <p>Nice side effect: because <b>none of the paid code lives inside the free tool</b>, if we ever open the free tool to the public, there's <b>no paid code hidden in it</b> to leak or hack around. The free tool is just a free tool.</p>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">6</span>How your computer talks to our server</h2>
+      <p>When you use a paid feature, the free tool <b>sends your code to our server along with your token</b>. Our server checks the token, does the work, and <b>sends back the result</b>. That's it.</p>
+      <details>
+        <summary>For engineers — the exact request</summary>
+        <p><code>POST /v1/optimize</code>, header <code>Authorization: Bearer &lt;token&gt;</code>:</p>
+        <pre><code>// you send
+{ "source": "&lt;your C++ code&gt;", "filename": "f.cpp" }
+
+// you get back
+{ "plan": "pro",
+  "results": [
+    { "function": "f", "accepted": true, "p50_delta_pct": 62.5, "rung": 3,
+      "diff": "--- a/f.cpp\n+++ ..." }
+  ] }</code></pre>
+        <p>Errors: <code>401</code> no/bad token · <code>403</code> your plan doesn't include this feature · <code>429</code> you hit your limit · <code>500</code> our fault. A runnable version is in <code>boostopt_server/</code>.</p>
+      </details>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">7</span>How paying is enforced (so it can't be cheated)</h2>
+      <p><b>The "have you paid?" check happens on <em>our</em> server, never inside the free tool.</b> This is deliberate.</p>
+      <p class="picture"><b>Picture it:</b> a clever user opens the free tool's code (it's on <em>their</em> computer, after all) and tries to delete the "is this person paying?" line. In a badly-designed product, that would unlock the paid features for free. In BOOSTOPT it does <b>nothing</b> — because the check isn't in the tool at all. The paid features live on <b>our</b> server, and our server asks for a valid token <em>before doing any work.</em> No token → it politely refuses. There's simply no lock inside the free tool to pick.</p>
+    </section>
+
+    <section id="s8">
+      <h2><span class="n">8</span>Is it safe? (the one thing we must get right)</h2>
+      <p>Our server <b>runs code that users send it</b> — it compiles and executes their C++. That is powerful and, if done carelessly, dangerous.</p>
+      <p class="picture"><b>Picture the threat:</b> a malicious user sends us C++ that tries to read <em>other</em> users' code, or delete our files, or call out to the internet. If we ran it plainly, it could.</p>
+      <div class="callout warnbox">
+        <p><b>The defense: every request runs in its own sealed box</b> (an isolated "container") that <b>cannot touch other users' work and cannot reach the internet</b>, with strict time and memory limits, and is <b>thrown away after each run.</b> So the worst a malicious request can do is waste its own little box, which we delete anyway.</p>
+      </div>
+      <p>This is the <b>single most important thing to build correctly</b>. The free tool already sandboxes the programs it runs on <em>your</em> machine, but hosting many strangers needs this extra sealed-box layer on top. <b class="bad">The current skeleton is safe for local/trusted use only — do not put it on the open internet as-is.</b></p>
+    </section>
+
+    <section id="s9">
+      <h2><span class="n">9</span>What about my private code?</h2>
+      <ul>
+        <li><b>Free version:</b> your code <b>never leaves your computer</b> — that's its whole selling point.</li>
+        <li><b>Premium:</b> to use our servers, <b>your code comes to us</b>. There's no way around that — the work happens on our machines.</li>
+        <li><b>What we keep:</b> general <em>patterns</em> that help us improve the product — <b>not</b> your actual source code. (The exact keep/delete policy still needs writing down and showing to users.)</li>
+      </ul>
+      <p>Users should choose this with eyes open. Many will happily send code to a trusted service; some won't — and for them, the free local version is always there.</p>
+    </section>
+
+    <section id="s10">
+      <h2><span class="n">10</span>When should we build this? (not yet — and here's why)</h2>
+      <p>Premium is a whole <b>online service</b> (servers, logins, billing, powerful machines), not a small feature. The right order is:</p>
+      <ol>
+        <li><b>First, get people using the free tool.</b></li>
+        <li><b>Listen for the ask.</b> When users say <em>"I wish the AI were faster"</em> or <em>"I wish the speed numbers were exact,"</em> that's the signal.</li>
+        <li><b>Then build the exact piece they're asking for</b> — probably the <b>stronger AI</b> first (most obvious value), or the <b>exact-timing</b> service.</li>
+      </ol>
+      <p>Building an expensive online service <b>before anyone uses the free tool</b> is guessing with money. Free first, paid when there's real demand.</p>
+    </section>
+
+    <section id="s11">
+      <h2><span class="n">11</span>What we promise to NEVER charge for</h2>
+      <div class="callout okbox">
+        <ol>
+          <li><b>The check</b> — the proof that a change is correct and faster. Free, always.</li>
+          <li><b>Applying a change</b> — taking a proven improvement into your own code.</li>
+          <li><b>The built-in rules and the local AI</b> — optimizing offline, on your machine.</li>
+          <li><b>The free self-run PR checker</b> — BOOSTOPT in your own system.</li>
+          <li><b>The tool itself</b> — the whole command-line program.</li>
+        </ol>
+        <p style="margin:6px 0 0">Paying only ever buys <b>our servers doing extra work</b> — never a better proof, and never unlocking something your own computer could already do.</p>
+      </div>
+    </section>
+
+    <section id="s12">
+      <h2><span class="n">12</span>Honest status (where this actually stands today)</h2>
+      <ul>
+        <li><b>Almost none of Premium is built.</b> It is a <b>plan plus a small working proof-of-concept</b> (a "skeleton" — the folder <code>boostopt_server/</code>) that shows the design works: it correctly refuses unpaid requests and, for a paid one, runs the real engine and returns the result.</li>
+        <li><b>The big pieces do not exist yet:</b> the powerful AI machines, the quiet timing machines, the team dashboard, logins, and billing.</li>
+        <li>This document is the <b>plan to build them from</b> — and, on purpose, it comes <b>after</b> the free version has users.</li>
+      </ul>
+    </section>
+
+    <section id="s13">
+      <h2><span class="n">13</span>Where to read more</h2>
+      <table>
+        <tr><th>Document</th><th>What it's for</th></tr>
+        <tr><td><a href="BOOSTOPT_Tiers.html">BOOSTOPT_Tiers</a></td><td>The exact free-vs-paid line, listed command by command, with the reason for each.</td></tr>
+        <tr><td><a href="BOOSTOPT_Hosted.html">BOOSTOPT_Hosted</a></td><td>The "our-servers" idea explained from scratch, including when you <em>don't</em> need it.</td></tr>
+        <tr><td><code>boostopt_server/README</code></td><td>The small working skeleton, and the to-do list before it's production-ready.</td></tr>
+        <tr><td><a href="BOOSTOPT_CI_Action.html">BOOSTOPT_CI_Action</a></td><td>The free pull-request checker (the hosted PR service is its paid sibling).</td></tr>
+      </table>
+      <p class="foot">One fact, one home. Prices/plans illustrative until a business decision is made. Premium is downstream of the free version by design.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('boostopt-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('boostopt-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        if(map[en.target.id]) map[en.target.id].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

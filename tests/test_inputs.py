@@ -3,8 +3,8 @@
 The differential test keeps its hand-picked edge cases and adds `fuzz_inputs`
 seeded-random sizes — deterministic (reproducible verdict), and bounded (cheap).
 """
-from verto.adapters.domain.performance.inputs import HeldOutInputs, _EDGES
-from verto.engine.config import Config
+from boostopt.adapters.domain.performance.inputs import HeldOutInputs, _EDGES
+from boostopt.engine.config import Config
 
 
 def _cfg(fuzz, seed=0):

@@ -1,20 +1,20 @@
-"""Phase 2 — persistent account store + quota metering (verto_server, PREMIUM).
+"""Phase 2 — persistent account store + quota metering (boostopt_server, PREMIUM).
 
 Verifies the paywall data layer that replaced the in-memory token dict: token→plan resolution,
 per-period metering with a hard cap, revoke, issue, and on-disk persistence across restarts.
-Everything is isolated to a per-test $VERTO_SERVER_DATA dir so nothing touches ~/.verto_server.
+Everything is isolated to a per-test $BOOSTOPT_SERVER_DATA dir so nothing touches ~/.boostopt_server.
 """
 from __future__ import annotations
 
 import pytest
 
-from verto_server import entitlement, store
+from boostopt_server import entitlement, store
 
 
 @pytest.fixture(autouse=True)
 def _isolate_store(monkeypatch, tmp_path):
     """Point the store at a throwaway dir and drop the cached singleton for each test."""
-    monkeypatch.setenv("VERTO_SERVER_DATA", str(tmp_path / "srv"))
+    monkeypatch.setenv("BOOSTOPT_SERVER_DATA", str(tmp_path / "srv"))
     store.reset_store()
     yield
     store.reset_store()

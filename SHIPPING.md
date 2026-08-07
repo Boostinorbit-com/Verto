@@ -1,4 +1,4 @@
-# VERTO GitHub Action — Shipping Checklist
+# BOOSTOPT GitHub Action — Shipping Checklist
 
 Taking roadmap **#18** from *code-complete* to *proven on a real PR*. The Action is
 built end-to-end (steps 1–4: `--fail-on` → entrypoint bridge → PR-comment poster →
@@ -8,7 +8,7 @@ repo + token** and therefore couldn't be verified on the dev machine.
 Fill in your GitHub owner once and reuse it everywhere:
 
 ```
-OWNER = <your github username or org>     # e.g. sir-nafis, or an org like "verto"
+OWNER = <your github username or org>     # e.g. sir-nafis, or an org like "boostopt"
 ```
 
 ---
@@ -19,14 +19,14 @@ The action image is built *from this repo*, so the repo must live on GitHub.
 
 ```bash
 cd "AI_Optimizer_Network - (AION)"          # the repo root
-gh repo create $OWNER/verto --source=. --private --push
+gh repo create $OWNER/boostopt --source=. --private --push
 # …or if a remote already exists:  git push
 ```
 
 > ### ⚠ Gotcha 1 — the image ref must match your owner
-> `examples/github-action/action.yml` has `runs.image: docker://ghcr.io/verto/action:v1`,
+> `examples/github-action/action.yml` has `runs.image: docker://ghcr.io/boostopt/action:v1`,
 > and `.github/workflows/publish-action.yml` pushes to `ghcr.io/$OWNER/action`. These
-> two strings **must be identical**. If `$OWNER` is not literally `verto`, edit
+> two strings **must be identical**. If `$OWNER` is not literally `boostopt`, edit
 > `action.yml`'s `runs.image` to `docker://ghcr.io/$OWNER/action:v1` before publishing.
 
 ---
@@ -62,15 +62,15 @@ Use either the same repo or a throwaway C++ repo.
 > It lives at `examples/github-action/action.yml`, so the `uses:` reference is the
 > **subdirectory form**:
 > ```yaml
-> uses: $OWNER/verto/examples/github-action@v0.1.0
+> uses: $OWNER/boostopt/examples/github-action@v0.1.0
 > ```
-> If you want the clean `uses: $OWNER/verto@v1`, add a thin `action.yml` at the repo
-> root (identical `runs:` block) — then reference `$OWNER/verto@v0.1.0`.
+> If you want the clean `uses: $OWNER/boostopt@v1`, add a thin `action.yml` at the repo
+> root (identical `runs:` block) — then reference `$OWNER/boostopt@v0.1.0`.
 
-Drop this into the C++ repo at `.github/workflows/verto.yml`:
+Drop this into the C++ repo at `.github/workflows/boostopt.yml`:
 
 ```yaml
-name: verto
+name: boostopt
 on: pull_request
 
 permissions:
@@ -78,7 +78,7 @@ permissions:
   pull-requests: write        # ← Gotcha 3: the poster needs this to comment
 
 jobs:
-  verto:
+  boostopt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,7 +88,7 @@ jobs:
       - name: Generate compile_commands.json
         run: cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-      - uses: $OWNER/verto/examples/github-action@v0.1.0
+      - uses: $OWNER/boostopt/examples/github-action@v0.1.0
         with:
           compile-commands: build/compile_commands.json
           model: rules            # deterministic, no API key needed
@@ -118,7 +118,7 @@ gh pr create --fill
 ```
 
 On the PR you should see, within a couple of minutes:
-- a **verto** check in the checks list, and
+- a **boostopt** check in the checks list, and
 - a **summary comment** with the verified `reserve()` suggestion and its trust triplet
   (why-safe / why-faster / measured).
 
@@ -147,7 +147,7 @@ them can block a merge.
 | Image pull denied | Package still **private** (Phase B) or owner mismatch (Gotcha 1). |
 | `no compile_commands.json` | The build step didn't emit it — check `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`. |
 | Check green but nothing found | Genuinely nothing to optimize on the changed files, or the changed TUs aren't in the compile DB. |
-| Suggestion not posted (in `suggest`) | GitHub only allows a suggestion on lines inside the PR's own diff — VERTO skips the rest and logs it. |
+| Suggestion not posted (in `suggest`) | GitHub only allows a suggestion on lines inside the PR's own diff — BOOSTOPT skips the rest and logs it. |
 
 ---
 
@@ -160,6 +160,6 @@ them can block a merge.
 
 ---
 
-*Concept reference: `Docs/VERTO_CI_Action.md` (·html). Interface: `examples/github-action/action.yml`.
+*Concept reference: `Docs/BOOSTOPT_CI_Action.md` (·html). Interface: `examples/github-action/action.yml`.
 Implementation: `entrypoint.py` · `comment.py` · `gh.py` · `Dockerfile`. Publish:
 `.github/workflows/publish-action.yml`.*

@@ -2,7 +2,7 @@
 
 Pure-function tests (input→argv mapping, report→outputs, $GITHUB_OUTPUT writing)
 run everywhere; one integration test drives the whole bridge through the real
-`verto` CLI against examples/linked, diffing vs the git empty-tree so every tracked
+`boostopt` CLI against examples/linked, diffing vs the git empty-tree so every tracked
 TU counts as "changed" (deterministic). The bridge lives outside the package, so
 we load it by path.
 """
@@ -21,7 +21,7 @@ _EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"   # git's canonical emp
 
 
 def _load():
-    spec = importlib.util.spec_from_file_location("verto_action_entrypoint", _ENTRY)
+    spec = importlib.util.spec_from_file_location("boostopt_action_entrypoint", _ENTRY)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -58,7 +58,7 @@ def test_build_argv_full_mapping():
     assert argv[argv.index("--fail-on") + 1] == "any"
     assert "--metamorphic" in argv
     assert argv[-2:] == ["--fp-tolerance", "1e-9"]  # extra-args passed through, last
-    assert mode == "suggest" and patches.endswith("verto-patches")
+    assert mode == "suggest" and patches.endswith("boostopt-patches")
     assert "--emit-patches" in argv                 # suggest/pr emit patches for step 3
 
 
@@ -109,8 +109,8 @@ def test_entrypoint_end_to_end(tmp_path, monkeypatch):
     gh_out = tmp_path / "gh_output.txt"
     env = dict(os.environ)
     env.update({
-        "VERTO_BIN": f"{sys.executable} -m verto.surfaces.cli",
-        "GITHUB_WORKSPACE": _ROOT,               # verto runs here (resolves the relative db)
+        "BOOSTOPT_BIN": f"{sys.executable} -m boostopt.surfaces.cli",
+        "GITHUB_WORKSPACE": _ROOT,               # boostopt runs here (resolves the relative db)
         "RUNNER_TEMP": str(tmp_path),            # …but artifacts land here, not in the repo
         "GITHUB_OUTPUT": str(gh_out),
         "INPUT_COMPILE-COMMANDS": "examples/linked/compile_commands.json",

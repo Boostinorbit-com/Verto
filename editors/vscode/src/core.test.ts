@@ -1,4 +1,4 @@
-// Pure-logic tests for the VERTO extension core — runnable off the editor:
+// Pure-logic tests for the BOOSTOPT extension core — runnable off the editor:
 //   npm run compile && npm run test:core
 import * as assert from 'assert';
 import * as core from './core';
@@ -15,7 +15,7 @@ function test(name: string, fn: () => void): void {
   }
 }
 
-// A Verdict shaped like real `verto … --json` output (one reserve() win).
+// A Verdict shaped like real `boostopt … --json` output (one reserve() win).
 const UDIFF =
   '--- a/route.cpp\n+++ b/route.cpp\n' +
   '@@ -10,6 +10,7 @@\n' +

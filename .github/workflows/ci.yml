@@ -1,4 +1,4 @@
-# VERTO's OWN CI (roadmap #15) — runs the test suite + the wedge on every push/PR, so a
+# BOOSTOPT's OWN CI (roadmap #15) — runs the test suite + the wedge on every push/PR, so a
 # change can't silently break the tool. (This is NOT the user-facing GitHub Action — that's
 # the #18 product surface, a separate workflow packaged for a C++ team's own repo.)
 name: CI
@@ -52,13 +52,13 @@ jobs:
           restore-keys: |
             ccache-${{ runner.os }}-py${{ matrix.python-version }}-
 
-      - name: Install VERTO (editable + dev extras)
+      - name: Install BOOSTOPT (editable + dev extras)
         run: pip install -e '.[dev]'
 
       - name: Toolchain report (non-blocking)
-        run: verto analyze --verify-setup || true
+        run: boostopt analyze --verify-setup || true
 
-      # Live-LLM tests are opt-in (VERTO_LIVE_LLM unset) → no Ollama needed, and no CPU
+      # Live-LLM tests are opt-in (BOOSTOPT_LIVE_LLM unset) → no Ollama needed, and no CPU
       # contention from a loaded model. --reruns absorbs transient benchmark noise on the
       # shared runner: a real regression fails all 3 attempts; noise clears on a retry.
       - name: Run the test suite

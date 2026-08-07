@@ -1,5 +1,5 @@
 // A real TU: it #includes a project header, and its return type is the project
-// typedef `Count`. VERTO can only resolve that (and thus verify) when parsed with
+// typedef `Count`. BOOSTOPT can only resolve that (and thus verify) when parsed with
 // the project's `-Iinclude` from compile_commands.json. build_histogram grows a
 // vector by push_back with no reserve() → a verifiable optimization.
 #include "stats.h"

@@ -2,10 +2,10 @@
 
 Two things that, if they silently break, leak the proprietary hosted tier into the free product:
 
-  1. the published wheel must EXCLUDE `verto_server` (a careless `include = ["verto*"]` glob bundles
+  1. the published wheel must EXCLUDE `boostopt_server` (a careless `include = ["boostopt*"]` glob bundles
      it — that bug shipped once and was caught by hand; this locks it), and
-  2. the free client `verto/` must NEVER import `verto_server` (the dependency is one-way:
-     verto_server → verto, never the reverse).
+  2. the free client `boostopt/` must NEVER import `boostopt_server` (the dependency is one-way:
+     boostopt_server → boostopt, never the reverse).
 
 Both are cheap static checks with no build step, so they run in the normal suite / CI.
 """
@@ -36,23 +36,23 @@ def _packages_find_config() -> tuple[list[str], list[str]]:
     return _arr("include"), _arr("exclude")
 
 
-def test_wheel_excludes_verto_server():
+def test_wheel_excludes_boostopt_server():
     include, exclude = _packages_find_config()
-    assert "verto_server*" in exclude, (
-        "pyproject must exclude verto_server* from the published wheel — without it the "
-        "'verto*' include glob bundles the proprietary hosted package into the free build.")
+    assert "boostopt_server*" in exclude, (
+        "pyproject must exclude boostopt_server* from the published wheel — without it the "
+        "'boostopt*' include glob bundles the proprietary hosted package into the free build.")
     pkgs = find_packages(where=str(_ROOT), include=include, exclude=exclude)
-    leaked = [p for p in pkgs if p == "verto_server" or p.startswith("verto_server.")]
-    assert not leaked, f"verto_server would ship in the wheel: {leaked}"
-    assert "verto" in pkgs, "sanity: the free core 'verto' must still be included"
+    leaked = [p for p in pkgs if p == "boostopt_server" or p.startswith("boostopt_server.")]
+    assert not leaked, f"boostopt_server would ship in the wheel: {leaked}"
+    assert "boostopt" in pkgs, "sanity: the free core 'boostopt' must still be included"
 
 
 def test_client_never_imports_server():
     offenders: list[str] = []
-    pat = re.compile(r"^\s*(?:import\s+verto_server|from\s+verto_server)\b", re.M)
-    for py in (_ROOT / "verto").rglob("*.py"):
+    pat = re.compile(r"^\s*(?:import\s+boostopt_server|from\s+boostopt_server)\b", re.M)
+    for py in (_ROOT / "boostopt").rglob("*.py"):
         if pat.search(py.read_text(encoding="utf-8")):
             offenders.append(str(py.relative_to(_ROOT)))
     assert not offenders, (
-        "the free client imports verto_server (dependency must be one-way, "
-        f"verto_server → verto only): {offenders}")
+        "the free client imports boostopt_server (dependency must be one-way, "
+        f"boostopt_server → boostopt only): {offenders}")

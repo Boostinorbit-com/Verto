@@ -1,0 +1,22 @@
+{
+  "//": "Team-shared BOOSTOPT run profiles. Copy to '.boostopt.json' at your repo root and commit it. The VS Code extension reads it: the status bar shows the active profile; 'BOOSTOPT: Select Optimization Profile' switches. Each profile's 'args' are passed to `boostopt optimize` (see `boostopt optimize --help`). Project POLICY (rungs, transforms, objectives) is best kept in `.boostopt.toml`, shared by CLI + CI + editor; use these profiles for quick editor presets.",
+  "default": "quick",
+  "profiles": {
+    "quick": {
+      "description": "Fast, deterministic — no network, skip sanitizers.",
+      "args": ["--model", "rules", "--fast"]
+    },
+    "standard": {
+      "description": "Deterministic rules, full Rung-3 sanitizer gate.",
+      "args": ["--model", "rules", "--min-rung", "3"]
+    },
+    "thorough": {
+      "description": "Heavy: metamorphic rung + more fuzzed inputs.",
+      "args": ["--model", "rules", "--min-rung", "3", "--metamorphic", "--fuzz", "5000"]
+    },
+    "ai": {
+      "description": "Local LLM proposer (needs Ollama running).",
+      "args": ["--model", "local", "--candidates", "3"]
+    }
+  }
+}

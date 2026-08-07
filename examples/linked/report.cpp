@@ -1,6 +1,6 @@
-// examples/linked/report.cpp — a showcase of VERTO's HARNESS REACH.
-//   Try:  python3 -m verto.surfaces.cli analyze examples/linked/report.cpp --model rules
-//   Every function below is now HARNESS-ABLE (VERTO produces a verified ACCEPT / REJECT),
+// examples/linked/report.cpp — a showcase of BOOSTOPT's HARNESS REACH.
+//   Try:  python3 -m boostopt.surfaces.cli analyze examples/linked/report.cpp --model rules
+//   Every function below is now HARNESS-ABLE (BOOSTOPT produces a verified ACCEPT / REJECT),
 //   EXCEPT mix(), which stays an honest SKIP with a reason. The `[today: …]`-tagged ones are
 //   the reach added on 2026-07-28 — before that they were skipped ("can't build the input" /
 //   "can't checksum the return type").
@@ -9,7 +9,7 @@
 #include <unordered_map>
 
 // Config is a simple aggregate (all public primitive fields, no constructor), so
-// VERTO can now SYNTHESIZE an input for scaled_series — the reserve opportunity is
+// BOOSTOPT can now SYNTHESIZE an input for scaled_series — the reserve opportunity is
 // verified & accepted where before it was skipped ("can't build a Config"). This
 // is the aggregate-synthesis slice of capture & replay (Phase-1 item #2).
 struct Config { std::size_t n; int scale; };
@@ -33,7 +33,7 @@ std::vector<int> gather(const int* src, std::size_t n) {
 }
 
 // mix takes a NON-const `int* src` + length `n`. B2-a only synthesizes `const T*`
-// (read-only BY TYPE); a plain `int*` could be written through, so VERTO can't prove
+// (read-only BY TYPE); a plain `int*` could be written through, so BOOSTOPT can't prove
 // it's safe to fabricate contents — it has a reserve opportunity but stays an honest
 // SKIP (item #4). B2-b (capture real values from a run) is what unlocks this case.
 std::vector<int> mix(int* src, std::size_t n) {
@@ -82,7 +82,7 @@ std::vector<std::vector<int>> tabulate(std::size_t n) {
     return m;
 }
 
-// [today: vector<vector<>> PARAM] Taking a 2D-grid parameter used to be unsynthesizable; VERTO
+// [today: vector<vector<>> PARAM] Taking a 2D-grid parameter used to be unsynthesizable; BOOSTOPT
 // now fabricates a bounded DIM×DIM matrix just to build the harness — this function only runs at
 // all because the grid can now be synthesized. The reserve on `out` (sized by `n`) is a clean
 // win → ACCEPT (kept separate from the grid so the win isn't a marginal, noise-flippy 2D case).

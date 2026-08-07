@@ -6,9 +6,9 @@ import os
 import tempfile
 from pathlib import Path
 
-from verto.engine.api import Engine
-from verto.engine.cache import RewriteCache
-from verto.engine.config import Config
+from boostopt.engine.api import Engine
+from boostopt.engine.cache import RewriteCache
+from boostopt.engine.config import Config
 
 _SRC = ("#include <vector>\n#include <cstddef>\n"
         "std::vector<int> f(std::size_t n){ std::vector<int> o; "

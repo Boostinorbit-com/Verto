@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOOSTOPT — Hosted / Cloud, explained</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+      --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+      --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+    --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+    --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .layout{display:grid; grid-template-columns:270px 1fr; max-width:1240px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);}
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:19px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-radius:7px; border-left:2px solid transparent;}
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:32px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:72ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{font-size:23px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  h3{font-size:16px; margin:22px 0 8px; color:var(--accent);}
+  p{max-width:80ch;} li{max-width:78ch;}
+  a{color:var(--accent);}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.86em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.5;}
+  pre code{background:none; padding:0;}
+  pre.diagram{background:var(--diagram-bg); color:var(--diagram-fg); border:none;}
+  pre.diagram code{color:var(--diagram-fg);}
+  table{border-collapse:collapse; width:100%; margin:14px 0; font-size:13.5px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0; font-weight:600;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  .ok{color:var(--ok); font-weight:700;} .muted{color:var(--muted);}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+    nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+    main{padding:28px 20px 80px;}
+    header.doc h1{font-size:25px;}
+  }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">VER<span>TO</span> · Hosted</div>
+    <div class="tagline">Item #19: the cloud version — BOOSTOPT runs on our machines, no local setup. Explained from scratch, including when you don't need it.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li class="num"><a href="#s1">What "hosted" means</a></li>
+      <li class="num"><a href="#s2">The idea in one picture</a></li>
+      <li class="num"><a href="#s3">The words you need</a></li>
+      <li class="num"><a href="#s4">What it does, step by step</a></li>
+      <li class="num"><a href="#s5">The big trade-off</a></li>
+      <li class="num"><a href="#s6">Clean-room benchmarking</a></li>
+      <li class="num"><a href="#s7">The shared cache, honestly</a></li>
+      <li class="num"><a href="#s8">Does it beat the CI Action?</a></li>
+      <li class="num"><a href="#s9">The architecture</a></li>
+      <li class="num"><a href="#s10">The one screen you'd design</a></li>
+      <li class="num"><a href="#s11">Free vs paid</a></li>
+      <li class="num"><a href="#s12">Status &amp; cautions</a></li>
+      <li class="num"><a href="#s13">Quick answers</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc">
+      <h1>BOOSTOPT Hosted — the cloud version, explained from scratch</h1>
+      <p class="lede">This document explains roadmap item <b>#19</b>: "hosted / cloud" — a version where BOOSTOPT runs on <b>our</b> machines instead of yours, so you need no local setup. No prior knowledge assumed; every term is defined the first time it appears. It also says, honestly, when you <em>don't</em> need this.</p>
+    </header>
+
+    <section id="s1">
+      <h2><span class="n">1</span>What "hosted" means, and the one confusion to clear first</h2>
+      <p>BOOSTOPT can run in three places. Don't mix them up:</p>
+      <table>
+        <tr><th>Where BOOSTOPT runs</th><th>What it is</th><th>Your code goes to</th></tr>
+        <tr><td><b>Your laptop</b> (the CLI)</td><td>you run <code>boostopt</code> yourself</td><td>stays on your machine</td></tr>
+        <tr><td><b>Your CI</b> (#18, the Action)</td><td>runs on <em>your</em> CI runners, in your pipeline</td><td>stays in your CI environment</td></tr>
+        <tr><td><b>Our cloud</b> (#19, this doc)</td><td>runs on <b>BOOSTOPT's</b> machines</td><td><b>sent to BOOSTOPT's servers</b></td></tr>
+      </table>
+      <p>So "hosted" means: <b>you don't install or run anything; you point BOOSTOPT at your code and it does the compiling, sanitizing, and benchmarking on its own hardware.</b> The trade for that convenience — your code leaves your environment — is the whole discussion below (§5).</p>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>The idea in one picture</h2>
+      <pre class="diagram"><code>   You connect a repository (once)
+            │
+            ▼
+   BOOSTOPT's cloud picks up each change and, on its OWN machines:
+     · compiles it            (in an isolated worker)
+     · differential-tests it  (identical output? → CORRECT)
+     · runs sanitizers        (hidden bugs?)
+     · benchmarks it          (on QUIET, dedicated hardware → trustworthy numbers)
+            │
+            ▼
+   Results come back to you — a PR/MR comment, or a web dashboard.
+   You installed nothing. No clang, no runner, no config on your side.</code></pre>
+      <p>The point of difference from the CI Action (#18) is the <b>"on its OWN machines"</b> line — and specifically that those machines are <em>quiet and dedicated</em>, which matters more than it sounds (§6).</p>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>The words you need (each defined once)</h2>
+      <ul>
+        <li><b>Hosted / Cloud / SaaS</b> — "Software as a Service." A provider runs the software for you and you use it over the internet. Gmail is SaaS; this is BOOSTOPT as SaaS.</li>
+        <li><b>Build farm</b> — a <b>pool of machines that do the compiling and benchmarking</b>. Many jobs get spread across many workers.</li>
+        <li><b>Worker</b> — <b>one machine (or container) in the farm</b> that handles one job: compile → test → benchmark → report.</li>
+        <li><b>Queue</b> — a <b>waiting line for jobs.</b> Changes arrive faster than one machine can process, so they wait and workers pull from it.</li>
+        <li><b>Control plane</b> — the <b>"brain" of the service</b>: logins, deciding which job runs where, tracking results, billing. (Workers are the "muscle.")</li>
+        <li><b>Multi-tenant</b> — <b>one shared service used by many customers at once</b> (an apartment building). Cheapest; but everyone's data is in the same system.</li>
+        <li><b>Single-tenant</b> — <b>a separate, isolated instance per customer</b> (a private house). More expensive; stronger isolation.</li>
+        <li><b>On-prem / BYOC</b> — "on-premises" / "Bring Your Own Cloud" — <b>BOOSTOPT's software runs inside the customer's own datacenter or cloud account</b>, so their code never leaves <em>their</em> environment. The privacy-friendly option.</li>
+        <li><b>GPU serving</b> — running the LLM on <b>graphics processors (GPUs)</b>, far faster at AI models than CPUs. Centralized so users don't need their own GPU.</li>
+        <li><b>Isolation (VM / container / Firecracker)</b> — keeping each job <b>walled off</b> so one customer's code can't see or affect another's. A container is a light wall; a VM is stronger; <b>Firecracker</b> is a tiny fast VM built for running many untrusted jobs safely.</li>
+        <li><b>Baseline</b> — a <b>saved "before" measurement</b>, so a later run can tell whether a change got faster or slower.</li>
+        <li><b>Flywheel</b> — a <b>self-reinforcing loop</b>: the more code BOOSTOPT optimizes, the more it learns which optimizations tend to work, so it gets better for the next user (§7).</li>
+      </ul>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>What running "hosted" actually does, step by step</h2>
+      <ol>
+        <li><b>You connect a repo once</b> (grant read access, pick settings). No install.</li>
+        <li>On each change, BOOSTOPT <b>queues a job</b>.</li>
+        <li>A <b>worker</b> in the build farm picks it up, in an <b>isolated</b> environment.</li>
+        <li>The worker <b>compiles, differential-tests, runs sanitizers, and benchmarks</b> the candidates — the exact same gate as the CLI, on BOOSTOPT's hardware.</li>
+        <li>Results are <b>returned to you</b> — a PR/MR comment (same layout as #18) and/or a <b>web dashboard</b>.</li>
+        <li>What BOOSTOPT <em>learned</em> (which patterns worked) updates the shared <b>flywheel</b> — never your private code, just the patterns (§7).</li>
+      </ol>
+      <p>The engine is identical to the CLI. Hosting changes <em>where</em> it runs and <em>who provides the machines</em> — not <em>what</em> it does.</p>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>The big trade-off: your code leaves your box</h2>
+      <p>This is the crux, said plainly. BOOSTOPT's promise everywhere else is <em>"runs on your machine; your source never leaves."</em> <b>A multi-tenant hosted service breaks that</b> — your code is sent to BOOSTOPT's servers to be compiled and benchmarked.</p>
+      <p>Three <b>deployment models</b> resolve this differently — a privacy ladder:</p>
+      <table>
+        <tr><th>Model</th><th>Where your code lives</th><th>Convenience</th><th>Privacy</th></tr>
+        <tr><td><b>Multi-tenant SaaS</b></td><td>on BOOSTOPT's shared servers</td><td>highest</td><td>lowest</td></tr>
+        <tr><td><b>Single-tenant</b></td><td>on a BOOSTOPT-run instance dedicated to you</td><td>high</td><td>medium</td></tr>
+        <tr><td><b>On-prem / BYOC</b></td><td><b>in your own cloud/datacenter</b></td><td>medium</td><td><b>highest</b></td></tr>
+      </table>
+      <blockquote><p>Recommendation: lead with on-prem / single-tenant. It keeps BOOSTOPT's privacy advantage, defers the biggest liability (being custodian of everyone's private source), and it's the form enterprises — the buyers — prefer anyway. Public multi-tenant SaaS is the heaviest, most sensitive version; build it only if the market clearly pulls for it.</p></blockquote>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">6</span>The real reason to host: clean-room benchmarking</h2>
+      <p>Here is the value that <em>justifies</em> hosting — and it isn't "convenience."</p>
+      <p>Building BOOSTOPT's own CI taught us this the hard way: <b>shared CI runners are noisy computers, and noisy computers give unreliable speed measurements.</b> A change that's genuinely 30% faster can measure as 1% faster on a busy runner, because other jobs steal the CPU. BOOSTOPT, being honest, then reports a smaller win — or none.</p>
+      <p>A <b>hosted build farm fixes this at the source</b>: BOOSTOPT controls the hardware, so it runs benchmarks on <b>quiet, dedicated, pinned machines</b> — a "clean room." That yields <b>numbers you can actually trust</b>, which a shared GitHub/GitLab runner <em>cannot</em> give.</p>
+      <p>So the honest pitch for hosting is: <em>"Run it in your CI and get honest-but-caveated numbers; route the benchmark to our clean room and get numbers you can trust."</em> A real, differentiated value — not just saving you a <code>clang</code> install.</p>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">7</span>The "shared cache," honestly — patterns, not your code</h2>
+      <p>It's tempting to promise a "shared cache of verified results." Be precise, because a naive version over-promises:</p>
+      <ul>
+        <li><b>What you CANNOT share:</b> one repo's actual <em>verdict</em>. "This change is correct-and-faster" depends on the exact code <em>and</em> the exact compiler/CPU — it doesn't transfer to a different codebase.</li>
+        <li><b>What you CAN share (the flywheel):</b> the <b>patterns and priors</b> — e.g. <em>"pre-sizing a vector grown in a loop wins ~95% of the time"</em> — and <b>model responses for structurally-similar code</b>. These make the next optimization faster to find and cheaper to propose, across everyone.</li>
+      </ul>
+      <p>So the shared cache is really a <b>growing library of proven optimization patterns</b>, not a store of anyone's private results. Still a genuine network effect — the more BOOSTOPT sees, the smarter its <em>proposing</em> gets — and it's honest.</p>
+    </section>
+
+    <section id="s8">
+      <h2><span class="n">8</span>Does hosting even beat just using the CI Action (#18)?</h2>
+      <p>Worth asking bluntly, because <b>#18 already gives you "no local setup"</b> — it runs in your CI, and your code stays in your environment. So what does the heavier #19 add? Exactly three things:</p>
+      <ol>
+        <li><b>Clean-room benchmarking</b> — reliable numbers (§6). <em>The strongest reason.</em></li>
+        <li><b>The flywheel</b> — cross-customer pattern learning (§7).</li>
+        <li><b>Managed compute</b> — BOOSTOPT's farm does the heavy work, instead of burning <em>your</em> CI minutes.</li>
+      </ol>
+      <p>If those three aren't compelling for your buyers, <b>#18 + on-prem may be enough for a long time.</b> Don't build a build farm before demand proves you need one.</p>
+    </section>
+
+    <section id="s9">
+      <h2><span class="n">9</span>The architecture, in plain words</h2>
+      <ul>
+        <li><b>Control plane</b> — logins, projects, job scheduling, billing (the brain).</li>
+        <li><b>Queue + worker farm</b> — jobs wait in a queue; workers pull and run them, each <b>strongly isolated</b> (at multi-tenant scale, per-job micro-VMs like Firecracker — a light container wall isn't enough when running strangers' code).</li>
+        <li><b>GPU model serving</b> — the LLM, centralized on GPUs.</li>
+        <li><b>Storage</b> — results, baselines, the pattern library.</li>
+        <li><b>Tightly coupled to security &amp; legal (#21)</b> — once you hold customers' private source, data policy, encryption, and a security review stop being optional.</li>
+      </ul>
+      <p>This is the <b>most capital-, infrastructure-, and liability-heavy item in the whole roadmap.</b></p>
+    </section>
+
+    <section id="s10">
+      <h2><span class="n">10</span>The one screen you'd design (the dashboard) — and where Figma fits</h2>
+      <p>Almost all of #19 is backend, with no UI. The exception is a <b>web dashboard</b>: connect-a-repo onboarding, a results view (optimizations + diffs), trends over time, and account/billing pages.</p>
+      <p><b>This dashboard is the single surface in the entire roadmap that genuinely warrants product/UX design (Figma).</b> Everything else is a terminal or a PR comment. But two caveats: it's the <b>last mile of the last item</b> (don't design it before the backend exists or demand is proven), and even then <b>start functional</b> — an off-the-shelf dashboard component kit — and invest in custom design <b>only once paying customers justify the polish.</b></p>
+    </section>
+
+    <section id="s11">
+      <h2><span class="n">11</span>Free vs paid — where hosting sits</h2>
+      <p>Hosting is squarely a <b>paid / enterprise tier</b>, because it costs real money to run (machines, GPUs, storage):</p>
+      <ul>
+        <li><b>Free:</b> the open-source CLI, and a basic self-run Action.</li>
+        <li><b>Paid — hosted:</b> managed compute + clean-room benchmarking + the dashboard + the flywheel + support. Offered <b>on-prem/single-tenant</b> for privacy-sensitive teams, and (if the market wants it) multi-tenant SaaS for the convenience-first.</li>
+      </ul>
+      <p>The verification gate is identical at every tier — paying changes <em>where it runs and how reliable the numbers are</em>, never whether a bad change could slip through.</p>
+    </section>
+
+    <section id="s12">
+      <h2><span class="n">12</span>Status and honest cautions</h2>
+      <ul>
+        <li><b>Not built</b> — #19 is a Phase-5 (commercial) item, and the <b>heaviest and last</b> one.</li>
+        <li><b>Do it after product-market fit</b> — after the CLI, the #18 Action, and on-prem/self-hosted have shown real demand. A build farm before demand is burning money on infrastructure nobody's asked for.</li>
+        <li><b>Privacy is the pivot</b> — how you handle "customer code on our servers" (via on-prem/single-tenant) determines whether hosting strengthens or <em>undermines</em> BOOSTOPT's core promise.</li>
+      </ul>
+    </section>
+
+    <section id="s13">
+      <h2><span class="n">13</span>Quick answers to the obvious questions</h2>
+      <ul>
+        <li><b>Is my code safe if it's hosted?</b> In multi-tenant SaaS it lives on BOOSTOPT's servers (encrypted, isolated, but present). Prefer <b>on-prem/BYOC</b>, where your code never leaves your own cloud — the recommended default for anyone sensitive.</li>
+        <li><b>Do I still need <code>clang</code> installed?</b> No — BOOSTOPT's machines have the toolchain. You install nothing.</li>
+        <li><b>Is it cheaper than running it in my own CI?</b> Sometimes — BOOSTOPT's farm replaces your CI minutes with dedicated hardware, and the benchmarks are more reliable. Whether that's cheaper depends on your usage.</li>
+        <li><b>Why not just use the CI Action (#18)?</b> If "no local setup + code stays with me" is all you want, <b>#18 already does that.</b> Hosting is for the extra three things in §8 — chiefly reliable benchmarking.</li>
+        <li><b>Does hosting make the suggestions less safe?</b> No. Same gate everywhere — every suggestion is still proven behavior-identical and faster before you see it.</li>
+      </ul>
+      <p class="foot">Companion docs: <code>BOOSTOPT_CI_Action</code> (the #18 Action, closely related), <code>BOOSTOPT_Surfaces</code> (all surfaces), <code>BOOSTOPT_Roadmap</code> (where #19 sits, and why it's last). One fact, one home.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('boostopt-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('boostopt-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        if(map[en.target.id]) map[en.target.id].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

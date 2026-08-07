@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""VERTO GitHub Action — the entrypoint bridge (#18, step 2).
+"""BOOSTOPT GitHub Action — the entrypoint bridge (#18, step 2).
 
-This is the glue between GitHub's Action interface and the `verto` CLI. It does
+This is the glue between GitHub's Action interface and the `boostopt` CLI. It does
 three things, all network-free and deterministic:
 
   1. reads the Action's inputs (env vars `INPUT_<NAME>`) and maps them to a
-     `verto optimize --changed … --json --fail-on …` invocation;
-  2. runs verto, capturing the machine-readable `--json` verdict report;
+     `boostopt optimize --changed … --json --fail-on …` invocation;
+  2. runs boostopt, capturing the machine-readable `--json` verdict report;
   3. translates that report into the Action's outputs (written to the file named
-     by `$GITHUB_OUTPUT`) and re-emits verto's exit code verbatim — so `fail-on`
+     by `$GITHUB_OUTPUT`) and re-emits boostopt's exit code verbatim — so `fail-on`
      is what turns the CI check red or green.
 
 Posting the PR comment / suggestions is a *separate* step (#18 step 3) that reads
@@ -20,7 +20,7 @@ GitHub Actions Docker-action contract, for reference:
   * an output is set by appending a `name=value` line to the file `$GITHUB_OUTPUT`;
   * the container's exit code is the check result.
 
-Testable off-CI: set `VERTO_BIN` (e.g. `python3 -m verto.surfaces.cli`) and,
+Testable off-CI: set `BOOSTOPT_BIN` (e.g. `python3 -m boostopt.surfaces.cli`) and,
 optionally, `GITHUB_OUTPUT` to a scratch file; with neither `$GITHUB_OUTPUT` set
 the outputs are just echoed.
 """
@@ -56,7 +56,7 @@ def get_input(name: str, default: str = "") -> str:
 
 
 def workdir() -> str:
-    """Where verto RUNS — the checked-out repo on CI (so relative `compile-commands`
+    """Where boostopt RUNS — the checked-out repo on CI (so relative `compile-commands`
     paths resolve), else cwd."""
     return os.environ.get("GITHUB_WORKSPACE") or os.getcwd()
 
@@ -68,11 +68,11 @@ def artifact_dir() -> str:
 
 
 def build_argv(inp=get_input) -> tuple[list[str], str, str]:
-    """Map inputs → the `verto optimize` argv. `inp` is injectable for testing.
+    """Map inputs → the `boostopt optimize` argv. `inp` is injectable for testing.
     Returns (argv, patches_dir, mode). Raises SystemExit on a missing required input."""
     db = inp("compile-commands")
     if not db:
-        raise SystemExit("verto-action: the 'compile-commands' input is required "
+        raise SystemExit("boostopt-action: the 'compile-commands' input is required "
                          "(path to compile_commands.json)")
 
     argv = ["optimize", "-p", db, "--json", "--no-daemon"]
@@ -100,7 +100,7 @@ def build_argv(inp=get_input) -> tuple[list[str], str, str]:
     mode = inp("mode", "comment") or "comment"
     patches_dir = ""
     if mode in ("suggest", "pr"):
-        patches_dir = os.path.join(artifact_dir(), "verto-patches")
+        patches_dir = os.path.join(artifact_dir(), "boostopt-patches")
         argv += ["--emit-patches", patches_dir]
 
     extra = inp("extra-args")
@@ -141,12 +141,12 @@ def write_outputs(outputs: dict) -> None:
 
 def main() -> int:
     argv, patches_dir, mode = build_argv()
-    verto = shlex.split(os.environ.get("VERTO_BIN", "verto"))
-    report_path = os.path.join(artifact_dir(), "verto-report.json")
+    boostopt = shlex.split(os.environ.get("BOOSTOPT_BIN", "boostopt"))
+    report_path = os.path.join(artifact_dir(), "boostopt-report.json")
 
-    proc = subprocess.run(verto + argv, cwd=workdir(),
+    proc = subprocess.run(boostopt + argv, cwd=workdir(),
                           capture_output=True, text=True)
-    sys.stderr.write(proc.stderr)          # verto's status/progress goes to the CI log
+    sys.stderr.write(proc.stderr)          # boostopt's status/progress goes to the CI log
 
     raw = proc.stdout
     try:
@@ -155,7 +155,7 @@ def main() -> int:
         report = None
 
     if report is None or not isinstance(report, list):
-        sys.stderr.write("verto-action: could not parse verto --json output; "
+        sys.stderr.write("boostopt-action: could not parse boostopt --json output; "
                          "treating as an error.\n")
         write_outputs({"status": "error", "findings": 0, "applied": 0,
                        "regressions": 0, "report-json": "", "patches": ""})
@@ -168,15 +168,15 @@ def main() -> int:
     write_outputs(outputs)
 
     # Deliver the findings (step 3). Isolated so a posting failure never changes the
-    # check result — that was already decided by verto's exit code (--fail-on).
+    # check result — that was already decided by boostopt's exit code (--fail-on).
     blocking = get_input("fail-on", "none") == "any" and outputs["findings"] > 0
     try:
         _post(report, mode=mode, blocking=blocking)
     except Exception as e:                       # never let delivery break the build
-        sys.stderr.write(f"verto-action: delivery step failed (non-fatal): {e}\n")
+        sys.stderr.write(f"boostopt-action: delivery step failed (non-fatal): {e}\n")
 
     sys.stderr.write(
-        f"verto-action: {outputs['findings']} verified optimization(s) · "
+        f"boostopt-action: {outputs['findings']} verified optimization(s) · "
         f"status={outputs['status']} · fail-on exit={proc.returncode}\n")
     return proc.returncode          # verbatim → --fail-on drives the check
 
@@ -195,7 +195,7 @@ def _post(report, *, mode: str, blocking: bool) -> None:
     if mode in ("suggest", "pr"):
         _gh.post_suggestions(_c.extract_suggestions(report, repo_root=root))
     if mode == "pr":
-        sys.stderr.write("verto-action: mode 'pr' (open a follow-up PR) is not yet "
+        sys.stderr.write("boostopt-action: mode 'pr' (open a follow-up PR) is not yet "
                          "implemented — posted the summary + suggestions instead.\n")
 
 

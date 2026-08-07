@@ -11,7 +11,7 @@ _MOD = os.path.join(_ROOT, "examples", "github-action", "comment.py")
 
 
 def _load():
-    spec = importlib.util.spec_from_file_location("verto_action_comment", _MOD)
+    spec = importlib.util.spec_from_file_location("boostopt_action_comment", _MOD)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod

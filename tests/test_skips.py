@@ -1,6 +1,6 @@
 """Skip logging with reasons (Phase-1 item #4).
 
-A candidate site VERTO can see but can't verify must be reported as a SKIP with a
+A candidate site BOOSTOPT can see but can't verify must be reported as a SKIP with a
 reason — not silently dropped, and not mislabeled as 'nothing found'. Pins the
 sensor-level skip (opportunity present, signature unharnessable) end to end via
 codebase mode. Real compilation, a few seconds. Run with `python -m tests.test_skips`.
@@ -9,9 +9,9 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from verto.adapters.domain.performance.harness import supported, unsupported_reason
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.adapters.domain.performance.harness import supported, unsupported_reason
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 LINKED = Path(__file__).resolve().parent.parent / "examples" / "linked"
 
@@ -23,7 +23,7 @@ def _cfg():
 
 
 def _copy_project():
-    d = Path(tempfile.mkdtemp(prefix="verto-skip-test-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-skip-test-"))
     for f in LINKED.iterdir():
         if f.is_file():
             shutil.copy2(f, d / f.name)

@@ -7,10 +7,10 @@ bound is behavior-preserving; the gate verifies it's actually faster.
 """
 from pathlib import Path
 
-from verto.adapters.language.cpp.regex_detect import (detect_all_growth,
+from boostopt.adapters.language.cpp.regex_detect import (detect_all_growth,
                                                       detect_all_string_growth)
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 EX = Path(__file__).resolve().parent.parent / "examples"
 
@@ -66,9 +66,9 @@ def test_braced_initlist_pushback_not_emplaced():
     arg — `push_back({a, b})` — must stay push_back, because `emplace_back({...})` is INVALID C++
     (a braced-init-list can't be perfect-forwarded). Previously this emitted uncompilable code
     (a build_failed → spurious REJECT of a real reserve opportunity)."""
-    from verto.adapters.language.cpp.transforms import ALL
-    from verto.adapters.language.cpp.mutator import CppMutator
-    from verto.engine.models import Target
+    from boostopt.adapters.language.cpp.transforms import ALL
+    from boostopt.adapters.language.cpp.mutator import CppMutator
+    from boostopt.engine.models import Target
     import tempfile, os
     src = ("#include <vector>\n#include <cstddef>\n"
            "std::vector<std::vector<int>> f(std::size_t n){ std::vector<std::vector<int>> m;\n"

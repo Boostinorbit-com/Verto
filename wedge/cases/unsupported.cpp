@@ -1,5 +1,5 @@
 // Harness control: a growth opportunity, but a custom-type param/return and a
-// pointer out-param — VERTO cannot safely build inputs / capture output for this
+// pointer out-param — BOOSTOPT cannot safely build inputs / capture output for this
 // signature, so it must SKIP it (verify-or-skip; never optimize what it can't check).
 #include <vector>
 

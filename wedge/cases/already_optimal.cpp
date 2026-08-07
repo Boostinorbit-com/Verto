@@ -1,5 +1,5 @@
 // CONTROL — already optimal: unordered_map (not map) + a reserved vector.
-// There is no legal speedup here, so VERTO must find NOTHING. A tool that
+// There is no legal speedup here, so BOOSTOPT must find NOTHING. A tool that
 // "optimizes" this anyway is producing false positives.
 #include <unordered_map>
 #include <vector>

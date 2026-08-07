@@ -6,10 +6,10 @@ REFUSES any list-only op (push_front/splice/…) so the swap stays sound; the ga
 """
 from pathlib import Path
 
-from verto.adapters.language.cpp.regex_detect import detect_all_list
-from verto.adapters.language.cpp.transforms.list_to_vector import ListToVector
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.adapters.language.cpp.regex_detect import detect_all_list
+from boostopt.adapters.language.cpp.transforms.list_to_vector import ListToVector
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 EX = Path(__file__).resolve().parent.parent / "examples"
 

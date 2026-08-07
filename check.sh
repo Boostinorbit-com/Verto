@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# VERTO — end-to-end self-check. Runs the real engine on the example C++ files.
+# BOOSTOPT — end-to-end self-check. Runs the real engine on the example C++ files.
 # Usage:  ./check.sh          (from anywhere)
 set -u
 
@@ -22,7 +22,7 @@ rule
 for f in packet_stats map_safe map_ordered; do
   rm -f "$ROOT/ledger.jsonl"
   printf "\n== examples/%s.cpp ==\n" "$f"
-  "$PY" -m verto.surfaces.cli optimize "examples/$f.cpp" --offline
+  "$PY" -m boostopt.surfaces.cli optimize "examples/$f.cpp" --offline
 done
 echo
 echo "expected:  packet_stats → ACCEPT reserve (~-68%)"
@@ -34,7 +34,7 @@ echo
 bold "2) Detection is AST-driven (libclang), not the regex fallback"
 rule
 "$PY" - <<'PY'
-from verto.adapters.language.cpp import _ast
+from boostopt.adapters.language.cpp import _ast
 from pathlib import Path
 for f in ["examples/packet_stats.cpp", "examples/map_safe.cpp", "examples/map_ordered.cpp"]:
     src = Path(f).read_text()
@@ -60,10 +60,10 @@ echo
 bold "4) Crown jewel  (sanitizer catches UB that PASSES the differential test)"
 rule
 "$PY" - <<'PY'
-from verto.engine.config import Config
-from verto.engine.models import Target, Variant
-from verto.adapters.domain.performance.correctness import PerfCorrectnessOracle
-from verto.adapters.domain.performance.inputs import HeldOutInputs
+from boostopt.engine.config import Config
+from boostopt.engine.models import Target, Variant
+from boostopt.adapters.domain.performance.correctness import PerfCorrectnessOracle
+from boostopt.adapters.domain.performance.inputs import HeldOutInputs
 cfg = Config()
 orig = Target(file="examples/packet_stats.cpp", symbol="build_histogram", line=5, language="cpp")
 ub = '''#include <vector>

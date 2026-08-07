@@ -2,15 +2,15 @@
 
 Measure-first: the win is significant on std::map (tree walks, ~31-45%) and marginal on
 unordered_map (cheap hashes). Where a map's order isn't observed, map→unordered_map is the
-bigger win VERTO prefers — so this transform's niche is order-constrained std::map. The
+bigger win BOOSTOPT prefers — so this transform's niche is order-constrained std::map. The
 tests force it in isolation via the --transforms filter.
 """
 from pathlib import Path
 
-from verto.adapters.language.cpp.regex_detect import detect_all_fuse, detect_fuse_in
-from verto.adapters.language.cpp.transforms.fuse_map_lookup import FuseMapLookup
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.adapters.language.cpp.regex_detect import detect_all_fuse, detect_fuse_in
+from boostopt.adapters.language.cpp.transforms.fuse_map_lookup import FuseMapLookup
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 EX = Path(__file__).resolve().parent.parent / "examples"
 

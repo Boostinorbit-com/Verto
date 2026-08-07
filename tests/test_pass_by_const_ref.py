@@ -9,10 +9,10 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from verto.adapters.language.cpp.regex_detect import detect_byval_params
-from verto.adapters.language.cpp.transforms.pass_by_const_ref import PassByConstRef
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.adapters.language.cpp.regex_detect import detect_byval_params
+from boostopt.adapters.language.cpp.transforms.pass_by_const_ref import PassByConstRef
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 EX = Path(__file__).resolve().parent.parent / "examples"
 
@@ -53,7 +53,7 @@ def test_accepts_readonly_byval_end_to_end():
 
 def test_rejects_mutated_byval_end_to_end():
     """A mutated by-value param: const& won't compile → the gate rejects it."""
-    d = Path(tempfile.mkdtemp(prefix="verto-byval-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-byval-"))
     try:
         f = d / "mut.cpp"
         f.write_text("#include <vector>\n#include <algorithm>\n#include <cstddef>\n"

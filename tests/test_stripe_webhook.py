@@ -1,8 +1,8 @@
-"""Phase 2 — Stripe webhook → token issuance (verto_server, PREMIUM).
+"""Phase 2 — Stripe webhook → token issuance (boostopt_server, PREMIUM).
 
 Covers the money→token loop: the REAL Stripe signature scheme (accept valid / reject forged,
 stale, missing), and event dispatch (paid checkout mints a resolvable token; cancellation revokes;
-unknown plans 400; unknown events are ignored). Store is isolated per test via $VERTO_SERVER_DATA.
+unknown plans 400; unknown events are ignored). Store is isolated per test via $BOOSTOPT_SERVER_DATA.
 """
 from __future__ import annotations
 
@@ -11,12 +11,12 @@ import time
 
 import pytest
 
-from verto_server import billing, entitlement, store
+from boostopt_server import billing, entitlement, store
 
 
 @pytest.fixture(autouse=True)
 def _isolate_store(monkeypatch, tmp_path):
-    monkeypatch.setenv("VERTO_SERVER_DATA", str(tmp_path / "srv"))
+    monkeypatch.setenv("BOOSTOPT_SERVER_DATA", str(tmp_path / "srv"))
     monkeypatch.delenv("STRIPE_PRICE_MAP", raising=False)
     store.reset_store()
     yield
@@ -96,7 +96,7 @@ def test_subscription_deleted_revokes():
     acct = store.default_store().issue("pro", note="bob@example.com")
     assert entitlement.check(acct.token) is not None
     event = json.loads(_event("customer.subscription.deleted",
-                              {"metadata": {"verto_token": acct.token}}))
+                              {"metadata": {"boostopt_token": acct.token}}))
     result = billing.handle_event(event)
     assert result["revoked"] is True
     assert entitlement.check(acct.token) is None              # revoked → paywall now refuses it

@@ -1,7 +1,7 @@
 """Aggregate/POD input synthesis — the first slice of capture & replay (item #2).
 
 A function taking a custom aggregate struct (all public primitive fields) used to
-be skipped ("can't build the input"). VERTO now synthesizes the struct field-by-
+be skipped ("can't build the input"). BOOSTOPT now synthesizes the struct field-by-
 field, so the change is verified & accepted. Also pins the guard rails: a struct
 with a private field / a user constructor / a raw-pointer param stays unsynthesizable.
 """
@@ -9,10 +9,10 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from verto.adapters.language.cpp import analysis as _ast
-from verto.adapters.domain.performance.harness import supported, unsupported_reason
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.adapters.language.cpp import analysis as _ast
+from boostopt.adapters.domain.performance.harness import supported, unsupported_reason
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 LINKED = Path(__file__).resolve().parent.parent / "examples" / "linked"
 
@@ -50,7 +50,7 @@ def test_nested_vector_is_synthesizable():
     matrices — the top soundly-closeable skip type after bool) now synthesizes as a DIMxDIM
     matrix. Sound: the same matrix feeds orig + variant; ASan backstops a dimension the
     callee assumes differently. Covers both a nested-vector PARAM and RETURN."""
-    from verto.adapters.domain.performance.harness.synth import _classify
+    from boostopt.adapters.domain.performance.harness.synth import _classify
     assert _classify("std::vector<std::vector<int, std::allocator<int>>>") == ("vector2d", "int")
     param = ("#include <vector>\n"
              "std::vector<int> flatten(const std::vector<std::vector<int>>& m){\n"
@@ -75,7 +75,7 @@ def test_return_serializers_aggregate_and_map():
           "for(std::size_t i=0;i<n;++i) m[(int)i]++; return m; }\n")
     assert supported(mp, "h"), "unordered_map return must be checksummable (commutative)"
     # classifier guard: primitive-keyed/valued map serializes; a non-primitive value does not
-    from verto.adapters.domain.performance.harness.synth import _classify_ret
+    from boostopt.adapters.domain.performance.harness.synth import _classify_ret
     assert _classify_ret("std::unordered_map<char, int>", "")[0] == "map"
     assert _classify_ret("std::map<int, std::string>", "") is None
 
@@ -95,7 +95,7 @@ def test_non_aggregate_is_rejected():
 
 
 def test_aggregate_param_function_is_accepted_end_to_end():
-    d = Path(tempfile.mkdtemp(prefix="verto-agg-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-agg-"))
     try:
         for f in LINKED.iterdir():
             if f.is_file():

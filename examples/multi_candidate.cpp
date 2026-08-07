@@ -1,7 +1,7 @@
 // Category B (profile-guided selection).
 // Multiple reserve candidates. cold_path barely runs (8 iterations); hot_path runs n
 // times. A static-report tool might optimize the FIRST match (cold_path) — a
-// pointless change. VERTO times each candidate and optimizes hot_path — the real
+// pointless change. BOOSTOPT times each candidate and optimizes hot_path — the real
 // hotspot — where reserve() is a genuine win.
 #include <vector>
 #include <cstddef>

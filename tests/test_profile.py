@@ -1,6 +1,6 @@
 """Real-profile-guided hotspot selection (Phase-1 item #5).
 
-`--profile` must make VERTO optimize the function that's actually hot in the
+`--profile` must make BOOSTOPT optimize the function that's actually hot in the
 user's workload — even when that DISAGREES with the synthetic micro-benchmark.
 The falsifiable check: a profile that says the micro-bench's cold function is hot
 must flip the selection.
@@ -8,10 +8,10 @@ must flip the selection.
 import tempfile
 from pathlib import Path
 
-from verto.adapters.language.cpp.profile import _leaf, load_profile
-from verto.adapters.language.cpp.sensor import CppSensor
-from verto.engine.config import Config
-from verto.engine.models import Target
+from boostopt.adapters.language.cpp.profile import _leaf, load_profile
+from boostopt.adapters.language.cpp.sensor import CppSensor
+from boostopt.engine.config import Config
+from boostopt.engine.models import Target
 
 MULTI = Path(__file__).resolve().parent.parent / "examples" / "multi_candidate.cpp"
 
@@ -37,7 +37,7 @@ def test_leaf_reduces_symbol_to_identifier():
 
 
 def test_formats_parse_to_leaf_costs():
-    from verto.adapters.language.cpp.profile import _parse
+    from boostopt.adapters.language.cpp.profile import _parse
     assert _parse("  42.1%  b  b  [.] hot_path\n  3.2%  b  b  [.] cold_path(unsigned long)") \
         == {"hot_path": 42.1, "cold_path": 3.2}
     assert _parse('{"hot_path": 5.0, "ns::cold_path(int)": 91.0}') \
@@ -50,7 +50,7 @@ def test_real_profile_overrides_microbench():
     assert sym == "hot_path" and who == "microbench-v0"
 
     # a real profile that says cold_path dominates must flip the choice
-    d = Path(tempfile.mkdtemp(prefix="verto-prof-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-prof-"))
     try:
         p = d / "perf.txt"
         p.write_text("  88.00%  bench  bench  [.] cold_path(unsigned long)\n"

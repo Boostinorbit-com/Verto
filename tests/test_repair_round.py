@@ -8,10 +8,10 @@ candidate goes through the SAME gate, so this is a yield knob, never a trust con
 """
 from types import SimpleNamespace
 
-from verto.engine.ledger import JsonlLedger
-from verto.engine.models import (Candidate, Contract, CorrectnessVerdict, Evidence,
+from boostopt.engine.ledger import JsonlLedger
+from boostopt.engine.models import (Candidate, Contract, CorrectnessVerdict, Evidence,
                                  PerfVerdict, Target, Variant, Verdict, Witness)
-from verto.engine.orchestrator import AdapterSet, Orchestrator
+from boostopt.engine.orchestrator import AdapterSet, Orchestrator
 
 _ERR = "error: type 'std::list<int>' does not provide a subscript operator"
 
@@ -149,7 +149,7 @@ def test_semantic_reject_is_not_repaired():
 
 
 def test_original_build_failure_is_not_repaired():
-    """orig_build_failed = VERTO couldn't compile the user's own file (missing include path).
+    """orig_build_failed = BOOSTOPT couldn't compile the user's own file (missing include path).
     Asking the model to 'fix' that would blame it for our setup error."""
     class _OrigFailGate:
         def decide(self, orig, var, cand, inputs):

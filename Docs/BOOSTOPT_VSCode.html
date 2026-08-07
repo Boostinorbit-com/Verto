@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOOSTOPT for VS Code — the editor extension, explained</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+      --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+      --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+    --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+    --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .layout{display:grid; grid-template-columns:270px 1fr; max-width:1240px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);}
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:19px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-radius:7px; border-left:2px solid transparent;}
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:32px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:72ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{font-size:23px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  h3{font-size:16px; margin:22px 0 8px; color:var(--accent);}
+  p{max-width:80ch;} li{max-width:78ch;}
+  a{color:var(--accent);}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.86em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.5;}
+  pre code{background:none; padding:0;}
+  pre.diagram{background:var(--diagram-bg); color:var(--diagram-fg); border:none;}
+  pre.diagram code{color:var(--diagram-fg);}
+  table{border-collapse:collapse; width:100%; margin:14px 0; font-size:13.5px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0; font-weight:600;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  .ok{color:var(--ok); font-weight:700;} .muted{color:var(--muted);}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+    nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+    main{padding:28px 20px 80px;}
+    header.doc h1{font-size:25px;}
+  }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">VER<span>TO</span> · VS Code</div>
+    <div class="tagline">A <code>v1</code> surface: verified optimizations in the editor. Explained from scratch — the UX, the honest-latency model, and how it reuses the CLI + daemon.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li class="num"><a href="#s1">The one sentence</a></li>
+      <li class="num"><a href="#s2">The idea in one picture</a></li>
+      <li class="num"><a href="#s3">The words you need</a></li>
+      <li class="num"><a href="#s4">A verdict, not a suggestion</a></li>
+      <li class="num"><a href="#s5">The five surfaces</a></li>
+      <li class="num"><a href="#s6">The latency reality</a></li>
+      <li class="num"><a href="#s7">A thin client, reused</a></li>
+      <li class="num"><a href="#s8">The trust triplet, in a tooltip</a></li>
+      <li class="num"><a href="#s9">The architecture</a></li>
+      <li class="num"><a href="#s10">Free vs paid</a></li>
+      <li class="num"><a href="#s11">Design principles</a></li>
+      <li class="num"><a href="#s12">Status &amp; the MVP</a></li>
+      <li class="num"><a href="#s13">Unique features</a></li>
+      <li class="num"><a href="#s14">Quick answers</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc">
+      <h1>BOOSTOPT for VS Code — the editor extension, explained from scratch</h1>
+      <p class="lede">The design note for BOOSTOPT's VS Code extension (a <b>v1</b> surface): what it is, what makes it unlike any other editor plugin, and exactly how it's built on top of what BOOSTOPT already has. No prior VS Code-extension knowledge assumed — every term is defined the first time it appears.</p>
+    </header>
+
+    <section id="s1">
+      <h2><span class="n">1</span>The one sentence that defines it</h2>
+      <p>Every other AI/optimizer plugin shows you a <b>suggestion you then have to vet.</b> BOOSTOPT shows you a <b>verdict with its proof attached.</b></p>
+      <blockquote><p>Other extensions autocomplete guesses. BOOSTOPT surfaces <em>verified</em> wins — with the proof one hover away, and an Apply button you can actually trust.</p></blockquote>
+      <p>That single difference — <em>proof, not a guess</em> — drives every design choice below.</p>
+      <p><b>A note on what is <em>not</em> the differentiator.</b> The editor <em>widget</em> — a CodeLens above a function, run on demand, applied inline — is common to verified-optimizer tools; expect it to look familiar. BOOSTOPT's edge is <b>substance, not shape</b>, on three axes: it <b>shows the proof</b> (the evidence, not just the rewrite — §8), it verifies <b>deeper</b> (C++ with sanitizers + fuzzed differential testing, not just regression tests), and it can run <b>fully local</b> (a local model, no sign-in, code never leaves the box — §10). Compete on those, not on the CodeLens.</p>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>The idea in one picture</h2>
+      <pre class="diagram"><code>   You're editing hot_loop.cpp in VS Code
+            │
+            ▼
+   ⚡ BOOSTOPT — optimize this function            ← a CodeLens above the function
+            │  (click it — the gate runs in the background, a few seconds)
+            ▼
+   ⚡ BOOSTOPT — verified −52%  ✓                   ← the CodeLens resolves when PROVEN
+            │  (hover it)
+            ▼
+   ┌──────────────────────────────────────────────┐
+   │ Proven behavior-identical:                     │
+   │   • byte-identical on 1,010 fuzzed inputs      │
+   │   • ASan / UBSan / TSan clean (Rung 3)         │
+   │ Measured: p50 −52%  (10.06 ms → 4.85 ms)       │
+   │            [ Apply ]   [ Show diff ]           │
+   └──────────────────────────────────────────────┘
+            │  (click Apply)
+            ▼
+   The verified change is written to your file — no careful review needed,
+   because it was PROVEN correct-and-faster before Apply was ever offered.</code></pre>
+      <p>The CodeLens starts as an <em>invitation</em> (proving takes seconds — see §6), not a passive claim. What's unique isn't that widget; it's that when it resolves, <b>the suggestion carries its evidence</b>, and Apply is safe because the change was proven <em>before</em> it was offered.</p>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>The words you need (each defined once)</h2>
+      <ul>
+        <li><b>Extension</b> — a plug-in that adds features to VS Code. Written in TypeScript/JavaScript, it runs in a sandboxed "extension host" process alongside the editor.</li>
+        <li><b>CodeLens</b> — a small, clickable line VS Code renders <b>above a line of code</b> (e.g. above a function). Perfect for <em>"⚡ BOOSTOPT — optimize this function"</em> → (after the async run) <em>"verified −52% ✓."</em></li>
+        <li><b>Hover</b> — the tooltip that appears when you rest the mouse over code. We use it to show the <b>proof</b>.</li>
+        <li><b>Code action</b> (the 💡 "Quick Fix" lightbulb) — an action offered for a bit of code, e.g. <em>"BOOSTOPT: verify &amp; optimize this function."</em> Triggered on right-click or <code>Ctrl+.</code>.</li>
+        <li><b>Diagnostic</b> — an entry in the <b>Problems panel</b> (what linters put squiggles under). BOOSTOPT uses an <em>informational</em> one: <em>"verified optimization available."</em></li>
+        <li><b>WorkspaceEdit</b> — the VS Code API for <b>changing files programmatically.</b> "Apply" turns BOOSTOPT's verified diff into a <code>WorkspaceEdit</code>.</li>
+        <li><b>Extension host / daemon</b> — the extension talks to a long-running <b>BOOSTOPT daemon</b> (a warm <code>boostopt</code> process) so repeated requests skip startup cost.</li>
+        <li><b><code>compile_commands.json</code></b> — the <b>compilation database</b>: the exact flags each file is built with. BOOSTOPT needs it to parse and build a file like the real project does. (CMake: <code>-DCMAKE_EXPORT_COMPILE_COMMANDS=ON</code>.)</li>
+        <li><b><code>Verdict</code></b> — BOOSTOPT's core result object (transform, correctness rung + witness, performance vector, diff). <b>Every BOOSTOPT surface renders the same <code>Verdict</code> JSON</b> — the extension is just one more renderer of it.</li>
+      </ul>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>The core principle: a verdict, not a suggestion</h2>
+      <p>Hold onto the distinction, because it's the whole product:</p>
+      <table>
+        <tr><th></th><th>A typical AI plugin</th><th>BOOSTOPT</th></tr>
+        <tr><td>What it shows</td><td>a plausible rewrite</td><td>a rewrite <b>already proven</b> behavior-identical + faster</td></tr>
+        <tr><td>Your job after</td><td>read it, test it, hope</td><td>glance at the proof, click Apply</td></tr>
+        <tr><td>If it's unsure</td><td>shows it anyway</td><td><b>says nothing</b> (or says <em>why</em> it can't verify)</td></tr>
+        <tr><td>Trust model</td><td>"review carefully"</td><td>"it was verified before you saw it"</td></tr>
+      </table>
+      <p>Everything the extension renders is a <code>Verdict</code> that already <b>passed the gate</b>. There is no "unverified suggestion" state — that's the point.</p>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>The five surfaces in the editor</h2>
+      <ol>
+        <li><b>The CodeLens — an invitation that becomes a verdict.</b> Above a function it starts as <code>⚡ BOOSTOPT — optimize this function</code>; clicking runs the gate in the background, and when proven it resolves to <code>⚡ BOOSTOPT — verified −52% ✓</code>. <em>(The CodeLens shape is common to optimizer tools — that's fine; what's BOOSTOPT is that it resolves to a <b>proven</b> result, never an accepted guess.)</em></li>
+        <li><b>Proof-on-hover</b> <em>(the real differentiator)</em> — hovering the finding shows the <b>actual evidence</b>, not a pitch: <em>byte-identical on 1,010 fuzzed inputs · ASan/UBSan/TSan clean (Rung 3) · p50 −52% (10.06 ms → 4.85 ms).</em> Competing tools verify under the hood but foreground only the <em>suggestion</em>; BOOSTOPT foregrounds the <em>proof</em>. This — not the widget — is the signature move.</li>
+        <li><b>Safe Apply</b> — because the change is pre-verified, the Apply button is trustworthy: one click, no anxious review. Applied via <code>WorkspaceEdit</code> from BOOSTOPT's own diff.</li>
+        <li><b>Async "verify &amp; optimize" code action</b> — right-click a function → BOOSTOPT runs the <b>gate in the background</b> (progress in the status bar) and streams the verified result when done. Never blocks typing, never shows an unproven guess.</li>
+        <li><b>Honest silence</b> — if BOOSTOPT <em>can't</em> verify a function (e.g. a signature it can't synthesize inputs for), it says so plainly (<code>can't synthesize inputs for this signature</code>) instead of staying quiet or guessing. Transparency is a feature.</li>
+      </ol>
+      <p>Those five are the <em>baseline</em> UX — and they look like other tools. For the features that <b>only a verifying extension can offer</b> (catching bugs for free, proof-as-a-show, the verifiability map…), see <b>§13</b>.</p>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">6</span>The latency reality — a "verified code action," not a linter</h2>
+      <p>This is the single most important design constraint, and getting it right is what separates a delightful extension from a broken-feeling one.</p>
+      <p><b>BOOSTOPT's gate is slow by nature</b> — compile + differential-test + sanitizers + benchmark is <em>seconds to minutes per function</em>. A linter squiggles as you type; <b>BOOSTOPT cannot and must not pretend to.</b> So the mental model is:</p>
+      <blockquote><p>BOOSTOPT in the editor is a <em>slow, trustworthy test-runner</em>, not a real-time linter.</p></blockquote>
+      <p>Concretely:</p>
+      <ul>
+        <li><b>Nothing runs on keystroke.</b> Verification is <b>on-demand</b> (the code action) or <b>on-save in the background</b>, your choice.</li>
+        <li>Results <b>stream in asynchronously</b> — a status-bar spinner while it works, the CodeLens/diagnostic appears when the verdict is ready.</li>
+        <li>Typing is <b>never blocked</b>, and a stale finding is cleared the moment the code under it changes.</li>
+      </ul>
+      <p>Faking real-time here would over-promise and feel broken. Owning the latency honestly (<em>"verifying… ✓ proven −52%"</em>) feels <em>trustworthy</em> — which is on-brand.</p>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">7</span>How it reuses what's already built (it's a thin client)</h2>
+      <p>The extension is <b>not a rewrite of anything.</b> BOOSTOPT already has the two pieces it needs:</p>
+      <ul>
+        <li><b><code>boostopt optimize &lt;file&gt; --json</code></b> already emits the <code>Verdict</code> payload the extension renders.</li>
+        <li>The <b>daemon</b> (a warm <code>boostopt</code> process) already exists so repeated calls are fast.</li>
+      </ul>
+      <p>So the extension is a modest TypeScript project that:</p>
+      <ol>
+        <li>finds the project's <code>compile_commands.json</code> + <code>.boostopt.toml</code>,</li>
+        <li>calls the daemon: <code>optimize(file) → Verdict[]</code> (as <code>--json</code>),</li>
+        <li>renders each <code>Verdict</code> as a CodeLens + hover + Problems entry,</li>
+        <li>on Apply, turns the verdict's diff into a <code>WorkspaceEdit</code>.</li>
+      </ol>
+      <p><b>The same <code>Verdict</code> that becomes a CLI table row and a PR comment becomes an editor hint</b> — one payload, three renderers. That's why this surface is cheap to build and impossible to drift from the CLI's behavior.</p>
+    </section>
+
+    <section id="s8">
+      <h2><span class="n">8</span>The trust triplet, in a tooltip</h2>
+      <p>BOOSTOPT's "why-safe / why-faster / measured" triplet — the same one in the PR comment — is what the hover shows. A concrete mock:</p>
+      <pre class="diagram"><code>BOOSTOPT — reserve() before the loop
+
+  Why it's safe   byte-identical output on 1,010 fuzzed inputs;
+                  ASan · UBSan · TSan clean (Rung 3)
+  Why it's faster avoids ~10 vector reallocations the compiler
+                  can't elide (it can't prove the final size)
+  Measured        p50 −52%  (10.06 ms → 4.85 ms) · peak-mem ±0%
+                  (on this machine; larger on production hardware)
+
+  [ Apply ]   [ Show diff ]   [ Why skipped others? ]</code></pre>
+      <p>The correctness lines are stated as <b>fact</b> (toolchain-independent). The speed-up carries the honest <b>"on this machine"</b> caveat. That honesty <em>is</em> the brand — even in a tooltip.</p>
+    </section>
+
+    <section id="s9">
+      <h2><span class="n">9</span>The architecture, in plain words</h2>
+      <pre class="diagram"><code>  VS Code  ──(extension host, TypeScript)──►  BOOSTOPT extension
+                                                   │
+                                    optimize(file), as --json over a socket
+                                                   ▼
+                                         BOOSTOPT daemon (warm `boostopt`)
+                                                   │
+                                          the same Engine + trusted gate
+                                          the CLI and CI Action already use</code></pre>
+      <ul>
+        <li>The extension holds <b>no engine logic</b> — it's a renderer + an RPC client.</li>
+        <li>It reads <code>.boostopt.toml</code>, so <b>the editor and the CLI behave identically</b> (same rungs, transforms, profile).</li>
+        <li>Everything runs <b>locally</b> — your code never leaves the machine.</li>
+      </ul>
+    </section>
+
+    <section id="s10">
+      <h2><span class="n">10</span>Free vs paid</h2>
+      <p><b>Free.</b> The extension runs on the user's machine over the local CLI/daemon — squarely the <em>"everything on your side is free"</em> tier (same logic as the self-run CI Action). Paid hooks appear only if it reaches BOOSTOPT's <b>hosted</b> services — e.g. routing the benchmark to a <b>clean room</b> for numbers steadier than a busy laptop, or a <b>managed model</b> — authenticated with <code>boostopt-token</code>. The gate, the CodeLens, the proof, the Apply: all free.</p>
+    </section>
+
+    <section id="s11">
+      <h2><span class="n">11</span>Design principles (and the anti-patterns to avoid)</h2>
+      <h3>Do</h3>
+      <ul>
+        <li>Show <b>only verified findings</b> — there is no "unverified suggestion" state.</li>
+        <li>Put the <b>proof one hover away</b> — evidence, not adjectives.</li>
+        <li>Be <b>honest about latency</b> — spinner while verifying, result when ready.</li>
+        <li><b>Disclose skips</b> — say <em>why</em> a function couldn't be verified.</li>
+      </ul>
+      <h3>Don't</h3>
+      <ul>
+        <li>❌ Run the gate on keystroke, or fake real-time verification.</li>
+        <li>❌ Show a guess you haven't proven (that's every other tool; it's not BOOSTOPT).</li>
+        <li>❌ Inflate the number — keep the <em>"on this machine"</em> caveat.</li>
+        <li>❌ Duplicate engine logic in TypeScript — always go through the daemon, so behavior can't drift from the CLI.</li>
+      </ul>
+    </section>
+
+    <section id="s12">
+      <h2><span class="n">12</span>Status &amp; the smallest first version</h2>
+      <p><b>Built &amp; confirmed working in the editor (2026-07-27)</b> — lives in <code>editors/vscode/</code> (<code>.vsix</code> v0.0.2). Installed and run on a real C++ file.</p>
+      <p><b>The §5 surfaces are built:</b></p>
+      <ol>
+        <li><b>Command + right-click code action</b> (the 💡 lightbulb) — "BOOSTOPT: Verify &amp; Optimize Current File" → spawns <code>boostopt … --json</code>. ✅ (§5.1/5.4)</li>
+        <li><b>Two-state CodeLens</b> — <code>⚡ verify &amp; optimize this file</code> → (async run) → per-finding <code>⚡ verified −X% · Rung R — Apply</code> + <code>Show diff</code>. ✅ (§5.1)</li>
+        <li><b>Proof-on-hover</b> — the trust triplet. ✅ (§5.2)</li>
+        <li><b>Apply</b> via <code>WorkspaceEdit</code> from the verdict's <code>udiff</code>; <b>Show diff</b> opens the change in a diff view. ✅ (§5.3, §8)</li>
+        <li><b>Honest silence</b> — a "BOOSTOPT" output channel logs what was tried and <em>why</em> each non-accepted candidate didn't make the cut. ✅ (§5.5)</li>
+      </ol>
+      <p>Pure logic (<code>src/core.ts</code>) is <b>unit-tested off the editor</b> (10 tests green); the extension <b>type-checks against <code>@types/vscode</code></b> and <b>packages to a <code>.vsix</code></b>.</p>
+      <p><b>Still gated on ENGINE work, not extension code (the §13 unique features):</b> free bug-finding and the proof-as-a-show streaming need the CLI to <em>emit</em> sanitizer findings / progress events — not yet available, so they're deliberately <b>not</b> faked here. The verifiability heat-map and live-contract need per-function status + persisted proven-baselines. Also follow-ons: on-save mode, per-function (not per-file) targeting.</p>
+      <h3>Locked UX north-star (2026-07-27): the hybrid chat + console panel</h3>
+      <p>The interim MVP above (CodeLens + a <code>WebviewPanel</code> proof popup + <code>.boostopt.json</code> profiles) is <em>not</em> the end state. The <b>chosen direction</b> — designed and locked in Figma — is a <b>docked right-side panel (a <code>WebviewViewProvider</code>) that merges a conversational chat surface with full console power</b>:</p>
+      <ul>
+        <li><b>Chat layer (approachable)</b> — assistant identity, natural-language requests, conversational replies, quick-reply chips.</li>
+        <li><b>Console layer (power)</b> — the profile chip, the <b>AI-propose → gate-filter pipeline embedded in the reply</b> (proposed N · verified/rejected with reasons), and a <b><code>/</code>-command escape hatch</b> (composer toggles <code>chat ▾</code> mode).</li>
+        <li><b>Trust preserved</b> — the verified result card (proof triplet + explanation + Apply/Show diff) lives inside the conversation; <em>"I'll only suggest changes I can prove… never a guess."</em></li>
+      </ul>
+      <p>Rationale: approachable for newcomers (just talk), powerful for pros (raw commands, profiles, the full pipeline) — one panel, same engine, same proof. <b>Figma:</b> the design file has three explored frames on one page; the locked one is <b>"✅ BOOSTOPT Extension UX — HYBRID (LOCKED direction)."</b></p>
+    </section>
+
+    <section id="s13">
+      <h2><span class="n">13</span>Five features only a <em>verifying</em> extension can offer</h2>
+      <p>The surfaces in §5 (CodeLens, hover, Apply) look like other tools — that's expected. These five don't, because each one is only possible when the extension <b>actually runs and proves your code.</b> A suggestion-based plugin structurally cannot copy them.</p>
+      <h3>1. Catch bugs for free while optimizing</h3>
+      <p>While BOOSTOPT runs your code to check an optimization, it's also running memory-safety detectors (ASan/UBSan/TSan). So sometimes it finds a <em>bug</em> even when there's no speed-up.</p>
+      <ul>
+        <li><b>You'd see:</b> <code>⚠️ No faster version found — but BOOSTOPT caught a data race on line 14 while verifying.</code></li>
+        <li><b>Only BOOSTOPT:</b> other plugins never execute your code, so they can't catch a real bug. BOOSTOPT already runs it — bug-catching is almost free.</li>
+      </ul>
+      <h3>2. Turn the wait into a show of proof</h3>
+      <p>Verifying takes a few seconds; instead of a blank spinner, stream <em>what it's doing.</em></p>
+      <ul>
+        <li><b>You'd see:</b> <code>compiling… → 1,010 inputs identical ✓ → ASan · UBSan · TSan clean ✓ → measuring… −52%.</code></li>
+        <li><b>Only BOOSTOPT:</b> others are just asking a model — nothing to show. BOOSTOPT is doing real checks, so it can let you <em>watch the proof happen.</em> The latency becomes the selling point.</li>
+      </ul>
+      <h3>3. A verifiability heat-map of the file</h3>
+      <p>Color every function by BOOSTOPT's honest status, in the gutter.</p>
+      <ul>
+        <li><b>You'd see:</b> 🟢 <em>proven win available</em> · ⚪ <em>already optimal</em> · 🟡 <em>can't verify (why: unharnessable signature)</em>.</li>
+        <li><b>Only BOOSTOPT:</b> it's honest about where it <em>can't</em> help, not just where it can — a truthful map no guess-based tool can draw.</li>
+      </ul>
+      <h3>4. "Why your compiler didn't already do this"</h3>
+      <p>Explain, per finding, the limit BOOSTOPT got past that <code>-O3</code> couldn't.</p>
+      <ul>
+        <li><b>You'd see:</b> <code>-O3 couldn't pre-reserve() here — it can't prove the final size. BOOSTOPT checked, and it's safe.</code></li>
+        <li><b>Only BOOSTOPT:</b> it works <em>above</em> the compiler and <em>proves</em> the transform safe, so it can honestly claim the wins the compiler left behind.</li>
+      </ul>
+      <h3>5. Protect a win you already earned (the contract, live)</h3>
+      <p>If BOOSTOPT proved a function fast and you later edit it, it warns you before you undo the win.</p>
+      <ul>
+        <li><b>You'd see:</b> <code>🔒 You're editing a function BOOSTOPT already sped up — re-verify before committing?</code></li>
+        <li><b>Only BOOSTOPT:</b> it remembers what it <em>proved</em> fast, so it can notice regressions at authoring time. A guess has no proven baseline to protect.</li>
+      </ul>
+      <blockquote><p>The through-line: all five fall out of one fact — BOOSTOPT <em>runs and proves</em> your code. That's the moat translated into the editor, not the CodeLens.</p></blockquote>
+    </section>
+
+    <section id="s14">
+      <h2><span class="n">14</span>Quick answers</h2>
+      <ul>
+        <li><b>Will it slow down my editor?</b> No — nothing runs on keystroke; verification is on-demand/background and never blocks typing.</li>
+        <li><b>Does my code leave my machine?</b> No — it runs the local daemon. (Only opt-in hosted features would, and those are separate + paid.)</li>
+        <li><b>Why not instant like a linter?</b> Because <em>proving</em> a change (compile + test + sanitize + benchmark) takes seconds — and a real proof is worth the wait. BOOSTOPT owns that honestly.</li>
+        <li><b>Do I need <code>compile_commands.json</code>?</b> Yes — so BOOSTOPT builds each file exactly as your project does (CMake: <code>-DCMAKE_EXPORT_COMPILE_COMMANDS=ON</code>).</li>
+        <li><b>How is this different from an AI autocomplete?</b> Autocomplete guesses and asks you to review. BOOSTOPT only ever shows changes it has <b>already proven</b> correct-and-faster.</li>
+      </ul>
+      <p class="foot">Companion docs: <code>BOOSTOPT_Surfaces</code> (all surfaces + the shared <code>Verdict</code> payload), <code>BOOSTOPT_CI_Action</code> (the PR-comment surface — same trust triplet, different renderer), <code>BOOSTOPT_Roadmap</code> (where this <code>v1</code> surface sits). One engine, one <code>Verdict</code>, many renderers.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('boostopt-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('boostopt-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        if(map[en.target.id]) map[en.target.id].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

@@ -5,18 +5,18 @@ from pathlib import Path
 
 import pytest
 
-from verto.engine.apply_txn import ApplyError, ApplyTransaction
+from boostopt.engine.apply_txn import ApplyError, ApplyTransaction
 
 
 def _tmpfile(text="original\n"):
-    d = Path(tempfile.mkdtemp(prefix="verto-txn-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-txn-"))
     f = d / "f.txt"
     f.write_text(text)
     return d, f
 
 
 def test_rollback_restores_all_writes():
-    d = Path(tempfile.mkdtemp(prefix="verto-txn-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-txn-"))
     try:
         a, b = d / "a.txt", d / "b.txt"
         a.write_text("A0"); b.write_text("B0")
@@ -69,7 +69,7 @@ def test_atomic_no_tmp_left_behind():
     d, f = _tmpfile()
     try:
         ApplyTransaction().write(str(f), "x")
-        leftovers = [p.name for p in d.iterdir() if "verto-tmp" in p.name]
+        leftovers = [p.name for p in d.iterdir() if "boostopt-tmp" in p.name]
         assert not leftovers, f"temp files must be renamed away, found {leftovers}"
     finally:
         shutil.rmtree(d, ignore_errors=True)
@@ -78,13 +78,13 @@ def test_atomic_no_tmp_left_behind():
 def test_codebase_apply_is_all_or_nothing(monkeypatch):
     """A write failure part-way through a codebase --apply must roll back EVERY
     file already written — never leave a half-edited tree."""
-    from verto.engine import apply_txn
-    from verto.engine.api import Engine
-    from verto.engine.config import Config
-    from verto.engine.ledger import JsonlLedger
+    from boostopt.engine import apply_txn
+    from boostopt.engine.api import Engine
+    from boostopt.engine.config import Config
+    from boostopt.engine.ledger import JsonlLedger
 
     linked = Path(__file__).resolve().parent.parent / "examples" / "linked"
-    d = Path(tempfile.mkdtemp(prefix="verto-txn-cb-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-txn-cb-"))
     try:
         for f in linked.iterdir():
             if f.is_file():

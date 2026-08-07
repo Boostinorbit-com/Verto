@@ -1,4 +1,4 @@
-// Example target for VERTO — the canonical reserve() case (VERTO.md §3).
+// Example target for BOOSTOPT — the canonical reserve() case (BOOSTOPT.md §3).
 #include <vector>
 #include <cstddef>
 

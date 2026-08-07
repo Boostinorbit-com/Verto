@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from verto.runtime import sandbox
+from boostopt.runtime import sandbox
 
 pytestmark = pytest.mark.skipif(
     not sandbox.isolation_available() or not (shutil.which("clang++") or shutil.which("g++")),

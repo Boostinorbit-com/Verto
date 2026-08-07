@@ -1,8 +1,8 @@
-// VERTO VS Code extension — pure logic (NO `vscode` import, so it is unit-testable
-// off the editor). Turns `verto … --json` output into what the editor renders, and
+// BOOSTOPT VS Code extension — pure logic (NO `vscode` import, so it is unit-testable
+// off the editor). Turns `boostopt … --json` output into what the editor renders, and
 // applies a verified diff. The vscode glue in extension.ts calls into here.
 
-/** The subset of VERTO's `Verdict` JSON the extension uses. */
+/** The subset of BOOSTOPT's `Verdict` JSON the extension uses. */
 export interface Verdict {
   accepted: boolean;
   reason: string;
@@ -17,7 +17,7 @@ export interface Verdict {
 }
 
 /**
- * `verto <file> --json` emits a `Verdict[]`; the codebase form emits
+ * `boostopt <file> --json` emits a `Verdict[]`; the codebase form emits
  * `[{file, verdicts, …}]`. Accept either and return a flat `Verdict[]`.
  */
 export function parseReport(stdout: string): Verdict[] {
@@ -52,7 +52,7 @@ export function outcomeLine(v: Verdict): string {
   return `${verb}: ${t} — ${v.reason}`;
 }
 
-// ── Project run-profiles (.verto.json) ─────────────────────────────────────────
+// ── Project run-profiles (.boostopt.json) ─────────────────────────────────────────
 // A committed, team-shared file where developers define named flag-sets, e.g.
 //   { "default": "quick",
 //     "profiles": {
@@ -68,7 +68,7 @@ export interface ProfileConfig {
   profiles: Record<string, Profile>;
 }
 
-/** Parse a .verto.json into a validated ProfileConfig (tolerant of missing bits). */
+/** Parse a .boostopt.json into a validated ProfileConfig (tolerant of missing bits). */
 export function parseProfiles(text: string): ProfileConfig {
   const data = JSON.parse(text) as { default?: unknown; profiles?: Record<string, unknown> };
   const profiles: Record<string, Profile> = {};
@@ -170,7 +170,7 @@ export function proofMarkdown(v: Verdict): string {
   const transform = v.candidate?.transform ?? 'change';
 
   const out: string[] = [
-    `**VERTO — ${transform}**`,
+    `**BOOSTOPT — ${transform}**`,
     '',
     `**Why it's safe** — byte-identical on ${runs.toLocaleString()} fuzzed inputs; ` +
       `${san === 'clean' ? 'sanitizers clean' : san} (Rung ${rung}).`,

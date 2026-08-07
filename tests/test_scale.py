@@ -10,8 +10,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 LINKED = Path(__file__).resolve().parent.parent / "examples" / "linked"
 
@@ -43,7 +43,7 @@ def _git(root, *args):
 
 
 def test_changed_filters_to_git_diff():
-    d = Path(tempfile.mkdtemp(prefix="verto-scale-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-scale-"))
     try:
         for f in LINKED.iterdir():
             if f.is_file():

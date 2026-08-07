@@ -11,11 +11,11 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from verto.adapters.domain.performance import reuse as reuse_mod
-from verto.adapters.domain.performance.reuse import TestReuseOracle
-from verto.engine.api import Engine
-from verto.engine.config import Config
-from verto.engine.models import Target, Variant
+from boostopt.adapters.domain.performance import reuse as reuse_mod
+from boostopt.adapters.domain.performance.reuse import TestReuseOracle
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
+from boostopt.engine.models import Target, Variant
 
 SERIES = ("#include <vector>\n#include <cstddef>\n"
           "std::vector<int> series(std::size_t n){ std::vector<int> out;"
@@ -30,7 +30,7 @@ CMD = "clang++ -std=c++20 series.cpp series_test.cpp -o _t && ./_t"
 
 
 def _project(series=SERIES):
-    d = Path(tempfile.mkdtemp(prefix="verto-reuse-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-reuse-"))
     (d / "series.cpp").write_text(series)
     (d / "series_test.cpp").write_text(TEST_MAIN)
     return d

@@ -4,10 +4,10 @@ adapters (no model): three llm_rewrite candidates with different measured deltas
 best one wins; identical rewrites are deduped."""
 from types import SimpleNamespace
 
-from verto.engine.ledger import JsonlLedger
-from verto.engine.models import (Candidate, Contract, CorrectnessVerdict, Evidence,
+from boostopt.engine.ledger import JsonlLedger
+from boostopt.engine.models import (Candidate, Contract, CorrectnessVerdict, Evidence,
                                  PerfVerdict, Target, Variant, Verdict)
-from verto.engine.orchestrator import AdapterSet, Orchestrator
+from boostopt.engine.orchestrator import AdapterSet, Orchestrator
 
 
 class _StubProposer:

@@ -3,9 +3,9 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
-from verto.engine.api import Engine
-from verto.engine.config import Config
-from verto.surfaces.patches import emit_patches
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
+from boostopt.surfaces.patches import emit_patches
 
 EX = Path(__file__).resolve().parent.parent / "examples"
 

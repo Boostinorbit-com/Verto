@@ -6,10 +6,10 @@ detector + one subclass. Sensor untouched (generic-sensor payoff).
 """
 from pathlib import Path
 
-from verto.adapters.language.cpp.regex_detect import detect_all_umap_growth
-from verto.adapters.language.cpp.transforms.reserve import ReserveUnorderedMap
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.adapters.language.cpp.regex_detect import detect_all_umap_growth
+from boostopt.adapters.language.cpp.transforms.reserve import ReserveUnorderedMap
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 EX = Path(__file__).resolve().parent.parent / "examples"
 

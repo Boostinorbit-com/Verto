@@ -1,5 +1,5 @@
 """#12 cost cap — the Budget meter (tokens / money / time; per-run + per-hotspot)."""
-from verto.runtime.budget import Budget, parse_spec
+from boostopt.runtime.budget import Budget, parse_spec
 
 
 def test_parse_spec_units():

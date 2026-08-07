@@ -1,4 +1,4 @@
-// VERTO proof panel — a styled Webview showing a verdict's evidence: the big
+// BOOSTOPT proof panel — a styled Webview showing a verdict's evidence: the big
 // speed-up, the trust triplet, a before/after bar, the colored diff, and the
 // Apply / Show-diff actions. Theme-aware via VS Code's CSS variables.
 import * as vscode from 'vscode';
@@ -15,7 +15,7 @@ type Handlers = {
 export function showProof(verdict: core.Verdict, uri: vscode.Uri, handlers: Handlers): void {
   current = { verdict, uri };
   if (!panel) {
-    panel = vscode.window.createWebviewPanel('vertoProof', 'VERTO — proof', vscode.ViewColumn.Beside, {
+    panel = vscode.window.createWebviewPanel('boostoptProof', 'BOOSTOPT — proof', vscode.ViewColumn.Beside, {
       enableScripts: true,
       retainContextWhenHidden: true,
     });
@@ -33,7 +33,7 @@ export function showProof(verdict: core.Verdict, uri: vscode.Uri, handlers: Hand
       }
     });
   }
-  panel.title = `VERTO — ${verdict.candidate?.transform ?? 'proof'}`;
+  panel.title = `BOOSTOPT — ${verdict.candidate?.transform ?? 'proof'}`;
   panel.webview.html = render(verdict);
   panel.reveal(vscode.ViewColumn.Beside, true);
 }

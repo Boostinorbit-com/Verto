@@ -1,17 +1,17 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# action.yml — the definition of the VERTO GitHub Action (roadmap #18).
+# action.yml — the definition of the BOOSTOPT GitHub Action (roadmap #18).
 #
 # This is the SPEC / the interface contract: it declares every `with:` input a
 # user's workflow may set, every output they can read, and how the action runs.
 # When the action is built, this file lives at the ROOT of the action's repo
-# (e.g. github.com/verto/action) and is referenced as  uses: verto/action@v1.
+# (e.g. github.com/boostopt/action) and is referenced as  uses: boostopt/action@v1.
 #
-# Each input maps to an existing `verto` CLI flag, so the entrypoint is thin:
-# read INPUT_* env vars → run `verto` → post the result to the PR.
+# Each input maps to an existing `boostopt` CLI flag, so the entrypoint is thin:
+# read INPUT_* env vars → run `boostopt` → post the result to the PR.
 # ─────────────────────────────────────────────────────────────────────────────
-name: "VERTO"
+name: "BOOSTOPT"
 description: "Find verified (correct-AND-faster) C++ optimizations on your pull requests."
-author: "VERTO"
+author: "BOOSTOPT"
 branding:
   icon: "zap"
   color: "blue"
@@ -82,9 +82,9 @@ inputs:
     required: false
     default: "false"
   config-file:
-    description: "Path to the team's .verto.toml."
+    description: "Path to the team's .boostopt.toml."
     required: false
-    default: ".verto.toml"
+    default: ".boostopt.toml"
   github-token:
     description: "Token used to post the PR comment / suggestions."
     required: false
@@ -93,12 +93,12 @@ inputs:
     description: "Hosted-model API key — pass a secret, never a literal (only for model: frontier)."
     required: false
     default: ""
-  verto-token:
-    description: "Account token authenticating to VERTO's HOSTED services (managed model / clean-room benchmarking). NOT a local unlock — the self-run Action is free and needs no token; entitlement is checked server-side. Pass a secret, only when using paid hosted features."
+  boostopt-token:
+    description: "Account token authenticating to BOOSTOPT's HOSTED services (managed model / clean-room benchmarking). NOT a local unlock — the self-run Action is free and needs no token; entitlement is checked server-side. Pass a secret, only when using paid hosted features."
     required: false
     default: ""
   extra-args:
-    description: "Raw passthrough to the verto CLI (escape hatch)."
+    description: "Raw passthrough to the boostopt CLI (escape hatch)."
     required: false
     default: ""
 
@@ -118,8 +118,8 @@ outputs:
 
 runs:
   using: "docker"
-  image: "docker://ghcr.io/verto/action:v1"   # built from VERTO's Dockerfile (roadmap #18 step 4)
+  image: "docker://ghcr.io/boostopt/action:v1"   # built from BOOSTOPT's Dockerfile (roadmap #18 step 4)
   # The image's ENTRYPOINT is entrypoint.py (this directory): it reads the inputs as
-  # INPUT_* env vars, runs `verto optimize --changed … --json --fail-on …`, writes the
-  # outputs above to $GITHUB_OUTPUT, and re-emits verto's exit code (so `fail-on` turns
+  # INPUT_* env vars, runs `boostopt optimize --changed … --json --fail-on …`, writes the
+  # outputs above to $GITHUB_OUTPUT, and re-emits boostopt's exit code (so `fail-on` turns
   # the check red/green). Posting the PR comment / suggestions is a separate step (#18 step 3).

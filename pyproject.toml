@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "verto-optimizer"           # PyPI distribution name; the import + CLI stay `verto`
+name = "boostopt"           # PyPI distribution name; the import + CLI stay `boostopt`
 version = "0.1.0"
 description = "A verified C++ optimizer — proposes optimizations and applies them only after proving each is byte-identical in behavior AND measurably faster."
 readme = "README.md"
@@ -29,7 +29,7 @@ dependencies = [
     # detection (a regex fallback exists, but AST is the intended path). The PyPI package
     # bundles a native libclang, so a fresh venv is self-contained.
     "libclang>=16",
-    # .verto.toml parsing: tomllib is stdlib on 3.11+; tomli backports it for older interpreters.
+    # .boostopt.toml parsing: tomllib is stdlib on 3.11+; tomli backports it for older interpreters.
     "tomli>=1.1; python_version < '3.11'",
 ]
 
@@ -44,16 +44,16 @@ llm-anthropic = ["anthropic>=0.30"]
 keychain = ["keyring>=23"]
 
 [project.urls]
-Homepage = "https://github.com/Boostinorbit-com/Verto"
-Repository = "https://github.com/Boostinorbit-com/Verto"
-Issues = "https://github.com/Boostinorbit-com/Verto/issues"
+Homepage = "https://github.com/Boostinorbit-com/Boostopt"
+Repository = "https://github.com/Boostinorbit-com/Boostopt"
+Issues = "https://github.com/Boostinorbit-com/Boostopt/issues"
 
 [project.scripts]
-verto = "verto.surfaces.cli:main"
+boostopt = "boostopt.surfaces.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["verto*"]
-# `verto_server` is the PROPRIETARY hosted tier — it must NEVER ship in the public wheel.
-# Without this, the "verto*" glob would bundle it (one-way boundary: verto_server imports
-# verto, never the reverse). See Docs/VERTO_Premium.md and the open-core invariant.
-exclude = ["verto_server*"]
+include = ["boostopt*"]
+# `boostopt_server` is the PROPRIETARY hosted tier — it must NEVER ship in the public wheel.
+# Without this, the "boostopt*" glob would bundle it (one-way boundary: boostopt_server imports
+# boostopt, never the reverse). See Docs/BOOSTOPT_Premium.md and the open-core invariant.
+exclude = ["boostopt_server*"]

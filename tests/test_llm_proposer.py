@@ -1,7 +1,7 @@
 """#10 LLM proposer — deterministic mechanism + opt-in live Qwen smoke tests.
 
 The mechanism (span/splice/parse) is tested without a model. The live tests are **opt-in**
-(`VERTO_LIVE_LLM=1`): they load a model that pegs the CPU, which would add benchmark
+(`BOOSTOPT_LIVE_LLM=1`): they load a model that pegs the CPU, which would add benchmark
 contention and make the perf-gated tests flaky. Off by default → the suite is deterministic;
 run them explicitly to exercise the real model.
 """
@@ -10,13 +10,13 @@ import urllib.request
 
 import pytest
 
-_LIVE = bool(os.environ.get("VERTO_LIVE_LLM"))
+_LIVE = bool(os.environ.get("BOOSTOPT_LIVE_LLM"))
 
-from verto.adapters.language.cpp.regex_detect import detect_all_functions, detect_func_span
-from verto.adapters.language.cpp.transforms.verbatim import VerbatimRewrite
-from verto.adapters.proposer.frontier import FrontierProposer
-from verto.engine.config import Config
-from verto.engine.models import Evidence, Target
+from boostopt.adapters.language.cpp.regex_detect import detect_all_functions, detect_func_span
+from boostopt.adapters.language.cpp.transforms.verbatim import VerbatimRewrite
+from boostopt.adapters.proposer.frontier import FrontierProposer
+from boostopt.engine.config import Config
+from boostopt.engine.models import Evidence, Target
 
 _SRC = ("#include <vector>\n#include <cstddef>\n"
         "std::vector<long> squares(std::size_t n){ std::vector<long> out;"
@@ -68,14 +68,14 @@ def _ollama_up() -> bool:
 
 
 @pytest.mark.skipif(not (_LIVE and _ollama_up()),
-                    reason="live LLM test — set VERTO_LIVE_LLM=1 (and run Ollama) to enable")
+                    reason="live LLM test — set BOOSTOPT_LIVE_LLM=1 (and run Ollama) to enable")
 def test_frontier_v1_transport():
     """The frontier path (local=False → OpenAI-compatible /v1/chat/completions with a Bearer
     key) is the same code a paid key uses. Ollama serves /v1 and ignores the key, so we prove
     the transport — request shape, response parse, token-usage extraction — for free."""
     import socket
 
-    from verto.runtime import llm
+    from boostopt.runtime import llm
     try:
         # /v1 doesn't carry Ollama's think:false, so a reasoning model can be slow to first
         # token when cold — this is a transport smoke test, so skip (don't fail) on timeout.
@@ -91,18 +91,18 @@ def test_frontier_v1_transport():
 def test_frontier_reads_api_key_from_env(monkeypatch):
     """--model frontier resolves the key from the environment, never a flag."""
     from types import SimpleNamespace
-    from verto.surfaces.cli.config_build import _build_config
-    monkeypatch.delenv("VERTO_LLM_API_KEY", raising=False)
+    from boostopt.surfaces.cli.config_build import _build_config
+    monkeypatch.delenv("BOOSTOPT_LLM_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-from-env")
     args = SimpleNamespace(model="frontier")
     cfg = _build_config(args)
     assert cfg.llm_api_key == "sk-from-env"
-    monkeypatch.setenv("VERTO_LLM_API_KEY", "sk-verto-wins")
-    assert _build_config(SimpleNamespace(model="frontier")).llm_api_key == "sk-verto-wins"
+    monkeypatch.setenv("BOOSTOPT_LLM_API_KEY", "sk-boostopt-wins")
+    assert _build_config(SimpleNamespace(model="frontier")).llm_api_key == "sk-boostopt-wins"
 
 
 @pytest.mark.skipif(not (_LIVE and _ollama_up()),
-                    reason="live LLM test — set VERTO_LIVE_LLM=1 (and run Ollama) to enable")
+                    reason="live LLM test — set BOOSTOPT_LIVE_LLM=1 (and run Ollama) to enable")
 def test_live_qwen_proposes_a_rewrite():
     """Live: the local model responds and we parse a rewrite candidate (or gracefully None —
     we don't assert ACCEPT, since a small model's output varies)."""

@@ -4,7 +4,7 @@ gate reject ("not faster", correctness) stays visible; the ledger/--json keep ev
 """
 from types import SimpleNamespace as NS
 
-from verto.surfaces.cli.render import _render_human, set_color
+from boostopt.surfaces.cli.render import _render_human, set_color
 
 
 def _v(accepted, reason, applied=False):
@@ -38,7 +38,7 @@ def test_real_gate_reject_is_still_shown(capsys):
 
 def test_codebase_diff_shown_only_with_flag(capsys):
     """--diff must work in codebase (directory) mode too, not just single-file."""
-    from verto.surfaces.cli.render import _render_codebase
+    from boostopt.surfaces.cli.render import _render_codebase
     acc = NS(accepted=True, applied=False, reason="accepted",
              candidate=NS(transform=NS(name="reserve", target_func="f")),
              performance=NS(vector={"p50_delta_pct": 42.0}), tests_confirmed=False,
@@ -52,7 +52,7 @@ def test_codebase_diff_shown_only_with_flag(capsys):
 
 def test_fail_on_gate_exit_codes():
     """#18: --fail-on remaps the exit code so a run is CI-actionable."""
-    from verto.surfaces.cli.render import _fail_on_exit
+    from boostopt.surfaces.cli.render import _fail_on_exit
     # 'any' — fail (exit 1) only when a verified optimization exists to take.
     assert _fail_on_exit("any", accepted=True) == 1
     assert _fail_on_exit("any", accepted=False) == 0
@@ -63,7 +63,7 @@ def test_fail_on_gate_exit_codes():
 
 def test_legacy_exit_codes_unchanged_without_flag():
     """Absent --fail-on, the default codes must be untouched (0=found/1=none/3=rejected)."""
-    from verto.surfaces.cli.render import _codebase_exit, _exit_code
+    from boostopt.surfaces.cli.render import _codebase_exit, _exit_code
     assert _exit_code([]) == 1
     assert _exit_code([_v(True, "accepted")]) == 0
     assert _exit_code([_v(False, "not_faster")]) == 3
@@ -76,7 +76,7 @@ def test_fail_on_choices_are_restricted():
     """argparse rejects an unknown --fail-on value (guards against silent typos in CI yaml)."""
     import pytest
 
-    from verto.surfaces.cli.parser import _parser
+    from boostopt.surfaces.cli.parser import _parser
     with pytest.raises(SystemExit):
         _parser().parse_args(["optimize", "x.cpp", "--fail-on", "regression"])
 

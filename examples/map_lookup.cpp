@@ -6,7 +6,7 @@
 // fusion niche: when a map must stay ordered (so map→unordered_map isn't legal), fusing
 // the double lookup is the remaining win — one a compiler can't do. Harnessable (size_t→long).
 //
-// NOTE: here order isn't actually observed, so VERTO prefers the bigger map→unordered_map
+// NOTE: here order isn't actually observed, so BOOSTOPT prefers the bigger map→unordered_map
 // swap; force fusion with --transforms 'fuse_map_lookup' to see this transform in isolation.
 long count_hits(std::size_t n) {
     static const std::map<int, long> t = [] {

@@ -15,8 +15,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from verto.engine.api import Engine
-from verto.engine.config import Config
+from boostopt.engine.api import Engine
+from boostopt.engine.config import Config
 
 LINKED = Path(__file__).resolve().parent.parent / "examples" / "linked"
 
@@ -28,7 +28,7 @@ def _cfg():
 
 
 def _copy_project():
-    d = Path(tempfile.mkdtemp(prefix="verto-link-test-"))
+    d = Path(tempfile.mkdtemp(prefix="boostopt-link-test-"))
     for name in ("geo.h", "geo.cpp", "route.cpp", "compile_commands.json"):
         shutil.copy2(LINKED / name, d / name)
     return d
@@ -56,7 +56,7 @@ def test_cross_tu_function_is_verified_and_accepted():
 
 
 def test_missing_dependency_is_an_honest_skip_not_a_reject():
-    """Drop geo.cpp from the db: the call can't be linked. VERTO must skip it
+    """Drop geo.cpp from the db: the call can't be linked. BOOSTOPT must skip it
     honestly (reason 'skipped_unverifiable'), never claim it as a rejection."""
     d = _copy_project()
     try:
