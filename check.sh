@@ -48,7 +48,7 @@ echo
 bold "3) Gate invariant  (accept ⟺ correct ∧ faster)"
 rule
 "$PY" - <<'PY'
-import tests.test_gate as t
+import tests.engine.test_gate as t
 t.test_accepts_correct_and_faster()
 t.test_rejects_unsafe_even_if_faster()
 t.test_rejects_slower_even_if_correct()

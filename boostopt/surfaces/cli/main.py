@@ -158,24 +158,27 @@ def _emit_patches(results, out_dir: str, *, single_file: str | None = None) -> N
           file=sys.stderr)
 
 
+def _prov_emit(msg: str, *, ok: bool = False, warn: bool = False, hint: str = "") -> None:
+    """Printer handed to `provision.ensure_local_model` — the runtime layer decides *what* to
+    say, this decides how it looks. Hints stay uncolored so the ! / ✓ carries the signal."""
+    body = _col(msg, "32") if ok else _col(msg, "33") if warn else msg
+    print(body + (f" — {hint}" if hint else ""))
+
+
 def _init(*, model: str | None = None, pull: bool = False, set_global: bool = False,
           root: str = ".") -> int:
     """`boostopt init` — create the `.boostopt/` performance workspace (like `git init`) and
     prepare the local model. Idempotent; safe to re-run."""
     from ...engine import workspace
     from ...engine.config import Config
-    from ...runtime import llm
+    from ...runtime import provision
 
     cfg = Config.load()
-    mdl = model or cfg.llm_model
+    requested = model or cfg.llm_model
     host = cfg.llm_base_url
 
-    info = workspace.init(root, model=mdl, host=host)
+    info = workspace.init(root, model=requested, host=host)
     added_gi = workspace.gitignore_add(root)
-    wrote_cfg = workspace.write_starter_config(root, model=mdl, host=host)
-    if set_global:
-        gp = workspace.write_global_config(model=mdl, host=host)
-        print("  global     machine-wide defaults at " + str(gp))
 
     verb = "already initialized" if info["existed"] else "initialized"
     print(_col(f"✓ BOOSTOPT workspace {verb}", "32") + f" at {info['workspace']}/")
@@ -183,27 +186,21 @@ def _init(*, model: str | None = None, pull: bool = False, set_global: bool = Fa
     print("  baselines  .boostopt/baselines/     (regression floor — filled as you optimize)")
     if added_gi:
         print("  gitignore  added `.boostopt/`")
-    if wrote_cfg:
-        print("  config     wrote starter .boostopt.toml (committed team config)")
 
-    # Model prep — DETECT + report (never blocks init on a multi-GB download; --pull opts in).
-    st = llm.ollama_status(host, mdl)
-    if st.reachable and st.has_model:
-        print(_col(f"  ✓ local model ready: {mdl}", "32"))
-    elif st.reachable:
-        print(_col(f"  ! model '{mdl}' not pulled", "33") + f" — run: ollama pull {mdl}")
-        if pull:
-            import shutil
-            import subprocess
-            if shutil.which("ollama"):
-                print(f"  pulling {mdl} … (this can take a while)")
-                subprocess.run(["ollama", "pull", mdl])
-            else:
-                print("  (ollama CLI not on PATH — pull it yourself, or use --model frontier)")
-    else:
-        print(_col("  ! Ollama not detected", "33")
-              + " — for --model local see https://ollama.com,"
-              " or use --model frontier with OPENAI_API_KEY set")
+    # Model prep — this is where `boostopt2.5-coder:7b` gets BUILT (pip can't: wheels run no
+    # install-time code, and nobody wants a multi-GB pip install). Detect + report by default;
+    # --pull opts into the base download. Whatever it settles on is what the configs below
+    # record, so a project is never left pointing at a model that isn't there.
+    prov = provision.ensure_local_model(host, requested, pull=pull, emit=_prov_emit)
+    mdl = prov.model
+    if mdl != requested and info["model"].get("model") == requested:
+        workspace.write_model(info["workspace"], model=mdl, host=host)   # keep the pointer honest
+
+    if workspace.write_starter_config(root, model=mdl, host=host):
+        print("  config     wrote starter .boostopt.toml (committed team config)")
+    if set_global:
+        gp = workspace.write_global_config(model=mdl, host=host)
+        print("  global     machine-wide defaults at " + str(gp))
 
     print("\n  ready → try " + _col("boostopt optimize <file>", "1"))
     return 0

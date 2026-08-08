@@ -167,7 +167,7 @@ Grouped by concern. **Status:** ✅ wired (v0 CLI flag) · ⚙️ config-only (s
 | Flag | Meaning | Stage |
 |---|---|---|
 | `--model NAME` | proposer: `local` (Ollama, #10) \| `frontier` (OpenAI-compatible) \| `rules` | ✅ |
-| `--llm-model NAME` | LLM name for `--model local\|frontier` (default `qwen2.5-coder:7b`) | ✅ |
+| `--llm-model NAME` | LLM name for `--model local\|frontier` (default `boostopt2.5-coder:7b` — built by `boostopt init` from `qwen2.5-coder:7b`) | ✅ |
 | `--llm-url URL` | LLM host base URL (default local Ollama `:11434`) | ✅ |
 | `--offline` | rules-only, no LLM (deterministic; good for CI) | ✅ |
 | `--candidates N` | #11: try N LLM proposals per hotspot; gate each, keep the best **verified** one | ✅ |

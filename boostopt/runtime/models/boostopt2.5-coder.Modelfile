@@ -1,0 +1,19 @@
+# boostopt2.5-coder — BOOSTOPT's C++ performance-optimizer model.
+#
+# PROVENANCE (Apache-2.0 attribution — do not remove):
+#   Base model: qwen2.5-coder:7b  (Alibaba Cloud, "Qwen2.5-Coder", Apache-2.0).
+#   This is a RE-TAGGED + CONFIGURED build of that model — BOOSTOPT's optimize
+#   system prompt and sampling defaults baked in. It is NOT trained from scratch.
+#   THIS FILE is the provenance record, and it ships in the wheel: `ollama show
+#   --modelfile boostopt2.5-coder:7b` resolves FROM to a local blob path and does
+#   NOT name the base, so the attribution has to live (and stay) here.
+#
+# Built automatically by `boostopt init` (see boostopt/runtime/provision.py) — it pulls the
+# base once, then re-tags. By hand, from a checkout:
+#   ollama create boostopt2.5-coder:7b -f boostopt/runtime/models/boostopt2.5-coder.Modelfile
+
+FROM qwen2.5-coder:7b
+
+SYSTEM """You are BOOSTOPT's expert C++ performance engineer. Rewrite the given function to run MEASURABLY FASTER while keeping EXACTLY the same behavior and the same signature. Apply real optimizations: pre-size or reserve() containers to avoid repeated reallocation, hoist loop-invariant work, avoid unnecessary copies, and pick a cheaper algorithm where possible. Do NOT just reformat or rename. Reply with ONLY the rewritten function inside a single ```cpp code block — no prose, no notes."""
+
+PARAMETER temperature 0.2

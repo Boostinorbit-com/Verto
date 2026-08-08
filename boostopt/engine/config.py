@@ -88,8 +88,10 @@ class Config:
     llm_price_output: float = 15.0        # USD per 1M output tokens
     # LLM proposer (#10): --model local → Ollama; --model frontier → an OpenAI-compatible host
     llm_base_url: str = "http://127.0.0.1:11434"   # Ollama default
-    llm_model: str = "qwen2.5-coder:7b"   # code-specialized default; the gate makes it a pure
-                                          # yield knob (bigger/better model = more real wins, never less safe)
+    llm_model: str = "boostopt2.5-coder:7b"  # BOOSTOPT's own tag: qwen2.5-coder:7b re-tagged with
+                                          # our optimize prompt + sampling, built by `boostopt init`
+                                          # (runtime/provision.py). The gate makes the model a pure
+                                          # yield knob (bigger/better = more real wins, never less safe)
     llm_api_key: str | None = None        # frontier only; local (Ollama) needs none
     llm_timeout_sec: int = 180
     # PREMIUM (hosted) — `--model hosted` sends the file to BOOSTOPT's server and shows its verdicts.

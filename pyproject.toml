@@ -51,6 +51,25 @@ Issues = "https://github.com/Boostinorbit-com/Boostopt/issues"
 [project.scripts]
 boostopt = "boostopt.surfaces.cli:main"
 
+[tool.pytest.ini_options]
+# Layout: tests/ mirrors boostopt/'s layers (engine, adapters, runtime, surfaces) so a new test
+# has an obvious home. COST is orthogonal to layer — the expensive tests are scattered, and some
+# files hold both a 25s compile-and-benchmark test and a 3ms one — so cost is expressed as
+# MARKERS, not folders. `pytest -m "not toolchain"` is the fast inner loop.
+testpaths = ["tests"]
+markers = [
+    "toolchain: drives the real clang++/g++ toolchain (compile + sanitize + benchmark). Measured at 0.5s or more; the slowest is ~44s.",
+    "bench: timing-sensitive (a benchmark decides pass/fail); can flake under CPU contention.",
+    "live: needs a running Ollama serving the local model; opt in with BOOSTOPT_LIVE_LLM.",
+    "premium: exercises boostopt_server, the proprietary hosted tier (never in the public wheel).",
+]
+
+[tool.setuptools.package-data]
+# The bundled Ollama Modelfiles MUST ship in the wheel — `boostopt init` builds the default
+# local model (`boostopt2.5-coder:7b`) from one. Without this line they're source-only and a
+# pip-installed user silently falls back to the bare base model. See boostopt/runtime/models/.
+"boostopt.runtime.models" = ["*.Modelfile"]
+
 [tool.setuptools.packages.find]
 include = ["boostopt*"]
 # `boostopt_server` is the PROPRIETARY hosted tier — it must NEVER ship in the public wheel.

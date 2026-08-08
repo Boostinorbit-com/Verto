@@ -121,7 +121,7 @@ def _common(sp, *, apply: bool = False) -> None:
     out.add_argument("--budget-per-hotspot", metavar="SPEC", dest="budget_per_hotspot",
                      help="#12: per-hotspot LLM spend sub-limit (same SPEC forms as --budget)")
     out.add_argument("--llm-model", metavar="NAME", dest="llm_model",
-                     help="#10: LLM name for --model local|frontier (default qwen2.5-coder:7b)")
+                     help="#10: LLM name for --model local|frontier (default boostopt2.5-coder:7b)")
     out.add_argument("--llm-url", metavar="URL", dest="llm_base_url",
                      help="#10: LLM host base URL (default http://127.0.0.1:11434 — local Ollama)")
     out.add_argument("--candidates", type=int, metavar="N", dest="candidates",
@@ -222,7 +222,8 @@ def _parser() -> argparse.ArgumentParser:
     ini.add_argument("--model", metavar="NAME",
                      help="local model to record as the project default (default: config llm_model)")
     ini.add_argument("--pull", action="store_true",
-                     help="pull the model now via Ollama if missing (may download GBs)")
+                     help="build the model now via Ollama if missing — pulls its base "
+                          "(may download GBs), then re-tags")
     ini.add_argument("--global", dest="global_", action="store_true",
                      help="also scaffold machine-wide defaults at ~/.config/boostopt/config.toml")
 

@@ -45,8 +45,21 @@ Output (numbers vary by machine — the *acceptance* is what's guaranteed):
 `--offline` uses the deterministic rule proposer (no model, no key). To use a **local LLM** instead — free, private, nothing leaves your machine:
 
 ```bash
-boostopt optimize hot.cpp --model local        # via a local Ollama (e.g. qwen3)
+boostopt init --pull                           # one-time: build the local model (see below)
+boostopt optimize hot.cpp --model local        # via a local Ollama
 ```
+
+### The local model
+
+BOOSTOPT's default local model is **`boostopt2.5-coder:7b`** — [`qwen2.5-coder:7b`](https://ollama.com/library/qwen2.5-coder) (Apache-2.0) re-tagged with our optimize system prompt and sampling baked in. It is *not* a second download: `ollama create` re-labels weights Ollama already has, so only the base model crosses the wire.
+
+`pip install boostopt` **does not** touch Ollama — Python wheels run no install-time code, and a 2-second install shouldn't become a multi-gigabyte one. The model is built by `boostopt init`, which needs [Ollama](https://ollama.com) installed:
+
+- `boostopt init` — if the base is already pulled, it re-tags immediately (seconds, no download).
+- `boostopt init --pull` — pulls the base first (~4 GB), then re-tags.
+- Neither is possible (no Ollama, no base, a failed pull)? It falls back to configuring the plain `qwen2.5-coder:7b`, so the project never points at a model that doesn't exist.
+
+The recipe — and its Apache-2.0 attribution to Qwen — ships in the wheel at `boostopt/runtime/models/boostopt2.5-coder.Modelfile`. Any other model works too: `--llm-model llama3:8b` is pulled by name, unmodified.
 
 ## What you get
 

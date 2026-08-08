@@ -60,6 +60,7 @@ Inspect optimization opportunities without changing anything.
 |---|---|
 | `--diff` | print the full unified diff of each accepted change |
 | `--json` | machine-readable output |
+| `--fail-on WHAT` | #18 CI gate: force the exit code — none (always 0; findings are advisory) \| any (exit 1 if a verified optimization was found). Omit for the default codes (0=found, 1=none, 3=all-rejected) |
 | `--quiet, -q` | only print accepted changes (and their diffs) |
 | `--no-color` | disable colored output |
 | `--no-daemon` | run in-process even if a boostopt daemon is available |
@@ -78,9 +79,13 @@ Inspect optimization opportunities without changing anything.
 | `--sandbox-mem MB` | #13: cgroup memory cap (MB) for isolated runs (default 2048) |
 | `--budget SPEC` | #12: per-run LLM spend cap — tokens ('500k'), money ('$2'), or time ('90s') |
 | `--budget-per-hotspot SPEC` | #12: per-hotspot LLM spend sub-limit (same SPEC forms as --budget) |
-| `--llm-model NAME` | #10: LLM name for --model local\|frontier (default qwen2.5-coder:7b) |
+| `--llm-model NAME` | #10: LLM name for --model local\|frontier (default boostopt2.5-coder:7b) |
 | `--llm-url URL` | #10: LLM host base URL (default http://127.0.0.1:11434 — local Ollama) |
 | `--candidates N` | #11: ask the LLM for N rewrites per hotspot; gate each, keep the best (default 1) |
+| `--refine` | re-run the proposer even if a cached best exists, and keep whichever is faster (the cached 'high score' only ever rises) |
+| `--no-cache` | ignore the best-so-far rewrite cache — recompute from scratch this run |
+| `--boostopt-token TOKEN` | PREMIUM: entitlement token for --model hosted (or set BOOSTOPT_TOKEN) |
+| `--hosted-url URL` | PREMIUM: boostopt_server base URL for --model hosted (default http://127.0.0.1:8724) |
 
 ## `boostopt optimize`
 
@@ -140,6 +145,7 @@ Find, verify, and apply performance improvements.
 |---|---|
 | `--diff` | print the full unified diff of each accepted change |
 | `--json` | machine-readable output |
+| `--fail-on WHAT` | #18 CI gate: force the exit code — none (always 0; findings are advisory) \| any (exit 1 if a verified optimization was found). Omit for the default codes (0=found, 1=none, 3=all-rejected) |
 | `--quiet, -q` | only print accepted changes (and their diffs) |
 | `--no-color` | disable colored output |
 | `--no-daemon` | run in-process even if a boostopt daemon is available |
@@ -158,27 +164,31 @@ Find, verify, and apply performance improvements.
 | `--sandbox-mem MB` | #13: cgroup memory cap (MB) for isolated runs (default 2048) |
 | `--budget SPEC` | #12: per-run LLM spend cap — tokens ('500k'), money ('$2'), or time ('90s') |
 | `--budget-per-hotspot SPEC` | #12: per-hotspot LLM spend sub-limit (same SPEC forms as --budget) |
-| `--llm-model NAME` | #10: LLM name for --model local\|frontier (default qwen2.5-coder:7b) |
+| `--llm-model NAME` | #10: LLM name for --model local\|frontier (default boostopt2.5-coder:7b) |
 | `--llm-url URL` | #10: LLM host base URL (default http://127.0.0.1:11434 — local Ollama) |
 | `--candidates N` | #11: ask the LLM for N rewrites per hotspot; gate each, keep the best (default 1) |
+| `--refine` | re-run the proposer even if a cached best exists, and keep whichever is faster (the cached 'high score' only ever rises) |
+| `--no-cache` | ignore the best-so-far rewrite cache — recompute from scratch this run |
+| `--boostopt-token TOKEN` | PREMIUM: entitlement token for --model hosted (or set BOOSTOPT_TOKEN) |
+| `--hosted-url URL` | PREMIUM: boostopt_server base URL for --model hosted (default http://127.0.0.1:8724) |
 
 ## `boostopt init`
 
 Set up the .boostopt/ performance workspace (like git init) and prepare the local model.
 
-**optional arguments**
+**options**
 
 | flag | description |
 |---|---|
 | `--model NAME` | local model to record as the project default (default: config llm_model) |
-| `--pull` | pull the model now via Ollama if missing (may download GBs) |
+| `--pull` | build the model now via Ollama if missing — pulls its base (may download GBs), then re-tags |
 | `--global` | also scaffold machine-wide defaults at ~/.config/boostopt/config.toml |
 
 ## `boostopt serve`
 
 Run a warm background daemon so repeated runs are fast.
 
-**optional arguments**
+**options**
 
 | flag | description |
 |---|---|

@@ -58,9 +58,15 @@ jobs:
       - name: Toolchain report (non-blocking)
         run: boostopt analyze --verify-setup || true
 
-      # Live-LLM tests are opt-in (BOOSTOPT_LIVE_LLM unset) → no Ollama needed, and no CPU
-      # contention from a loaded model. --reruns absorbs transient benchmark noise on the
-      # shared runner: a real regression fails all 3 attempts; noise clears on a retry.
+      # Fast gate first: everything that doesn't touch clang++ (see the `toolchain` marker in
+      # pyproject). Seconds, no reruns — a failure here is unambiguous, and it fails the build
+      # before the runner spends four minutes compiling.
+      - name: Unit tests (no toolchain)
+        run: pytest -q -m "not toolchain"
+
+      # Then the full suite. Live-LLM tests are opt-in (BOOSTOPT_LIVE_LLM unset) → no Ollama
+      # needed, and no CPU contention from a loaded model. --reruns absorbs transient benchmark
+      # noise on the shared runner: a real regression fails all 3 attempts; noise clears on a retry.
       - name: Run the test suite
         env:
           CCACHE_DIR: ~/.cache/ccache

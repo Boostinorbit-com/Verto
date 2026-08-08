@@ -90,7 +90,7 @@ class FrontierProposer:
         try:
             return llm.chat(system, prompt,
                             base_url=getattr(c, "llm_base_url", "http://127.0.0.1:11434"),
-                            model=getattr(c, "llm_model", "qwen2.5-coder:7b"),
+                            model=getattr(c, "llm_model", "boostopt2.5-coder:7b"),
                             local=(c.model == "local"),
                             api_key=getattr(c, "llm_api_key", None),
                             temperature=temp,
