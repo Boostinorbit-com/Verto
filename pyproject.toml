@@ -50,6 +50,10 @@ Issues = "https://github.com/Boostinorbit-com/Boostopt/issues"
 
 [project.scripts]
 boostopt = "boostopt.surfaces.cli:main"
+# A SECOND command, not a `boostopt` subcommand: it removes the package that provides it, so it
+# has to be able to outlive the CLI's own dispatch. pip runs no code on uninstall — this is the
+# only place the teardown can live. See boostopt/surfaces/uninstall.py.
+boostopt-uninstall = "boostopt.surfaces.uninstall:main"
 
 [tool.pytest.ini_options]
 # Layout: tests/ mirrors boostopt/'s layers (engine, adapters, runtime, surfaces) so a new test

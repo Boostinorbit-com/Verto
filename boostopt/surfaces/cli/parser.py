@@ -224,6 +224,9 @@ def _parser() -> argparse.ArgumentParser:
     ini.add_argument("--pull", action="store_true",
                      help="build the model now via Ollama if missing — pulls its base "
                           "(may download GBs), then re-tags")
+    ini.add_argument("--install-ollama", dest="install_ollama", action="store_true",
+                     help="also install Ollama itself if it's missing — asks first; needs sudo "
+                          "and installs a service that starts at boot")
     ini.add_argument("--global", dest="global_", action="store_true",
                      help="also scaffold machine-wide defaults at ~/.config/boostopt/config.toml")
 

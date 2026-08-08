@@ -15,8 +15,8 @@ from __future__ import annotations
 import os
 import sys
 
-WEBSITE = "https://boostopt.dev"
-DOCS = "https://docs.boostopt.dev"
+WEBSITE = "https://boostopt.com"
+DOCS = "https://docs.boostopt.com"
 
 # --- styling: on only for an interactive terminal that hasn't opted out ---
 _COLOR = (sys.stdout.isatty() and "NO_COLOR" not in os.environ
@@ -53,7 +53,8 @@ USAGE_OPTIMIZE = ("boostopt optimize <path> [options]\n"
 USAGE_ANALYZE = ("boostopt analyze <path> [options]\n"
                  "boostopt analyze -p <db> --all [options]")
 USAGE_SERVE = "boostopt serve [--stop]"
-USAGE_INIT = "boostopt init [--model NAME] [--pull]"
+USAGE_INIT = "boostopt init [--model NAME] [--pull] [--install-ollama] [--global]"
+
 
 # --- one-line command summaries (command list + per-command help + the docs) — keep PLAIN ---
 OPTIMIZE_DESC = "Find, verify, and apply performance improvements."

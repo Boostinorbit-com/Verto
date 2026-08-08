@@ -7,6 +7,7 @@ import contextlib
 import io
 import json
 import os
+import shutil
 import sys
 
 from .config_build import _build_config
@@ -30,7 +31,8 @@ def _run_command(args) -> int:
 
         if args.cmd == "init":
             return _init(model=getattr(args, "model", None), pull=getattr(args, "pull", False),
-                         set_global=getattr(args, "global_", False))
+                         set_global=getattr(args, "global_", False),
+                         install_ollama=getattr(args, "install_ollama", False))
 
         if args.cmd == "report":
             from ...engine.api import Engine
@@ -166,7 +168,7 @@ def _prov_emit(msg: str, *, ok: bool = False, warn: bool = False, hint: str = ""
 
 
 def _init(*, model: str | None = None, pull: bool = False, set_global: bool = False,
-          root: str = ".") -> int:
+          install_ollama: bool = False, root: str = ".") -> int:
     """`boostopt init` — create the `.boostopt/` performance workspace (like `git init`) and
     prepare the local model. Idempotent; safe to re-run."""
     from ...engine import workspace
@@ -191,19 +193,37 @@ def _init(*, model: str | None = None, pull: bool = False, set_global: bool = Fa
     # install-time code, and nobody wants a multi-GB pip install). Detect + report by default;
     # --pull opts into the base download. Whatever it settles on is what the configs below
     # record, so a project is never left pointing at a model that isn't there.
-    prov = provision.ensure_local_model(host, requested, pull=pull, emit=_prov_emit)
+    prov = provision.ensure_local_model(host, requested, pull=pull, install=install_ollama,
+                                        emit=_prov_emit)
     mdl = prov.model
-    if mdl != requested and info["model"].get("model") == requested:
-        workspace.write_model(info["workspace"], model=mdl, host=host)   # keep the pointer honest
 
-    if workspace.write_starter_config(root, model=mdl, host=host):
+    # INTENT vs REALITY — the two must not be conflated:
+    #   .boostopt.toml (committed, shared)  → what the project WANTS: `requested`, always.
+    #   .boostopt/model (git-ignored, local) → what this machine actually HAS: `prov.model`.
+    # Writing a fallback into the committed file would encode one developer's transient local
+    # state into the team's config — and worse, it's self-perpetuating: Config.load reads it back,
+    # so the next `init --pull` would request the fallback and never build the real model again.
+    recorded = info["model"].get("model")
+    if recorded != mdl and recorded in (requested, provision.base_model(requested), None):
+        # The pointer is init's own bookkeeping, so it may follow reality — including upgrading a
+        # stale value from a run that fell back, or from before a rename. A deliberate third-party
+        # choice (`llama3:8b`) is never touched.
+        workspace.write_model(info["workspace"], model=mdl, host=host)
+        if recorded is not None and recorded != mdl:
+            print(f"  model      local pointer updated: {recorded} → {mdl}")
+
+    if workspace.write_starter_config(root, model=requested, host=host):
         print("  config     wrote starter .boostopt.toml (committed team config)")
     if set_global:
-        gp = workspace.write_global_config(model=mdl, host=host)
+        gp = workspace.write_global_config(model=requested, host=host)
         print("  global     machine-wide defaults at " + str(gp))
+    if not prov.ready:
+        print(_col(f"  note       config asks for '{requested}', which isn't built on this machine"
+                   f" — `boostopt init --pull` fixes it", "33"))
 
     print("\n  ready → try " + _col("boostopt optimize <file>", "1"))
     return 0
+
 
 
 def _list_transforms() -> int:

@@ -27,6 +27,10 @@ The proposer can be wrong, slow, or adversarial — a bad suggestion is a *rejec
 Requires **`clang++`** with sanitizers (that's the one real system dependency — `libclang` ships with the pip package).
 
 ```bash
+# One command — installs the tool, Ollama, and the local model:
+curl -fsSL https://boostopt.com/install.sh | sh
+
+# Or just the Python tool (CI, containers, or bring your own model):
 pip install boostopt          # installs the `boostopt` command
 
 # Optimize a file: really compiles, differential-tests, runs ASan/UBSan, and benchmarks.
@@ -57,9 +61,22 @@ BOOSTOPT's default local model is **`boostopt2.5-coder:7b`** — [`qwen2.5-coder
 
 - `boostopt init` — if the base is already pulled, it re-tags immediately (seconds, no download).
 - `boostopt init --pull` — pulls the base first (~4 GB), then re-tags.
-- Neither is possible (no Ollama, no base, a failed pull)? It falls back to configuring the plain `qwen2.5-coder:7b`, so the project never points at a model that doesn't exist.
+- `boostopt init --pull --install-ollama` — installs Ollama too, if it's missing. It shows the exact command, asks first, and needs sudo (Ollama runs as a system service). Opt-in by design: a plain `--pull` never escalates, and a non-interactive shell — CI, a pipe, a hook — is always treated as "no".
+- Neither is possible (no Ollama, no base, a failed pull)? `init` says so and records the plain `qwen2.5-coder:7b` in `.boostopt/model` — the git-ignored note of what this machine actually has. The committed `.boostopt.toml` still asks for `boostopt2.5-coder:7b`, because a shared config records the project's intent, not one laptop's state. Re-run `boostopt init --pull` once Ollama is available and the pointer catches up.
 
 The recipe — and its Apache-2.0 attribution to Qwen — ships in the wheel at `boostopt/runtime/models/boostopt2.5-coder.Modelfile`. Any other model works too: `--llm-model llama3:8b` is pulled by name, unmodified.
+
+### Removing BOOSTOPT
+
+`pip uninstall boostopt` deletes the Python package and nothing else — wheels have no uninstall hook, the same reason pip can't install Ollama. Use the command that ships alongside it:
+
+```bash
+boostopt-uninstall                          # dry run: prints exactly what would go
+boostopt-uninstall --yes                    # models we built, workspace, config, then the package
+boostopt-uninstall --yes --remove-ollama    # also tears down Ollama, if WE installed it
+```
+
+Every install is recorded in `~/.local/state/boostopt/installed.json`, and uninstall removes **only what that receipt claims as ours**. An Ollama that was already on your machine, or a `qwen2.5-coder:7b` you pulled for your own work, is listed as *left alone* and never touched. The Ollama teardown needs sudo, so it prints the commands and asks first — and the model store is left in place, since it's gigabytes a reinstall picks straight back up.
 
 ## What you get
 

@@ -59,17 +59,17 @@ def ollama(monkeypatch):
 
         reachable = True
 
-        def run(self, argv, *a, **k):
+        def run(self, argv):
             self.calls.append(argv)
             verb, tag = argv[1], argv[2]
             if verb in self.fail:
-                return type("R", (), {"returncode": 1})()
+                return False
             self.present.add(tag)
-            return type("R", (), {"returncode": 0})()
+            return True
 
     f = Fake()
     monkeypatch.setattr(llm, "ollama_status", f.status)
-    monkeypatch.setattr(provision.subprocess, "run", f.run)
+    monkeypatch.setattr(provision, "_run", f.run)
     monkeypatch.setattr(provision.shutil, "which",
                         lambda n: "/usr/bin/ollama" if f.on_path else None)
     return f
@@ -153,6 +153,80 @@ def test_a_user_supplied_model_keeps_the_plain_pull_path(ollama):
     assert [c[:3] for c in ollama.calls] == [["ollama", "pull", "llama3:8b"]]
 
 
+# --- installing Ollama itself (opt-in, --install-ollama) --------------------
+#
+# The safety properties matter more than the happy path: this shells out to a vendor script as
+# root, so "when does it NOT run" is the part worth pinning.
+
+@pytest.fixture
+def installer(monkeypatch, ollama):
+    """Ollama absent from PATH; record whether the vendor installer was invoked."""
+    ollama.reachable, ollama.on_path = False, False
+    calls = []
+
+    def fake_shell(cmd):
+        calls.append(cmd)
+        ollama.reachable, ollama.on_path = True, True     # a successful install brings it up
+        return True
+
+    monkeypatch.setattr(provision, "_run_shell", fake_shell)
+    monkeypatch.setattr(provision.time, "sleep", lambda s: None)
+    return calls
+
+
+def _tty(monkeypatch, answer):
+    monkeypatch.setattr(provision.sys, "stdin", type("S", (), {"isatty": staticmethod(lambda: True)}))
+    monkeypatch.setattr("builtins.input", lambda _: answer)
+
+
+def test_plain_pull_never_installs_ollama(installer, monkeypatch):
+    """The whole point of the flag: a developer typing the ordinary command is never dropped
+    into a sudo prompt."""
+    _tty(monkeypatch, "y")                       # even with a user who WOULD say yes
+    got = provision.ensure_local_model(HOST, BRANDED, pull=True, emit=_quiet)
+    assert installer == []
+    assert got.model == BASE and got.ready is False
+
+
+def test_declining_the_prompt_installs_nothing(installer, monkeypatch):
+    _tty(monkeypatch, "n")
+    got = provision.ensure_local_model(HOST, BRANDED, pull=True, install=True, emit=_quiet)
+    assert installer == []
+    assert got.model == BASE
+
+
+def test_a_non_tty_is_never_taken_as_consent(installer, monkeypatch):
+    """CI, a pipe, a git hook — nothing that can't be asked may be assumed to have said yes."""
+    monkeypatch.setattr(provision.sys, "stdin",
+                        type("S", (), {"isatty": staticmethod(lambda: False)}))
+    got = provision.ensure_local_model(HOST, BRANDED, pull=True, install=True, emit=_quiet)
+    assert installer == []
+    assert got.model == BASE
+
+
+def test_confirmed_install_then_builds_the_model(installer, monkeypatch):
+    _tty(monkeypatch, "y")
+    got = provision.ensure_local_model(HOST, BRANDED, pull=True, install=True, emit=_quiet)
+    assert installer and "ollama.com/install.sh" in installer[0]
+    assert (got.model, got.ready, got.built) == (BRANDED, True, True)
+
+
+def test_a_daemon_that_is_down_is_not_a_missing_install(ollama, monkeypatch):
+    """Ollama on PATH but not answering → tell them to start it, never re-install it."""
+    ollama.reachable, ollama.on_path = False, True
+    _tty(monkeypatch, "y")
+    got = provision.ensure_local_model(HOST, BRANDED, pull=True, install=True, emit=_quiet)
+    assert got.model == BASE and ollama.calls == []
+
+
+def test_install_command_is_never_run_on_an_unsupported_platform(monkeypatch, ollama):
+    monkeypatch.setattr(provision.sys, "platform", "win32")
+    cmd, runnable = provision.install_command()
+    assert not runnable and "ollama.com" in cmd
+    _tty(monkeypatch, "y")
+    assert provision.install_ollama(HOST, emit=_quiet) is False
+
+
 # --- end to end through `boostopt init` -------------------------------------
 
 def test_init_builds_the_model_and_records_it(tmp_path, monkeypatch, ollama):
@@ -165,16 +239,36 @@ def test_init_builds_the_model_and_records_it(tmp_path, monkeypatch, ollama):
     assert BRANDED in ollama.present
 
 
-def test_init_records_the_base_when_our_tag_cannot_be_built(tmp_path, monkeypatch, ollama):
-    """The fallback must reach the FILES, not just the return value — a config naming a model
-    that was never built is the exact failure this whole path exists to prevent."""
+def test_a_fallback_never_leaks_into_the_committed_config(tmp_path, monkeypatch, ollama):
+    """Intent vs reality. `.boostopt.toml` is committed and shared, so it records what the project
+    WANTS regardless of this machine's state; only the git-ignored pointer records the fallback.
+
+    Putting the fallback in the .toml would be self-perpetuating — Config.load reads it back, so
+    the next `init --pull` would request the fallback and never build the real model again."""
     from boostopt.engine import workspace
     from boostopt.surfaces.cli.main import _init
     monkeypatch.chdir(tmp_path)
     ollama.present = set()                       # no base, and no --pull
     assert _init() == 0
-    assert f'llm_model    = "{BASE}"' in (tmp_path / ".boostopt.toml").read_text(encoding="utf-8")
+    assert f'llm_model    = "{BRANDED}"' in (tmp_path / ".boostopt.toml").read_text(encoding="utf-8")
     assert workspace.read_model(tmp_path / ".boostopt")["model"] == BASE
+
+
+def test_init_upgrades_a_stale_pointer_left_by_an_earlier_fallback(tmp_path, monkeypatch, ollama):
+    """First run has no base and no --pull → records the base. A later run builds our tag, and
+    the pointer must FOLLOW — `.boostopt/model` describes what init prepared, and a workspace
+    that predates a rename (or a failed run) otherwise reports the wrong model forever."""
+    from boostopt.engine import workspace
+    from boostopt.surfaces.cli.main import _init
+    monkeypatch.chdir(tmp_path)
+
+    ollama.present = set()
+    _init()                                                  # falls back
+    assert workspace.read_model(tmp_path / ".boostopt")["model"] == BASE
+
+    ollama.present = {BASE}
+    _init()                                                  # now buildable
+    assert workspace.read_model(tmp_path / ".boostopt")["model"] == BRANDED
 
 
 def test_init_does_not_clobber_an_existing_model_pointer(tmp_path, monkeypatch, ollama):

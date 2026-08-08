@@ -1,1 +1,0 @@
-"""BOOSTOPT package."""

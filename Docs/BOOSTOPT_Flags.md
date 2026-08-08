@@ -182,6 +182,7 @@ Set up the .boostopt/ performance workspace (like git init) and prepare the loca
 |---|---|
 | `--model NAME` | local model to record as the project default (default: config llm_model) |
 | `--pull` | build the model now via Ollama if missing — pulls its base (may download GBs), then re-tags |
+| `--install-ollama` | also install Ollama itself if it's missing — asks first; needs sudo and installs a service that starts at boot |
 | `--global` | also scaffold machine-wide defaults at ~/.config/boostopt/config.toml |
 
 ## `boostopt serve`
