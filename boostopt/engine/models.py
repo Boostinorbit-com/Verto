@@ -124,6 +124,7 @@ class Verdict:
     via: str = "harness"               # correctness basis: "harness" (sanitizers) | "tests" (project suite, 2A)
     metamorphic: str = ""              # property confirmed by the metamorphic rung, if any (2D)
     cached: bool = False               # True iff reused from the best-so-far rewrite cache (not re-gated)
+    baseline: str = ""                 # regression note vs the persisted floor (.boostopt/baselines/), if any
 
 
 @dataclass

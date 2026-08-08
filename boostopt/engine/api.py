@@ -11,6 +11,7 @@ from pathlib import Path
 from . import registry
 from .apply_txn import ApplyError, ApplyTransaction
 from .config import Config
+from .baselines import Baselines
 from .ledger import JsonlLedger
 from .models import Evidence, Target, Verdict
 from .orchestrator import Orchestrator
@@ -26,6 +27,8 @@ class Engine:
         self.ledger = JsonlLedger(workspace.ledger_path())
         # Best-so-far rewrite cache (workspace-scoped; None → recompute each run, no persistence).
         self.cache = RewriteCache(workspace.cache_path())
+        # Persisted regression floor — the only surface that compares ACROSS runs.
+        self.baselines = Baselines(workspace.baselines_path())
 
     def analyze(self, file: str, *, build: dict | None = None) -> list[Verdict]:
         """Non-destructive: run the loop, write nothing, don't pollute the Ledger."""
@@ -78,7 +81,8 @@ class Engine:
                                 build={"parse_flags": tu.flags, "compile_flags": tu.flags,
                                        "opt_flags": tu.opt_flags,
                                        "link_inputs": [archive] if archive else []})
-                orch = Orchestrator(adapters, ledger, config=self.config, cache=self.cache)
+                orch = Orchestrator(adapters, ledger, config=self.config, cache=self.cache,
+                                     baselines=self.baselines)
                 verdicts = orch.run(target, apply=apply, backup=backup, force=force, txn=txn)
                 return (tu.file, verdicts, None, orch.last_skips)
             except ApplyError:
@@ -131,7 +135,8 @@ class Engine:
         ledger = self.ledger if persist else JsonlLedger(os.devnull)
         txn = ApplyTransaction(backup=backup) if apply else None    # item #9
         try:
-            verdicts = Orchestrator(adapters, ledger, config=self.config, cache=self.cache).run(
+            verdicts = Orchestrator(adapters, ledger, config=self.config, cache=self.cache,
+                                     baselines=self.baselines).run(
                 target, apply=apply, backup=backup, force=force, txn=txn)
         except BaseException:
             if txn is not None:

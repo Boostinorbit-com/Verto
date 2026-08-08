@@ -101,6 +101,10 @@ def _render_human(verdicts: list, *, quiet: bool = False, show_diff: bool = Fals
             d = v.performance.vector.get("p50_delta_pct")
             print(f"    performance: p50 {v.performance.vector.get('p50')} ms "
                   f"({_speed(d)})  pareto={v.performance.pareto_pass}")
+        # Amber, not red: the code got slower than a number we already proved here.
+        # It's a finding about the codebase, not a failure of this run's verdict.
+        if getattr(v, "baseline", ""):
+            print("    " + _col(f"⚠ {v.baseline}", "33"))
         if v.accepted:
             if v.applied:
                 print(f"    {_col('✓ applied to source', '32')}")

@@ -32,12 +32,13 @@ class AdapterSet:
 
 class Orchestrator:
     def __init__(self, adapters: AdapterSet, ledger: JsonlLedger, max_rounds: int = 8,
-                 config=None, cache=None) -> None:
+                 config=None, cache=None, baselines=None) -> None:
         self._a = adapters
         self._ledger = ledger
         self._max_rounds = max_rounds
         self._config = config
         self._cache = cache                  # best-so-far rewrite cache (may be None)
+        self._baselines = baselines          # persisted regression floor (may be None)
         self.last_skips: list = []           # sites seen but not optimized (item #4)
 
     def _n_candidates(self) -> int:
@@ -200,6 +201,11 @@ class Orchestrator:
                 v, var = best                 # the accepted winner (largest speedup)
             else:
                 v, var = attempts[-1], None   # none accepted → report the last attempt
+            # Regression floor: the gate measured THIS run's original as `p50_before`.
+            # If a win was previously written here and the code is now slower than the
+            # number we proved, say so — no other surface compares across runs.
+            if self._baselines is not None and v.performance:
+                v.baseline = self._baselines.check(ev.target, v.performance.vector)
             verdicts.append(v)
 
             if best is not None:
@@ -217,6 +223,11 @@ class Orchestrator:
                     txn.write(current.file, var.source_after, expected_before=ev.source)
                     v.applied = True
                     current = var.target      # 8. re-profile the mutated source
+                # Record the floor AFTER the write, so `applied` is truthful — an
+                # un-applied accept sets the number but must not arm the check, or
+                # every dry run would report its own un-taken win as a regression.
+                if self._baselines is not None:
+                    self._baselines.record(ev.target, v, applied=v.applied)
             else:
                 no_accept += 1
                 # optimize: stop grinding a barren file after two dud hotspots in a row.

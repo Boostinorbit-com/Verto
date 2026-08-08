@@ -16,7 +16,8 @@ import json
 from pathlib import Path
 
 DIRNAME = ".boostopt"
-_SUBDIRS = ("baselines", "cache")
+_BASELINES = "baselines"
+_SUBDIRS = (_BASELINES, "cache")
 _LEDGER = "ledger.jsonl"
 _CACHE = "cache/rewrites.jsonl"
 _MODEL = "model"
@@ -50,6 +51,13 @@ def cache_path(start: str | Path | None = None) -> str | None:
     there's no workspace (no init → no persistent cache; the run just recomputes each time)."""
     ws = find(start)
     return str(ws / _CACHE) if ws else None
+
+
+def baselines_path(start: str | Path | None = None) -> str | None:
+    """Where the regression floors live — `.boostopt/baselines/`, or None without a workspace
+    (no init → no floor to regress against, same as the cache)."""
+    ws = find(start)
+    return str(ws / _BASELINES) if ws else None
 
 
 def read_model(ws: str | Path) -> dict:
