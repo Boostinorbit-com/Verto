@@ -7,6 +7,7 @@
 """
 import pytest
 
+import re
 import shutil
 import subprocess
 import tempfile
@@ -25,8 +26,23 @@ def _cfg():
     return c
 
 
+_MEASURED = re.compile(r"\d+(?:\.\d+)?%")   # a PERCENTAGE only — `p99` must stay `p99`
+
+
+def _reason(r: str | None) -> str:
+    """The reason with MEASURED numbers masked out.
+
+    What this test pins is that parallel and sequential reach the same VERDICTS. Reason strings
+    embed live benchmark figures — the same rejection legitimately reads "p99 regressed 0.9%" in
+    one run and "1.0%" in the other, because the two runs time the binary independently and the
+    parallel one does so under four-way load. Comparing those digits asserts that two benchmarks
+    agree to the decimal, which is not a property the engine has or should claim; it made this
+    test fail roughly one CI run in three while the decisions matched perfectly."""
+    return _MEASURED.sub("N", r or "")
+
+
 def _summary(results):
-    return {Path(f).name: (sorted((v.accepted, v.reason) for v in vs), err, len(sk))
+    return {Path(f).name: (sorted((v.accepted, _reason(v.reason)) for v in vs), err, len(sk))
             for f, vs, err, sk in results}
 
 
