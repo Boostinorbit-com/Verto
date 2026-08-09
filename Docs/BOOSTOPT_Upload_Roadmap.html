@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOOSTOPT — PyPI upload roadmap</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+      --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+      --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+    --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+    --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .layout{display:grid; grid-template-columns:270px 1fr; max-width:1240px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);}
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:19px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-radius:7px; border-left:2px solid transparent;}
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:32px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:74ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{font-size:23px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  h3{font-size:16px; margin:24px 0 8px; color:var(--accent);}
+  p{max-width:80ch;} li{max-width:78ch;}
+  a{color:var(--accent);}
+  .picture{background:var(--accent-soft); border-radius:8px; padding:12px 16px; margin:12px 0; max-width:80ch;}
+  .picture b:first-child{color:var(--accent);}
+  .plainly{color:var(--muted); font-style:italic;}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.86em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.5;}
+  pre code{background:none; padding:0;}
+  pre.diagram{background:var(--diagram-bg); color:var(--diagram-fg); border:none;}
+  pre.diagram code{color:var(--diagram-fg);}
+  table{border-collapse:collapse; width:100%; margin:12px 0; font-size:13.5px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0 0 6px;} blockquote p:last-child{margin:0;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  .warnbox{border-left:4px solid var(--warn);} .okbox{border-left:4px solid var(--ok);}
+  dl.gloss{margin:8px 0;} dl.gloss dt{font-weight:700; color:var(--accent); margin-top:12px;} dl.gloss dd{margin:2px 0 0; max-width:80ch;}
+  details{border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:14px 0; background:var(--card);}
+  details summary{cursor:pointer; font-weight:600;}
+  .ok{color:var(--ok); font-weight:700;} .warn{color:var(--warn); font-weight:700;} .bad{color:var(--bad); font-weight:700;} .muted{color:var(--muted);}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+    nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+    main{padding:28px 20px 80px;}
+    header.doc h1{font-size:25px;}
+  }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">BOOST<span>OPT</span> · Upload Roadmap</div>
+    <div class="tagline">Where we are, what is decided, what is left — and the doors that only open once.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li class="num"><a href="#s1">The short answer</a></li>
+      <li class="num"><a href="#s2">Decisions already made</a></li>
+      <li class="num"><a href="#s3">Already built</a></li>
+      <li class="num"><a href="#s4">The three blockers</a></li>
+      <li class="num"><a href="#s5">The path, in order</a></li>
+      <li class="num"><a href="#s6">One-way doors</a></li>
+      <li class="num"><a href="#s7">Command index</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <header class="doc">
+      <h1>PyPI upload roadmap</h1>
+      <p class="lede"><b>Status 2026-08-09: not ready to upload.</b> Three things block it, only
+      one of which is engineering. This is the whole picture — where we are, what is decided,
+      what is left, in what order, and who does each part.</p>
+      <p style="color:var(--muted); font-size:14px;">Companions:
+      <a href="BOOSTOPT_Publishing.html">Publishing</a> (exact commands),
+      <a href="BOOSTOPT_Packaging.html">Packaging</a> (how the closed-source wheel is built),
+      <code>RELEASING.md</code> (policy and tagging).</p>
+    </header>
+
+    <section id="s1">
+      <h2><span class="n">1</span>The short answer</h2>
+      <table>
+        <tr><td><b>Can we upload today?</b></td><td><span class="bad">No</span></td></tr>
+        <tr><td><b>What is blocking?</b></td><td>Legal review · website URLs · compiled wheels not yet built on CI</td></tr>
+        <tr><td><b>What can we do today?</b></td><td><span class="ok">A TestPyPI rehearsal</span> — safe, claims nothing</td></tr>
+        <tr><td><b>How far off?</b></td><td>Days, not weeks. None of the remaining work is hard.</td></tr>
+      </table>
+      <div class="callout warnbox"><p>The single most important fact: <b>uploading the wheel that
+      <code>python -m build</code> produces would publish your source code.</b> It contains ~80
+      readable <code>.py</code> files including <code>engine/gate.py</code>. The closed-source
+      artifact exists and is proven, but has not been produced on CI yet.</p></div>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>Decisions already made</h2>
+      <p class="muted">No further discussion needed on any of these.</p>
+      <table>
+        <tr><th>Decision</th><th>Settled as</th><th>Where it lives</th></tr>
+        <tr><td>Licence model</td><td>Proprietary commercial EULA</td><td><code>LICENSE</code></td></tr>
+        <tr><td>Governing law</td><td>India</td><td>EULA §11.1</td></tr>
+        <tr><td>Free tier scope</td><td>Unlimited — no seat, machine or CI-runner cap</td><td>EULA §2</td></tr>
+        <tr><td>Premium gating</td><td>Subscription key, hosted service only</td><td>EULA §3</td></tr>
+        <tr><td>Package name</td><td><code>boostopt</code> — verified free 2026-08-09</td><td><code>pyproject.toml</code></td></tr>
+        <tr><td>Domain</td><td><code>boostopt.com</code> only — no subdomains</td><td>all metadata</td></tr>
+        <tr><td>Source visibility</td><td><b>Closed</b> — never published anywhere</td><td>drives §4</td></tr>
+        <tr><td>Distribution</td><td>pip now, apt later</td><td><code>install.sh</code></td></tr>
+      </table>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>Already built and verified</h2>
+      <p class="muted">Nothing in this list is outstanding work.</p>
+      <ul>
+        <li><b>Package metadata</b> — <code>LicenseRef-BoostOpt-EULA</code>, <code>LICENSE</code> +
+            <code>NOTICE</code> ship in the wheel, all URLs on <code>boostopt.com</code>,
+            <code>twine check</code> passes.</li>
+        <li><b><code>boostopt demo</code></b> — the quickstart works from a bare
+            <code>pip install</code>, because its sample is a module constant, not package data.</li>
+        <li><b>Compiled build</b> — Nuitka produces a single <code>.so</code>; a wheel containing it
+            installs and runs with <span class="ok">zero <code>.py</code> files</span>
+            (<code>boostopt demo</code> → ACCEPT, −67%).</li>
+        <li><b><code>tools/build_native_wheel.py</code></b> — builds and verifies that wheel; exits
+            non-zero if any <code>.py</code> survives or <code>boostopt_server</code> leaks.</li>
+        <li><b><code>release-wheels.yml</code></b> — 9-wheel matrix, manual trigger, Trusted Publishing.</li>
+        <li><b><code>boostopt-uninstall</code></b> — full teardown, removing only what the provenance
+            receipt claims as ours.</li>
+        <li><b>Test suite</b> — 236 passed, 3 skipped; open-core boundary enforced by tests.</li>
+      </ul>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>The three blockers</h2>
+
+      <h3>4.1 Legal review — owner: you</h3>
+      <p>The EULA is complete but <b>unreviewed</b>. Two clauses need a solicitor before publication:</p>
+      <ul>
+        <li><b>§8 (no warranty)</b> — disclaims warranty on the verification itself. BOOSTOPT's
+            entire claim is “proven correct and faster”, so a customer's lawyer reads this clause
+            against your marketing first. It must survive that reading.</li>
+        <li><b>§9 (liability cap)</b> — the greater of twelve months' fees or USD 100. Indian
+            consumer-protection law may limit what is enforceable.</li>
+      </ul>
+      <div class="callout warnbox"><p>Publishing binds you to whatever the file says. This is the
+      only blocker with no technical workaround.</p></div>
+
+      <h3>4.2 Website URLs must resolve — owner: you</h3>
+      <table>
+        <tr><th>Path</th><th>Referenced by</th><th>Priority</th></tr>
+        <tr><td><code>/privacy</code></td><td><b>EULA §7</b></td><td><span class="bad">highest</span> — cited in a legal document</td></tr>
+        <tr><td><code>/install.sh</code></td><td>README quickstart — must serve the real script</td><td>high</td></tr>
+        <tr><td><code>/docs</code></td><td>PyPI sidebar, CLI <code>--help</code>, README</td><td>high</td></tr>
+        <tr><td><code>/support</code>, <code>/changelog</code></td><td>PyPI sidebar</td><td>medium</td></tr>
+        <tr><td><code>/license</code></td><td>README</td><td>medium</td></tr>
+        <tr><td><code>/docs/flags</code>, <code>/docs/overview</code>, <code>/docs/architecture</code>, <code>/docs/surfaces</code></td><td>README table</td><td>low</td></tr>
+      </table>
+      <p>A stub page per path is enough to start. Publishing with a dead <code>/privacy</code> is
+      the one to avoid.</p>
+
+      <h3>4.3 Compiled wheels not yet built on CI — owner: me, runnable now</h3>
+      <p>The pipeline works locally, but its output is tagged <code>linux_x86_64</code>,
+      <b>which PyPI rejects</b>. Converting to <code>manylinux_2_28_x86_64</code> needs
+      <code>auditwheel repair</code>, which requires <code>patchelf</code> and has never actually
+      run — it is wired into the workflow but untested. Trigger <code>release-wheels</code>
+      manually to exercise it.</p>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>The path, in order</h2>
+<pre class="diagram"><code>Phase 1  TestPyPI rehearsal              &lt;- can start TODAY, safe, claims nothing
+Phase 2  Legal review          (you)     -+
+Phase 3  Website URLs live     (you)     -+- these three run in parallel
+Phase 4  Compiled wheels on CI (me)      -+
+Phase 5  Publish to PyPI                 &lt;- one-way door
+Phase 6  Tag, announce, then apt</code></pre>
+      <h3>Phase 1 — TestPyPI rehearsal (today)</h3>
+      <p>Validates credentials, metadata rendering, and a clean-venv install end to end. TestPyPI
+      is throwaway and reserves nothing on real PyPI. Commands:
+      <a href="BOOSTOPT_Publishing.html">Publishing §3–4</a>. Prerequisite: register on
+      <b>both</b> pypi.org and test.pypi.org (separate accounts), enable 2FA on both, save the
+      recovery codes.</p>
+      <h3>Phase 4 — Compiled wheels</h3>
+      <p>Trigger <code>release-wheels</code> with <code>publish: false</code>. Confirm every job
+      produces a wheel with <code>.py: 0</code> and a <code>manylinux</code> tag. Decide here
+      whether macOS and Windows are launch platforms — <code>README.md</code> says v0 is
+      <b>Linux-only</b>, so 3 wheels may serve where the matrix currently builds 9.</p>
+      <h3>Phase 5 — Publish</h3>
+      <div class="callout warnbox"><p>Upload claims the name <b>permanently</b>. Do not run this
+      until Phases 2–4 are complete.</p></div>
+      <h3>Phase 6 — After</h3>
+      <p>Tag <code>v0.1.0</code>, GitHub release, update <code>boostopt.com</code>. Then apt: a
+      <code>debian/</code> dir, <code>.deb</code> builds and a GPG-signed repository — a separate
+      pipeline, likely using Nuitka's <code>--standalone --onefile</code> mode so the package
+      carries no Python dependency.</p>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">6</span>One-way doors</h2>
+      <ol>
+        <li><b>Publishing the name.</b> Permanent. Yanking a version does not release the name.</li>
+        <li><b>Publishing source.</b> If a wheel containing <code>.py</code> files is ever uploaded,
+            that source is downloaded, cached and mirrored within minutes. Deleting the release does
+            not recall it.</li>
+        <li><b>The licence you publish under.</b> Terms can change for future versions; the version
+            already published stays under the terms it shipped with.</li>
+        <li><b>Installing Ollama via <code>--install-ollama</code>.</b> Not a PyPI matter, but the
+            same shape: it puts a system service on a user's machine.
+            <code>boostopt-uninstall --remove-ollama</code> reverses it.</li>
+      </ol>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">7</span>Command index</h2>
+      <table>
+        <tr><th>Task</th><th>Command</th></tr>
+        <tr><td>Full test suite</td><td><code>pytest -q</code></td></tr>
+        <tr><td>Fast loop</td><td><code>pytest -q -m "not toolchain"</code></td></tr>
+        <tr><td>Source wheel <span class="muted">(rehearsal only)</span></td><td><code>python -m build --wheel -o ../tmp/dist</code></td></tr>
+        <tr><td>Compiled wheel</td><td><code>python tools/build_native_wheel.py -o ../tmp/dist-native</code></td></tr>
+        <tr><td>Validate metadata</td><td><code>twine check ../tmp/dist/*</code></td></tr>
+        <tr><td>TestPyPI</td><td><code>twine upload --repository testpypi ../tmp/dist/*</code></td></tr>
+        <tr><td>Real PyPI</td><td><code>twine upload ../tmp/dist/*</code></td></tr>
+      </table>
+      <p>After any wheel build: <code>git checkout -- build/ &amp;&amp; git clean -fdq build/</code>
+      — <code>build/</code> is tracked and stale, and building rewrites it with unrelated drift.</p>
+      <div class="foot">BOOSTOPT · Upload roadmap · 2026-08-09 ·
+      <a href="BOOSTOPT_Publishing.html">Publishing</a> ·
+      <a href="BOOSTOPT_Packaging.html">Packaging</a></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('boostopt-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('boostopt-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        if(map[en.target.id]) map[en.target.id].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

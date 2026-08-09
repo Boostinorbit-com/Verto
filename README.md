@@ -4,8 +4,7 @@
 
 > **BOOSTOPT proves your code on *your* machine — the source never leaves your box.**
 
-[![CI](https://github.com/Boostinorbit-com/Boostopt/actions/workflows/ci.yml/badge.svg)](https://github.com/Boostinorbit-com/Boostopt/actions/workflows/ci.yml)
-&nbsp;License: Proprietary (all rights reserved) &nbsp;·&nbsp; Status: beta (v0, C++)
+[**boostopt.com**](https://boostopt.com) &nbsp;·&nbsp; [Docs](https://boostopt.com/docs) &nbsp;·&nbsp; License: Commercial EULA — free tier, unlimited local + CI use &nbsp;·&nbsp; Status: beta (v0, C++)
 
 ---
 
@@ -33,8 +32,8 @@ curl -fsSL https://boostopt.com/install.sh | sh
 # Or just the Python tool (CI, containers, or bring your own model):
 pip install boostopt          # installs the `boostopt` command
 
-# Optimize a file: really compiles, differential-tests, runs ASan/UBSan, and benchmarks.
-boostopt optimize examples/packet_stats.cpp --offline
+# Prove it on a bundled sample: really compiles, differential-tests, runs ASan/UBSan, benchmarks.
+boostopt demo
 ```
 
 Output (numbers vary by machine — the *acceptance* is what's guaranteed):
@@ -91,14 +90,16 @@ BOOSTOPT's built-in **wedge test** — 14 pre-registered cases — shows it **ac
 ## Commands
 
 ```bash
+boostopt demo                       # prove it on a bundled sample — no setup, no model
 boostopt init                       # set up a .boostopt/ workspace (like `git init`) + prep the local model
 boostopt analyze  foo.cpp           # non-destructive: what would you optimize, and why
 boostopt optimize foo.cpp --apply   # verify, then write the accepted change (transactional, sound-only)
 boostopt optimize -p build/ --all   # whole codebase (a compile_commands.json)
 boostopt report                     # the ledger — every accept/reject, its rung, its measured Δ
+boostopt-uninstall                  # remove the models/workspace/config we created, then the package
 ```
 
-Key flags: `--offline` (rules) · `--model local|frontier` (LLM) · `--min-rung N` · `--metamorphic` · `--diff` · `--json` · `--jobs N`. Full reference: [`Docs/BOOSTOPT_Flags.md`](Docs/BOOSTOPT_Flags.md).
+Key flags: `--offline` (rules) · `--model local|frontier` (LLM) · `--min-rung N` · `--metamorphic` · `--diff` · `--json` · `--jobs N`. Full reference: <https://boostopt.com/docs/flags>.
 
 ## Install
 
@@ -107,17 +108,14 @@ Key flags: `--offline` (rules) · `--model local|frontier` (LLM) · `--min-rung 
 pip install boostopt
 ```
 
-**From source** (Python 3.11+):
+**One command** (installs the tool, Ollama, and the local model):
 ```bash
-git clone https://github.com/Boostinorbit-com/Boostopt && cd Boostopt
-pip install -e '.[dev]'
-boostopt analyze --verify-setup     # checks clang, sanitizers, ccache, linker
+curl -fsSL https://boostopt.com/install.sh | sh
 ```
 
-**Docker** (zero setup — bundles clang + sanitizers):
+**Check your toolchain** — `clang++` with sanitizers is the one hard requirement:
 ```bash
-docker build -t boostopt .
-docker run --rm -v "$PWD:/src" -w /src boostopt optimize examples/packet_stats.cpp --offline
+boostopt analyze --verify-setup     # checks clang, sanitizers, ccache, linker
 ```
 
 Optional extras: a **local LLM** via [Ollama](https://ollama.com) (`--model local`); **bubblewrap** for network/filesystem sandboxing of untrusted binaries; **ccache** for faster repeat runs. `boostopt analyze --verify-setup` reports what's present.
@@ -150,13 +148,15 @@ Untrusted binaries run in a **bubblewrap sandbox** (no network, read-only filesy
 
 | Doc | For |
 |---|---|
-| [BOOSTOPT.md](Docs/BOOSTOPT.md) | the idea, the invariant, prior art — *why it's sound* |
-| [BOOSTOPT_Architecture.md](Docs/BOOSTOPT_Architecture.md) | the engine + the C++ instance — *how it's built* |
-| [BOOSTOPT_Surfaces.md](Docs/BOOSTOPT_Surfaces.md) | CLI / CI / IDE / config — *what you run* |
-| [BOOSTOPT_Roadmap.md](Docs/BOOSTOPT_Roadmap.md) | what's done, what's next |
-
-Every `.md` has a styled `.html` twin for reading in a browser.
+| [Overview](https://boostopt.com/docs/overview) | the idea, the invariant, prior art — *why it's sound* |
+| [Architecture](https://boostopt.com/docs/architecture) | the engine + the C++ instance — *how it's built* |
+| [Surfaces](https://boostopt.com/docs/surfaces) | CLI / CI / IDE / config — *what you run* |
+| [Flags](https://boostopt.com/docs/flags) | the complete, generated flag reference |
 
 ## License
 
-**Proprietary — all rights reserved** (see [LICENSE](LICENSE)). Pre-release software under active development; not licensed for use, copying, or distribution. The licensing terms for any future public release are reserved and will be decided at that time.
+**Commercial licence** — see the `LICENSE` file included in the distribution, or <https://boostopt.com/license>.
+
+The **free tier** is licensed for use on any number of machines you own or control, including internal commercial use and CI. What it does *not* grant is redistribution, modification, or reverse engineering. **Premium features** (the hosted optimization service) require a subscription key.
+
+BOOSTOPT is proprietary: the source is not published, and the package you install is licensed, not sold.

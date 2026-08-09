@@ -20,13 +20,14 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 
 from . import llm, receipt
-
-_PKG = "boostopt.runtime.models"
+from .models import MODELFILES
 _FROM = re.compile(r"^\s*FROM\s+(\S+)", re.IGNORECASE | re.MULTILINE)
 
 
@@ -36,42 +37,44 @@ def modelfile_name(tag: str) -> str:
     return tag.split(":", 1)[0] + ".Modelfile"
 
 
+def modelfile_text(tag: str) -> str | None:
+    """`tag`'s recipe, or None when it isn't one of ours (a user-supplied model we leave alone).
+
+    Sourced from a module constant, NOT package data: a compiled (Nuitka `--module`) build has
+    no filesystem package for `importlib.resources` to read, and the resource lookup silently
+    returned "not found" — which downgraded every install to the bare base model."""
+    return MODELFILES.get(tag.split(":", 1)[0])
+
+
 def has_bundled_modelfile(tag: str) -> bool:
-    """Is `tag` one of OURS (a model we know how to build), or a user-supplied one we should
-    leave alone? Decides re-tag path vs. plain-pull path."""
-    from importlib.resources import files
-    try:
-        return (files(_PKG) / modelfile_name(tag)).is_file()
-    except (ModuleNotFoundError, OSError):
-        return False
+    """Is `tag` one of OURS? Decides the re-tag path vs. the plain-pull path."""
+    return modelfile_text(tag) is not None
 
 
 @contextmanager
 def bundled_modelfile(tag: str):
-    """Yield a real filesystem path to `tag`'s bundled Modelfile (extracted to a temp file if
-    the package is zipped), or None when we don't ship one. `ollama create -f` needs a path."""
-    from importlib.resources import as_file, files
-    try:
-        res = files(_PKG) / modelfile_name(tag)
-        if not res.is_file():
-            yield None
-            return
-    except (ModuleNotFoundError, OSError):
+    """Yield a real filesystem path to `tag`'s recipe, or None when we don't ship one.
+    `ollama create -f` takes a path, so the embedded text is written to a temp file and removed
+    afterwards — the recipe never has to exist on disk as a shipped artifact."""
+    text = modelfile_text(tag)
+    if text is None:
         yield None
         return
-    with as_file(res) as p:
+    d = tempfile.mkdtemp(prefix="boostopt-modelfile-")
+    try:
+        p = Path(d) / modelfile_name(tag)
+        p.write_text(text, encoding="utf-8")
         yield p
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def base_model(tag: str) -> str | None:
-    """The upstream model a bundled recipe builds on (its `FROM` line), or None."""
-    with bundled_modelfile(tag) as p:
-        if p is None:
-            return None
-        try:
-            m = _FROM.search(p.read_text(encoding="utf-8"))
-        except OSError:
-            return None
+    """The upstream model a recipe builds on (its `FROM` line), or None."""
+    text = modelfile_text(tag)
+    if text is None:
+        return None
+    m = _FROM.search(text)
     return m.group(1) if m else None
 
 

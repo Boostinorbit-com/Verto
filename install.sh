@@ -115,4 +115,4 @@ fi
 step "Done"
 say "  try:     boostopt optimize <file.cpp> --offline"
 say "  remove:  boostopt-uninstall --yes --remove-ollama"
-say "  docs:    https://docs.boostopt.com"
+say "  docs:    https://boostopt.com/docs"

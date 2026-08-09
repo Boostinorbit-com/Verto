@@ -34,6 +34,9 @@ def _run_command(args) -> int:
                          set_global=getattr(args, "global_", False),
                          install_ollama=getattr(args, "install_ollama", False))
 
+        if args.cmd == "demo":
+            return _demo(keep=getattr(args, "keep", False))
+
         if args.cmd == "report":
             from ...engine.api import Engine
             print(json.dumps(Engine().report(), indent=2))
@@ -224,6 +227,49 @@ def _init(*, model: str | None = None, pull: bool = False, set_global: bool = Fa
     print("\n  ready → try " + _col("boostopt optimize <file>", "1"))
     return 0
 
+
+
+def _demo(*, keep: bool = False) -> int:
+    """`boostopt demo` — run the full pipeline on a bundled sample, with no setup at all.
+
+    The quickstart used to point at `examples/packet_stats.cpp`, a path that exists in the repo
+    and NOT in the wheel — so the first command a pip user typed failed. This ships its own
+    source (boostopt/examples/), copies it somewhere writable, and optimizes it with the
+    deterministic rule proposer: no model, no API key, no Ollama. Just clang++.
+    """
+    import shutil as sh
+    import tempfile
+    from pathlib import Path
+
+    from ...examples import DEMO_NAME, DEMO_SOURCE
+
+    from ...engine.api import Engine
+    from ...engine.config import Config
+
+    if not _has_libclang() or sh.which("clang++") is None:
+        print(_col("  ! demo needs clang++ (and libclang)", "33")
+              + " — run `boostopt analyze --verify-setup` to see what's missing")
+        return 2
+
+    out = Path(tempfile.mkdtemp(prefix="boostopt-demo-"))
+    target = out / DEMO_NAME
+    target.write_text(DEMO_SOURCE, encoding="utf-8")
+
+    print(_col("BOOSTOPT demo", "1") + f" — optimizing {target}")
+    print(_col("  rule proposer (--offline): no model, no key. Real compile, differential test,"
+               " sanitizers, benchmark.\n", "2"))
+    cfg = Config()
+    cfg.model = "rules"                      # deterministic: a demo must not need a model
+    verdicts = Engine(cfg).optimize(str(target), apply=True)
+    _render_human(verdicts, applying=True)
+
+    if keep:
+        print(f"\n  source + applied change left in {out}/")
+    else:
+        sh.rmtree(out, ignore_errors=True)
+        print("\n  (temp copy removed; pass --keep to inspect the rewritten source)")
+    print("  next → " + _col("boostopt optimize <your-file.cpp> --offline", "1"))
+    return 0 if any(v.accepted for v in verdicts) else 1
 
 
 def _list_transforms() -> int:

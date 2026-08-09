@@ -16,7 +16,7 @@ import os
 import sys
 
 WEBSITE = "https://boostopt.com"
-DOCS = "https://docs.boostopt.com"
+DOCS = "https://boostopt.com/docs"
 
 # --- styling: on only for an interactive terminal that hasn't opted out ---
 _COLOR = (sys.stdout.isatty() and "NO_COLOR" not in os.environ
@@ -53,6 +53,7 @@ USAGE_OPTIMIZE = ("boostopt optimize <path> [options]\n"
 USAGE_ANALYZE = ("boostopt analyze <path> [options]\n"
                  "boostopt analyze -p <db> --all [options]")
 USAGE_SERVE = "boostopt serve [--stop]"
+USAGE_DEMO = "boostopt demo [--keep]"
 USAGE_INIT = "boostopt init [--model NAME] [--pull] [--install-ollama] [--global]"
 
 
@@ -61,6 +62,7 @@ OPTIMIZE_DESC = "Find, verify, and apply performance improvements."
 ANALYZE_DESC = "Inspect optimization opportunities without changing anything."
 REPORT_DESC = "Review what's been accepted, rejected, and the gains so far."
 SERVE_DESC = "Run a warm background daemon so repeated runs are fast."
+DEMO_DESC = "Prove it on a bundled sample — real compile, sanitizers, benchmark. No setup."
 INIT_DESC = "Set up the .boostopt/ performance workspace (like git init) and prepare the local model."
 
 # --- top-level footer: the generated COMMON OPTIONS cheat-sheet (inserted by

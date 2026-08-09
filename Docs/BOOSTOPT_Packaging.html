@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOOSTOPT — Packaging &amp; closed-source distribution</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+      --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+      --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+    --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+    --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .layout{display:grid; grid-template-columns:270px 1fr; max-width:1240px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);}
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:19px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-radius:7px; border-left:2px solid transparent;}
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:32px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:74ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{font-size:23px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  h3{font-size:16px; margin:24px 0 8px; color:var(--accent);}
+  p{max-width:80ch;} li{max-width:78ch;}
+  a{color:var(--accent);}
+  .picture{background:var(--accent-soft); border-radius:8px; padding:12px 16px; margin:12px 0; max-width:80ch;}
+  .picture b:first-child{color:var(--accent);}
+  .plainly{color:var(--muted); font-style:italic;}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.86em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.5;}
+  pre code{background:none; padding:0;}
+  pre.diagram{background:var(--diagram-bg); color:var(--diagram-fg); border:none;}
+  pre.diagram code{color:var(--diagram-fg);}
+  table{border-collapse:collapse; width:100%; margin:12px 0; font-size:13.5px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0 0 6px;} blockquote p:last-child{margin:0;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  .warnbox{border-left:4px solid var(--warn);} .okbox{border-left:4px solid var(--ok);}
+  dl.gloss{margin:8px 0;} dl.gloss dt{font-weight:700; color:var(--accent); margin-top:12px;} dl.gloss dd{margin:2px 0 0; max-width:80ch;}
+  details{border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:14px 0; background:var(--card);}
+  details summary{cursor:pointer; font-weight:600;}
+  .ok{color:var(--ok); font-weight:700;} .warn{color:var(--warn); font-weight:700;} .bad{color:var(--bad); font-weight:700;} .muted{color:var(--muted);}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+    nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+    main{padding:28px 20px 80px;}
+    header.doc h1{font-size:25px;}
+  }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">BOOST<span>OPT</span> · Packaging</div>
+    <div class="tagline">Shipping a closed-source engine: what a wheel exposes, what compilation fixes, and what it silently breaks.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li class="num"><a href="#s0">The problem</a></li>
+      <li class="num"><a href="#s1">Compiling with Nuitka</a></li>
+      <li class="num"><a href="#s2">What broke</a></li>
+      <li class="num"><a href="#s3">The fix</a></li>
+      <li class="num"><a href="#s4">Remaining work</a></li>
+      <li class="num"><a href="#s5">What it buys you</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <header class="doc">
+      <h1>Packaging &amp; closed-source distribution</h1>
+      <p class="lede">BOOSTOPT ships under a commercial EULA and the engine is not published
+      anywhere. A licence governs what people may <b>legally</b> do; it does nothing about what
+      they can <b>see</b>. This document is the second half.</p>
+    </header>
+
+    <section id="s0">
+      <h2><span class="n">0</span>The problem: a pure-Python wheel ships your source</h2>
+      <p>A <code>py3-none-any</code> wheel is a zip of <code>.py</code> files. Measured on the
+      real artifact:</p>
+<pre><code>$ python -c "import zipfile; print(len([n for n in zipfile.ZipFile(
+      'boostopt-0.1.0-py3-none-any.whl').namelist() if n.endswith('.py')]))"
+80</code></pre>
+      <p>That includes <code>boostopt/engine/gate.py</code> — the trusted core, the only place in
+      the codebase that returns <code>accepted=True</code>. Anyone can <code>pip download
+      boostopt</code> and read it.</p>
+      <div class="callout warnbox"><p><b>Shipping only <code>.pyc</code> is not a fix.</b>
+      <code>pycdc</code> and similar reconstruct readable source, and you lose tracebacks. Worst
+      trade available.</p></div>
+    </section>
+
+    <section id="s1">
+      <h2><span class="n">1</span>Compiling with Nuitka</h2>
+<pre><code>python -m nuitka --module boostopt --include-package=boostopt --output-dir=nuitka-out</code></pre>
+      <p>Produces one <code>boostopt.cpython-311-x86_64-linux-gnu.so</code> (~4.1 MB). Verified:</p>
+      <table>
+        <tr><th>Check</th><th>Result</th></tr>
+        <tr><td><code>boostopt.__compiled__</code></td><td><span class="ok">True</span> — loader <code>nuitka_module_loader</code></td></tr>
+        <tr><td><code>.py</code> files on disk</td><td><span class="ok">0</span></td></tr>
+        <tr><td><code>boostopt demo</code> from the binary alone</td><td><span class="ok">ACCEPT, −66.7% p50, Rung 3 clean</span></td></tr>
+        <tr><td>The <code>boostopt</code> executable against the <code>.so</code></td><td><span class="ok">works</span> — pip's console script is agnostic</td></tr>
+      </table>
+      <div class="callout"><p><code>__file__</code> still reports a <code>.py</code> path — Nuitka
+      synthesises it. <b>Do not use that to test whether a build is compiled</b>; use
+      <code>__compiled__</code>. Two directories matter and they are opposite: <b>compile</b> from
+      the repo root (Nuitka needs the source folder), <b>verify</b> from the directory holding only
+      the <code>.so</code> (at the repo root, <code>boostopt/</code> shadows it).</p></div>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>What broke</h2>
+      <p>The first compiled build silently lost its data files. <code>importlib.resources</code>
+      has no filesystem package to read once everything is one <code>.so</code>:</p>
+<pre><code>Modelfile : False | base: None        # boostopt init downgrades to the bare base model
+demo      : False                     # boostopt demo cannot find its sample</code></pre>
+      <div class="callout warnbox"><p>Neither raised. They returned <b>“not found”</b>, which the
+      code treats as “not one of ours”. A pure-Python test run passes completely while the shipped
+      artifact is broken.</p></div>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>The fix: assets are module constants</h2>
+      <ul>
+        <li><code>boostopt/runtime/models/__init__.py</code> → <code>MODELFILES: dict[str, str]</code></li>
+        <li><code>boostopt/examples/__init__.py</code> → <code>DEMO_NAME</code>, <code>DEMO_SOURCE</code></li>
+      </ul>
+      <p><code>provision.bundled_modelfile()</code> writes the text to a temp file when
+      <code>ollama create -f</code> needs a path. There is no
+      <code>[tool.setuptools.package-data]</code> section any more, which removes the class of bug
+      where a glob is forgotten and a file exists in a checkout but not the wheel.</p>
+      <p>Guarded by <code>tests/invariants/test_boundary.py</code>:
+      <code>test_runtime_assets_are_module_constants_not_data_files</code> and
+      <code>test_no_stray_data_files_left_inside_the_package</code>.</p>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>Remaining work before compiled wheels ship</h2>
+      <ol>
+        <li><b>A build matrix.</b> <code>py3-none-any</code> becomes platform- and
+            version-specific: manylinux x86_64/aarch64, macOS x86_64/arm64, Windows × CPython
+            3.11/3.12/3.13 — roughly 9–12 wheels per release. Use <code>cibuildwheel</code>, with
+            Nuitka inside each matrix job.</li>
+        <li><b>Wheel tagging.</b> A wheel containing a <code>.so</code> must be tagged
+            <code>cp311-cp311-manylinux_2_17_x86_64</code> or pip will install a Linux binary on
+            macOS and fail at import.</li>
+        <li><b><code>boostopt_server</code> stays out</b>, as today — see the open-core boundary tests.</li>
+        <li><b>Tracebacks.</b> Compiled frames report synthetic paths; decide whether crash
+            reports need a privately-kept symbol map.</li>
+        <li><b>Build time.</b> ~10 minutes for 84 C files with a cold ccache.</li>
+      </ol>
+      <h3>For apt, a different mode</h3>
+<pre><code>python -m nuitka --standalone --onefile boostopt/surfaces/cli/__main__.py \
+    --output-filename=boostopt</code></pre>
+      <p>A genuine standalone binary with Python and every dependency bundled — no interpreter on
+      the target. Bigger (~50–80 MB) and slower to build, but the right artifact for a
+      <code>.deb</code>.</p>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>What compilation does and does not buy</h2>
+      <p>It raises the cost of reading the engine from <i>unzip</i> to <i>reverse-engineer a
+      stripped binary</i>. It is <b>not DRM</b> and it does not stop a determined competitor. The
+      enforceable protection is the EULA; compilation is the practical deterrent.</p>
+      <div class="callout"><p>Weigh that against the matrix cost. A plausible alternative is
+      shipping readable Python under the same EULA and competing on brand, support, and the hosted
+      tier — which is what most commercial developer tools do.</p></div>
+      <div class="foot">BOOSTOPT · Packaging · companion to
+      <a href="BOOSTOPT_Publishing.html">BOOSTOPT_Publishing</a></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('boostopt-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('boostopt-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        if(map[en.target.id]) map[en.target.id].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

@@ -1,6 +1,14 @@
 # Releasing BOOSTOPT
 
-> ⛔ **PUBLIC RELEASE IS ON HOLD.** BOOSTOPT is currently **proprietary / all rights reserved** (see `LICENSE`) while pre-launch, to keep every future licensing option open. `pyproject.toml` carries the `Private :: Do Not Upload` classifier, which makes **PyPI reject any upload** — a deliberate guard. The steps below are the *intended* flow for **if/when** an open-source core is published under a chosen license; do not run the `twine upload` steps until that decision is made.
+> **Licence:** BOOSTOPT ships under its own commercial EULA (`LICENSE`), not an open-source
+> licence. Proprietary packages are perfectly publishable on PyPI. The blocking question is no
+> longer *may we upload* but *have the EULA and the third-party NOTICE been reviewed by counsel* —
+> see the pre-flight list.
+>
+> **Source visibility:** a pure-Python wheel ships readable `.py`. If the engine must stay closed,
+> the wheel has to be built from compiled extension modules first — see `Docs/BOOSTOPT_Packaging.md`.
+
+> **Step-by-step commands:** `Docs/BOOSTOPT_Publishing.md` is the runbook — accounts, build, TestPyPI rehearsal, upload, and the traps. This file is the policy; that one is the procedure.
 
 BOOSTOPT would ship as **`boostopt`** on PyPI (the import + CLI stay `boostopt`) and as a Docker image.
 Do this on **Python 3.11+** (the package's floor).
@@ -8,7 +16,16 @@ Do this on **Python 3.11+** (the package's floor).
 ## 1. Pre-flight
 - [ ] CI is green on `main` (tests + wedge).
 - [ ] Bump `version` in `pyproject.toml` (semver; `0.1.0` → `0.1.1` / `0.2.0`).
-- [ ] `README.md` quickstart still runs.
+- [ ] `README.md` quickstart still runs — **from a pip install, not the repo.** The repo-root
+      `examples/` is not packaged, so verify with `boostopt demo` in a clean venv; anything the
+      quickstart references must be either bundled or created by the command itself.
+- [ ] The `Repository`/`Issues` URLs resolve for a logged-out visitor (a private GitHub repo
+      404s on every PyPI sidebar link).
+- [ ] `boostopt` is free on PyPI, or the name is settled (see Notes).
+- [ ] Decide the licence. `Private :: Do Not Upload` must be removed to publish, and PyPI serves
+      readable Python source to anyone — publishing is the moment "proprietary" stops meaning
+      "unavailable". `license = "LicenseRef-Proprietary"` should become a real SPDX id if an open
+      core is chosen.
 
 ## 2. Build + check the artifacts
 ```bash
@@ -46,5 +63,6 @@ docker push <registry>/boostopt:<version> && docker push <registry>/boostopt:lat
 
 ## Notes
 - **Credentials:** use a scoped **PyPI API token** (`__token__` / `pypi-…`), not a password. Store it in `~/.pypirc` or CI secrets — never commit it.
-- **`boostopt` vs `boostopt`:** the distribution name is `boostopt` (the plain `boostopt` was taken); the package you `import` and the command you run are both `boostopt`.
+- **The name:** distribution, import package, and command are all `boostopt` — no split. **Free on PyPI as of 2026-08-09**: `https://pypi.org/simple/boostopt/` returns 404, which for the simple index means the name is unregistered (it is served for any registered project, even one with zero releases). Re-check before uploading — names can be claimed at any time, and PyPI normalizes `boost-opt`/`boost_opt`/`BoostOpt` to the same name.
+  (The line here previously read "`boostopt` vs `boostopt` … the plain one was taken" — a Veritoz-era note comparing two different names, left mangled by the rename and untrue of the current one.)
 - **System deps aren't pip-installable:** `clang++`/sanitizers must be present on the user's machine (or use the Docker image). `boostopt analyze --verify-setup` reports what's missing.

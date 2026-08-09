@@ -55,3 +55,38 @@ def test_client_never_imports_server():
     assert not offenders, (
         "the free client imports boostopt_server (dependency must be one-way, "
         f"boostopt_server → boostopt only): {offenders}")
+
+
+def test_runtime_assets_are_module_constants_not_data_files():
+    """`boostopt demo` and `boostopt init` must work from a COMPILED distribution.
+
+    A Nuitka `--module` build collapses the package into one .so, leaving no filesystem package
+    for importlib.resources — verified: as data files these silently resolved to "not found",
+    losing the demo and downgrading every install to the bare base model. As module constants
+    they compile into the binary. Reintroducing package data would regress the compiled build,
+    which no pure-Python test run would catch.
+    """
+    from boostopt.examples import DEMO_NAME, DEMO_SOURCE
+    from boostopt.runtime.models import MODELFILES
+
+    assert DEMO_NAME.endswith(".cpp") and "build_histogram" in DEMO_SOURCE
+    assert "boostopt2.5-coder" in MODELFILES
+    assert "FROM qwen2.5-coder:7b" in MODELFILES["boostopt2.5-coder"]
+
+    # Apache-2.0 attribution to Qwen is a licence obligation, not a comment.
+    assert "Apache-2.0" in MODELFILES["boostopt2.5-coder"]
+
+    # No package-data glob should come back: it would imply a shipped file again. Match the
+    # SECTION HEADER at line start — the name also appears in a comment explaining its absence,
+    # and a plain substring check flags that comment as the very thing it warns against.
+    text = (_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert not re.search(r"^\[tool\.setuptools\.package-data\]", text, re.M), \
+        "package data reintroduced — compiled builds lose it silently"
+
+
+def test_no_stray_data_files_left_inside_the_package():
+    """The .Modelfile / .cpp used to live here. If one reappears it is a second source of truth
+    that the compiled build will not ship."""
+    strays = [p.name for p in (_ROOT / "boostopt").rglob("*")
+              if p.suffix in (".Modelfile", ".cpp", ".modelfile")]
+    assert not strays, f"data files inside boostopt/ won't survive compilation: {strays}"

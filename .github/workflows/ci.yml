@@ -84,3 +84,26 @@ jobs:
           done
           echo "::error::wedge failed after 3 attempts"
           exit 1
+
+  # install.sh is a HOSTED artifact — people pipe it straight into a shell from boostopt.com,
+  # so a syntax slip or an unquoted path is a broken install for everyone, not a local bug.
+  # Its own job: seconds, no toolchain, and it reports independently of the 5-minute test matrix.
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shellcheck the shipped scripts
+        # ShellCheck is preinstalled on the ubuntu runner images; install it if that ever changes.
+        # `-s sh` matters: install.sh has a `#!/bin/sh` shebang, and checking it as bash would
+        # let bashisms through that break on dash (Debian/Ubuntu's /bin/sh).
+        run: |
+          # NOT `shellcheck --version || apt-get update && apt-get install …` — that parses as
+          # `(A || B) && C`, so the install runs even when shellcheck is already there.
+          if ! shellcheck --version >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends shellcheck
+          fi
+          shellcheck --version
+          shellcheck -s sh install.sh
+          shellcheck check.sh

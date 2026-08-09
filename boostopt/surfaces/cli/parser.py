@@ -217,6 +217,11 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("report", help=_help.REPORT_DESC, description=_help.REPORT_DESC,
                    usage="boostopt report", formatter_class=fmt)
 
+    dem = sub.add_parser("demo", help=_help.DEMO_DESC, description=_help.DEMO_DESC,
+                         usage=_help.USAGE_DEMO, formatter_class=fmt)
+    dem.add_argument("--keep", action="store_true",
+                     help="keep the temp copy so you can read the rewritten source")
+
     ini = sub.add_parser("init", help=_help.INIT_DESC, description=_help.INIT_DESC,
                          usage=_help.USAGE_INIT, formatter_class=fmt)
     ini.add_argument("--model", metavar="NAME",

@@ -1,5 +1,36 @@
-BOOSTOPT — Verified Transforming Optimizer
+BOOSTOPT — Verified Performance Optimizer for C++
 Copyright © 2026 Nafis Ayaz. All rights reserved.
 
-Proprietary and confidential — see LICENSE. Not licensed for use, copying, or
-distribution without prior written permission of the copyright holder.
+Licensed under the BOOSTOPT End User Licence Agreement — see LICENSE.
+Proprietary. Redistribution and modification are not permitted.
+
+────────────────────────────────────────────────────────────────────────────────
+THIRD-PARTY COMPONENTS
+
+These are licensed by their own authors under their own terms, which prevail
+over the BOOSTOPT EULA to the extent of any conflict. Attribution below is a
+condition of those licences — do not remove it.
+
+1. libclang  (runtime dependency, installed by pip; not redistributed by us)
+   The LLVM Project — Apache Licence 2.0 with the LLVM Exception.
+   https://llvm.org/  ·  https://llvm.org/LICENSE.txt
+   Used by the C++ language adapter for AST-level detection.
+
+2. Qwen2.5-Coder  (referenced by, not redistributed with, this software)
+   Alibaba Cloud — Apache Licence 2.0.
+   https://huggingface.co/Qwen/Qwen2.5-Coder-7B
+   BOOSTOPT's default local model, `boostopt2.5-coder:7b`, is a RE-TAG of
+   `qwen2.5-coder:7b` with BOOSTOPT's system prompt and sampling defaults
+   applied. It is not trained from scratch and contains no BOOSTOPT weights.
+   No model weights ship with this software: `boostopt init` downloads the base
+   model from Ollama's registry on the user's own machine and re-tags it there.
+   The recipe and its attribution live in
+   boostopt/runtime/models/boostopt2.5-coder.Modelfile.
+
+3. Optional backends  (installed only if the user selects the matching extra)
+   openai   — MIT Licence   — https://github.com/openai/openai-python
+   anthropic— MIT Licence   — https://github.com/anthropics/anthropic-sdk-python
+   keyring  — MIT Licence   — https://github.com/jaraco/keyring
+
+None of the above are bundled inside the BOOSTOPT distribution; each is resolved
+by the package manager at install time and remains governed by its own licence.

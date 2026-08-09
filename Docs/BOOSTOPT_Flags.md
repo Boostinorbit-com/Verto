@@ -172,6 +172,16 @@ Find, verify, and apply performance improvements.
 | `--boostopt-token TOKEN` | PREMIUM: entitlement token for --model hosted (or set BOOSTOPT_TOKEN) |
 | `--hosted-url URL` | PREMIUM: boostopt_server base URL for --model hosted (default http://127.0.0.1:8724) |
 
+## `boostopt demo`
+
+Prove it on a bundled sample — real compile, sanitizers, benchmark. No setup.
+
+**options**
+
+| flag | description |
+|---|---|
+| `--keep` | keep the temp copy so you can read the rewritten source |
+
 ## `boostopt init`
 
 Set up the .boostopt/ performance workspace (like git init) and prepare the local model.

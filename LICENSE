@@ -1,16 +1,115 @@
-BOOSTOPT — Verified Transforming Optimizer
+BOOSTOPT END USER LICENCE AGREEMENT
 Copyright © 2026 Nafis Ayaz. All rights reserved.
 
-PROPRIETARY AND CONFIDENTIAL
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ NOT YET REVIEWED BY LEGAL COUNSEL. Complete as drafted; have a solicitor     │
+│ review before first publication — §8 (warranty) and §9 (liability) first.    │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-This software and its source code are proprietary and confidential. No license,
-express or implied, is granted to any person or entity to use, copy, modify,
-merge, publish, distribute, sublicense, or sell copies of this software, in whole
-or in part, without the prior written permission of the copyright holder.
+This End User Licence Agreement ("Agreement") is a legal agreement between you
+(an individual or a single legal entity, "You") and Nafis Ayaz ("Licensor")
+governing your use of the BOOSTOPT software, its command-line tools, and any
+accompanying files and documentation (together, the "Software").
 
-Unauthorized use, reproduction, or distribution is prohibited.
+BY INSTALLING, COPYING, OR USING THE SOFTWARE YOU AGREE TO BE BOUND BY THIS
+AGREEMENT. IF YOU DO NOT AGREE, DO NOT INSTALL OR USE THE SOFTWARE.
 
-This is pre-release software under active development. The licensing terms for any
-future public release — including any components that may later be made available
-under an open-source license — are reserved and will be determined solely by the
-copyright holder at that time. Nothing in this notice constitutes such a grant.
+1. DEFINITIONS
+   1.1 "Free Tier" means the Software as distributed publicly, excluding any
+       feature that requires a Subscription Key.
+   1.2 "Premium Features" means functionality that the Software enables only on
+       presentation of a valid Subscription Key, including the hosted
+       optimization service.
+   1.3 "Subscription Key" means a credential issued by Licensor entitling You to
+       Premium Features for a stated period.
+
+2. LICENCE GRANT — FREE TIER
+   Subject to your compliance with this Agreement, Licensor grants You a
+   non-exclusive, non-transferable, worldwide, royalty-free licence to install
+   and use the Free Tier, on any number of machines You own or control,
+   including for internal commercial purposes and in automated build and
+   continuous-integration systems. No seat, machine, or runner limit applies to
+   the Free Tier.
+
+3. LICENCE GRANT — PREMIUM FEATURES
+   Premium Features are licensed only for the period covered by a valid
+   Subscription Key and only to the entity to which that Key was issued. Keys
+   are personal to You and must not be shared, published, or sublicensed. On
+   expiry or termination of a subscription the licence to Premium Features ends
+   immediately; the Free Tier licence in section 2 is unaffected.
+
+4. RESTRICTIONS
+   You must not, except to the extent that applicable law expressly permits it
+   notwithstanding this restriction:
+   (a) redistribute, sell, rent, lease, sublicense, or otherwise make the
+       Software available to any third party;
+   (b) modify, adapt, or create derivative works of the Software;
+   (c) reverse engineer, decompile, or disassemble the Software, or attempt to
+       derive its source code, save where such an act is permitted by law for
+       the purpose of achieving interoperability and You have first requested
+       the necessary information from Licensor;
+   (d) remove, obscure, or alter any copyright, trade mark, or attribution
+       notice, including the third-party notices in the accompanying NOTICE file;
+   (e) circumvent, disable, or interfere with any licensing, entitlement, or
+       metering mechanism, or use Premium Features without a valid Subscription
+       Key;
+   (f) use the Software to build or operate a product or service that competes
+       with the Software or with Licensor's hosted service.
+
+5. OWNERSHIP
+   The Software is licensed, not sold. Licensor retains all right, title, and
+   interest in and to the Software, including all intellectual property rights.
+   No rights are granted other than those expressly stated in this Agreement.
+
+6. THIRD-PARTY COMPONENTS
+   The Software incorporates or refers to third-party components that remain
+   subject to their own licences, which prevail over this Agreement to the
+   extent of any conflict. Those components and their notices are listed in the
+   accompanying NOTICE file.
+
+7. YOUR CODE AND YOUR DATA
+   The Free Tier processes your source code locally on your own machine.
+   Licensor does not receive, collect, or transmit your source code through the
+   Free Tier. Where You choose to use a hosted or third-party model backend, the
+   material You submit is transmitted to that service and handled under its
+   terms and Licensor's privacy policy at https://boostopt.com/privacy.
+
+8. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. Without limiting the
+   foregoing, Licensor does not warrant that the Software's verification of a
+   proposed change is free from error, and You remain responsible for reviewing,
+   testing, and approving any change before it reaches production.
+
+9. LIMITATION OF LIABILITY
+   TO THE MAXIMUM EXTENT PERMITTED BY LAW, LICENSOR SHALL NOT BE LIABLE FOR ANY
+   INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR EXEMPLARY DAMAGES, OR FOR
+   ANY LOSS OF PROFITS, REVENUE, DATA, OR DATA USE, HOWEVER CAUSED. LICENSOR'S
+   TOTAL AGGREGATE LIABILITY UNDER THIS AGREEMENT SHALL NOT EXCEED THE GREATER
+   OF (a) THE AMOUNTS YOU PAID TO LICENSOR FOR THE SOFTWARE IN THE TWELVE MONTHS
+   PRECEDING THE CLAIM, AND (b) ONE HUNDRED UNITED STATES DOLLARS (USD 100).
+   Nothing in this Agreement excludes or limits liability that cannot lawfully
+   be excluded or limited, including liability for death or personal injury
+   caused by negligence, or for fraud.
+
+10. TERM AND TERMINATION
+    This Agreement applies from your first installation or use of the Software
+    until terminated. It terminates automatically if You breach any of its
+    terms. On termination You must cease all use of the Software and remove all
+    copies from your systems; `boostopt-uninstall` performs that removal.
+    Sections 5, 8, 9, and 11 survive termination.
+
+11. GENERAL
+    11.1 Governing law: this Agreement is governed by the laws of India, and the
+         courts having jurisdiction at the Licensor's principal place of business
+         in India shall have exclusive jurisdiction over any dispute arising from
+         or relating to it.
+    11.2 Entire agreement: this Agreement is the entire agreement between the
+         parties regarding the Software and supersedes any prior understanding.
+    11.3 Severability: if any provision is held unenforceable, the remainder
+         continues in full force.
+    11.4 No waiver: a failure to enforce any provision is not a waiver of it.
+
+12. CONTACT
+    Nafis Ayaz — sir.nafis47@gmail.com — https://boostopt.com

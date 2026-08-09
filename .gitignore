@@ -17,3 +17,11 @@ examples/real_world/
 # boostopt_server (PREMIUM) local dev account store — never commit real tokens/usage
 .boostopt_server/
 accounts.json
+
+# Nuitka compiled-module builds (closed-source distribution — see Docs/BOOSTOPT_Packaging.md)
+dist-native/
+nuitka-out/
+*.build/
+# Nuitka drops a type stub next to the SOURCE package, not in --output-dir, so it lands in the
+# repo root. Generated, unused at build or runtime — root-anchored so a hand-written stub is safe.
+/boostopt.pyi
