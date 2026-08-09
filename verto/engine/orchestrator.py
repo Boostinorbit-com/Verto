@@ -83,13 +83,17 @@ class Orchestrator:
         seen: set[str] = set()
 
         def _consider(cand):
+            """Gate one candidate; returns the Verdict it produced, or None when the
+            candidate was deduped away (identical to one already verified)."""
             nonlocal best, best_delta
+            before = len(attempts)
             res = self._evaluate(cand, ev, current, seen, attempts)
             if res is not None:
                 v, var = res
                 delta = v.performance.vector.get("p50_delta_pct", 0.0) if v.performance else 0.0
                 if delta > best_delta:
                     best_delta, best = delta, (v, var)
+            return attempts[-1] if len(attempts) > before else None
 
         # Rule FLOOR (LLM models only): always put the deterministic rule win in the pool, so
         # `--model local|frontier` can only ever do BETTER than `--model rules`, never worse —
@@ -113,10 +117,41 @@ class Orchestrator:
                 if tname in tried_here:         # a rule transform already tried this run
                     break
                 tried_here.add(tname)
-            _consider(cand)
+            v = _consider(cand)
+            if varies and v is not None and not v.accepted:
+                self._repair(v, cand, ev, priors, _consider)
             if not varies:                      # rules: one draw is enough
                 break
         return best, attempts
+
+    def _repair(self, verdict, cand, ev, priors, consider) -> None:
+        """Hand a COMPILER error back to the proposer instead of discarding the draw.
+
+        A small local model routinely writes C++ that doesn't build, and the compiler said
+        precisely what was wrong — so spending the diagnostic is free yield. Bounded by
+        `repair_rounds` (default 1) and, inside the proposer, by the #12 budget. This grants
+        the model no trust: every repaired candidate goes through the SAME gate, so a repair
+        can only ever turn a REJECT into a verified ACCEPT, never into an unverified one.
+        """
+        repair = getattr(self._a.proposer, "repair", None)
+        if not callable(repair):
+            return
+        rounds = int(getattr(self._config, "repair_rounds", 1) or 0) if self._config else 1
+        code = getattr(getattr(cand, "transform", None), "new_code", "")
+        for _ in range(max(0, rounds)):
+            err = _repairable_error(verdict)
+            if not (err and code):
+                return
+            try:
+                fixed = repair(ev, priors, code, err)
+            except Exception:                   # an untrusted proposer must not sink the run
+                return
+            if fixed is None:
+                return
+            verdict = consider(fixed)
+            if verdict is None or verdict.accepted:
+                return                          # deduped, or the gate took it — done either way
+            code = getattr(getattr(fixed, "transform", None), "new_code", "")
 
     def run(self, target: Target, *, apply: bool,
             backup: bool = False, force: bool = False, txn=None) -> list[Verdict]:
@@ -220,9 +255,11 @@ class Orchestrator:
         new_code = self._func_text(var.source_after, sym) if (fs and sym) else ""
         if not new_code:
             return
+        vec = v.performance.vector if v.performance else {}
         self._cache.put(fs, self._model(), self._min_rung(), {
             "func": sym, "new_code": new_code, "accepted": True,
-            "delta_pct": (v.performance.vector.get("p50_delta_pct", 0.0) if v.performance else 0.0),
+            "delta_pct": vec.get("p50_delta_pct", 0.0),
+            "p50": vec.get("p50", 0.0),            # absolute time too, so a cached result renders fully
             "rung": (v.correctness.rung if v.correctness else 0),
             "transform": getattr(getattr(v.candidate, "transform", None), "name", "?"),
         })
@@ -254,11 +291,22 @@ class Orchestrator:
         v = Verdict(accepted=True, candidate=cand,
                     correctness=CorrectnessVerdict(rung=int(entry.get("rung", 0)), passed=True,
                                                    witness=Witness()),
-                    performance=PerfVerdict(vector={"p50_delta_pct": float(entry.get("delta_pct", 0.0))},
+                    performance=PerfVerdict(vector={"p50": float(entry.get("p50", 0.0)),
+                                                    "p50_delta_pct": float(entry.get("delta_pct", 0.0))},
                                             pareto_pass=True, samples=0),
                     reason="cached", cached=True)
         v.diff, v.udiff = var.patch, udiff
         return (v, var), [v]
+
+
+def _repairable_error(v) -> str:
+    """The compiler error from a verdict whose VARIANT failed to build — the only failure
+    a proposer can act on. An ORIGINAL that won't build is OUR setup problem (a missing
+    include path), and a semantic reject ("output differs") has no diagnostic to send."""
+    w = getattr(getattr(v, "correctness", None), "witness", None)
+    if w is None or w.build_ok or getattr(w, "sanitizer", "") != "var_build_failed":
+        return ""
+    return getattr(w, "build_error", "")
 
 
 def _unified_diff(path: str, before: str, after: str) -> str:

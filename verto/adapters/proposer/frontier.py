@@ -24,6 +24,12 @@ _SYSTEM = ("You are an expert C++ performance engineer. Rewrite the given functi
            "cheaper algorithm where possible. Do NOT just reformat or rename. Reply with ONLY "
            "the rewritten function inside a single ```cpp code block — no prose, no notes.")
 
+_REPAIR = ("You are an expert C++ performance engineer. Your previous rewrite of a function "
+           "FAILED TO COMPILE. Fix the compiler error and reply with the corrected function. "
+           "Keep the SAME signature as the original and the same behavior, and keep the "
+           "optimization you were attempting — do not simply revert to the original. Reply with "
+           "ONLY the corrected function inside a single ```cpp code block — no prose, no notes.")
+
 _BLOCK = re.compile(r"```(?:cpp|c\+\+|cxx|c)?\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
 
 
@@ -47,19 +53,42 @@ class FrontierProposer:
             self._budget.charge(res.in_tokens, res.out_tokens)
         return self._parse_candidate(res.text, func)
 
+    def repair(self, ev: Evidence, priors: Priors, code: str, error: str) -> Candidate | None:
+        """Second chance at a draw the COMPILER rejected (orchestrator-driven).
+
+        A small local model routinely proposes C++ that doesn't build — `std::list` has no
+        `operator[]`, a changed signature no longer matches the header. The compiler already
+        said exactly what was wrong, so hand that back rather than burning the draw. Still
+        untrusted: the returned candidate goes through the same gate as any other.
+        """
+        func = ev.target.symbol
+        if not (func and code and error):
+            return None
+        if self._budget is not None and not self._budget.can_spend():
+            return None
+        prompt = (f"ORIGINAL function:\n```cpp\n{self._render_context(ev)}\n```\n\n"
+                  f"YOUR REWRITE (does not compile):\n```cpp\n{code}\n```\n\n"
+                  f"COMPILER ERROR:\n{error}\n")
+        res = self._call_model(prompt, system=_REPAIR)
+        if res is None:
+            return None
+        if self._budget is not None:
+            self._budget.charge(res.in_tokens, res.out_tokens)
+        return self._parse_candidate(res.text, func, kind="repair")
+
     def _render_context(self, ev: Evidence) -> str:
         """The hot function's SOURCE (focused; not the whole file, not an AST dump)."""
         from ..language.cpp.regex_detect import detect_func_span
         span = detect_func_span(ev.source, ev.target.symbol)
         return ev.source[span[0]:span[1]] if span else ev.source
 
-    def _call_model(self, prompt: str):
+    def _call_model(self, prompt: str, system: str = _SYSTEM):
         c = self._config
         # #11: when drawing multiple candidates, raise the temperature so the N rewrites are
         # DIVERSE (a near-zero temperature returns near-identical drafts that dedup collapses).
         temp = 0.7 if int(getattr(c, "candidates", 1) or 1) > 1 else 0.1
         try:
-            return llm.chat(_SYSTEM, prompt,
+            return llm.chat(system, prompt,
                             base_url=getattr(c, "llm_base_url", "http://127.0.0.1:11434"),
                             model=getattr(c, "llm_model", "qwen2.5-coder:7b"),
                             local=(c.model == "local"),
@@ -69,11 +98,13 @@ class FrontierProposer:
         except Exception:                            # ollama down / timeout / bad reply → no proposal
             return None
 
-    def _parse_candidate(self, reply: str, func: str) -> Candidate | None:
+    def _parse_candidate(self, reply: str, func: str, kind: str = "rewrite") -> Candidate | None:
         m = _BLOCK.search(reply)
         code = (m.group(1) if m else reply).strip()  # accept a bare reply if no fenced block
         if not code:
             return None
         from ..language.cpp.transforms.verbatim import VerbatimRewrite
         t = VerbatimRewrite(func, code)
-        return Candidate(transform=t, contract=t.contract(), rationale=f"LLM rewrite ({self._config.llm_model})")
+        # `kind` shows in the verdict, so a repaired win is visibly a SECOND attempt, not a draw.
+        return Candidate(transform=t, contract=t.contract(),
+                         rationale=f"LLM {kind} ({self._config.llm_model})")

@@ -15,6 +15,7 @@ Performance oracle (compiled once).
 """
 from __future__ import annotations
 
+import re
 import shutil
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
@@ -27,6 +28,25 @@ from . import sanitizers
 from ._verify import get_or_build_pair
 from .compare import _first_diff, _outputs_match  # noqa: F401 (_outputs_match re-exported)
 from .harness import make_program
+
+
+_ERR_LOC = re.compile(r"^\S+?:\d+(:\d+)?:\s*")     # "file:line:col: " — always OUR harness, so noise
+_ERR_HIT = ("error:", "undefined reference", "undefined symbol")
+
+
+def _build_error(*stderrs: str) -> str:
+    """The one line that says WHY the build failed.
+
+    A compiler ends its output with a summary — "1 error generated." — so taking
+    the LAST stderr line (what we used to do) reliably surfaced the least
+    informative line and threw away the diagnostic right above it. Prefer the first
+    real error; fall back to the last non-empty line only if none looks like one.
+    """
+    lines = [ln.strip() for text in stderrs for ln in text.splitlines() if ln.strip()]
+    for ln in lines:
+        if any(h in ln for h in _ERR_HIT):
+            return _ERR_LOC.sub("", ln)                # the location is our temp harness: drop it
+    return lines[-1] if lines else ""
 
 
 class PerfCorrectnessOracle:
@@ -61,9 +81,9 @@ class PerfCorrectnessOracle:
                     # A broken ORIGINAL harness = can't verify at all (e.g. a dependency
                     # outside the archive) → honest SKIP, not a rejection of the variant.
                     marker = "orig_build_failed" if not a.build_ok else "var_build_failed"
-                    err = (a.stderr + b.stderr).strip().splitlines()[-1:] or [marker]
-                    return CorrectnessVerdict(0, False, Witness(build_ok=False, sanitizer=marker,
-                                                                first_divergence=err[0]))
+                    return CorrectnessVerdict(0, False, Witness(
+                        build_ok=False, sanitizer=marker,
+                        build_error=_build_error(a.stderr, b.stderr) or marker))
 
                 out_a = sandbox.run([a.binary_path, "check"], input_text=stdin, isolate=True)
                 out_b = sandbox.run([b.binary_path, "check"], input_text=stdin, isolate=True)

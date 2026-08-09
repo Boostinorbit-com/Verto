@@ -22,6 +22,12 @@ class VerbatimRewrite(Transform):
         self.target_func = func
         self._new = new_code.strip()
 
+    @property
+    def new_code(self) -> str:
+        """The model's code, readable — the repair round feeds it back to the model
+        alongside the compiler error that rejected it."""
+        return self._new
+
     def contract(self) -> Contract:
         return Contract(precondition=["a model rewrite — its legality is proven by the gate"],
                         postcondition="output-equivalent")

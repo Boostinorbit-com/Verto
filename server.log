@@ -1,0 +1,27 @@
+verto_server: port 8724 busy — freeing it and taking over (dev)…
+verto_server (PRIVATE — never publish)
+  listening on   127.0.0.1:8724   →   http://127.0.0.1:8724
+  endpoints      GET /healthz   ·   POST /v1/optimize
+  ── request log (→ received, ← responded) ──────────────────────
+[23:20:46] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[23:21:04] ← 127.0.0.1       POST /v1/optimize  200  plan=pro engine='verto2.5-coder:7b (local AI)' results=1 accepted=1  (17978ms)
+[23:21:06] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[23:21:09] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=1  (2284ms)
+[00:13:42] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[00:13:44] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=0  (1164ms)
+[00:13:44] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[00:13:46] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=1  (2172ms)
+[00:13:46] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[00:13:47] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=0  (1196ms)
+[00:17:25] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[00:17:26] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=0  (1198ms)
+[00:22:49] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[00:22:51] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=1  (1534ms)
+[00:25:59] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[00:26:01] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=1  (2020ms)
+[00:32:42] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[00:32:43] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=0  (1040ms)
+[00:39:06] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[00:39:08] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=0  (2043ms)
+[00:41:11] → 127.0.0.1       POST /v1/optimize  (received, working…)
+[00:41:12] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=1  (831ms)

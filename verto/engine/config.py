@@ -92,7 +92,15 @@ class Config:
                                           # yield knob (bigger/better model = more real wins, never less safe)
     llm_api_key: str | None = None        # frontier only; local (Ollama) needs none
     llm_timeout_sec: int = 180
+    # PREMIUM (hosted) — `--model hosted` sends the file to VERTO's server and shows its verdicts.
+    # The client holds NO premium logic; it's a thin caller (see verto/surfaces/hosted_client.py).
+    hosted_url: str = "http://127.0.0.1:8724"   # dev default = the local verto_server; prod = our host
+    verto_token: str = ""                       # entitlement key; empty → hosted paths refuse (401)
     candidates: int = 1                   # #11: LLM proposals per hotspot; gate each, keep the best
+    repair_rounds: int = 3                # retries given to a draw the COMPILER rejected, feeding the
+                                          # error back to the model; 0 disables. Each costs one LLM call,
+                                          # and each gets a REAL diagnostic — a small local model needs
+                                          # more than one pass to land valid C++. Stops early on a fix.
     use_cache: bool = True                # best-so-far rewrite cache: reuse a function's best verified
                                           # rewrite (skip the slow proposer) unless the code/model changed
     refine: bool = False                  # --refine: ignore the cache for PROPOSING (re-run the proposer)

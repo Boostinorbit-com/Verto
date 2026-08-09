@@ -19,14 +19,20 @@ class JsonlLedger:
         self._lock = threading.Lock()      # codebase mode may write from parallel workers (item #8)
 
     def record(self, ep: Episode) -> None:
+        w = getattr(ep.verdict.correctness, "witness", None)
         row = {
             "language": ep.evidence.target.language,
             "symbol": ep.evidence.target.symbol,
             "transform": _transform_name(ep.candidate),
+            # NOTE: no "applied" field — the orchestrator sets verdict.applied AFTER this
+            # record() call, so it would be False on every row. `accepted` is the gate's
+            # answer; whether it was WRITTEN depends on --apply and is not known here.
             "accepted": ep.verdict.accepted,
             "reason": ep.verdict.reason,
             "rung": ep.verdict.correctness.rung if ep.verdict.correctness else None,
         }
+        if w is not None and not w.build_ok and getattr(w, "build_error", ""):
+            row["build_error"] = w.build_error     # WHY the compiler refused it — the useful part
         with self._lock, self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")
 

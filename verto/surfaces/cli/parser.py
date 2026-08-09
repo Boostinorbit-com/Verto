@@ -131,6 +131,10 @@ def _common(sp, *, apply: bool = False) -> None:
                           "(the cached 'high score' only ever rises)")
     out.add_argument("--no-cache", action="store_true", dest="no_cache",
                      help="ignore the best-so-far rewrite cache — recompute from scratch this run")
+    out.add_argument("--verto-token", metavar="TOKEN", dest="verto_token",
+                     help="PREMIUM: entitlement token for --model hosted (or set VERTO_TOKEN)")
+    out.add_argument("--hosted-url", metavar="URL", dest="hosted_url",
+                     help="PREMIUM: verto_server base URL for --model hosted (default http://127.0.0.1:8724)")
 
 
 class _HelpFormatter(argparse.RawDescriptionHelpFormatter):

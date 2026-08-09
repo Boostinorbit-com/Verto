@@ -33,7 +33,12 @@ class Engine:
 
     def optimize(self, file: str, *, apply: bool, build: dict | None = None,
                  backup: bool = False, force: bool = False) -> list[Verdict]:
-        return self._run(file, apply=apply, persist=apply, build=build,
+        # persist=True even on a DRY RUN: the ledger is the record of what VERTO tried and
+        # why it said no, which is most of its value on a file that yields no win. It used
+        # to key on `apply`, so `verto optimize` without --apply wrote every verdict to
+        # /dev/null. Safe: no proposer reads priors to SKIP work (see rules.py:30), so
+        # recording rejects can't suppress a later attempt. `analyze()` stays silent.
+        return self._run(file, apply=apply, persist=True, build=build,
                          backup=backup, force=force)
 
     def optimize_codebase(self, cc_path: str, *, apply: bool = False,
@@ -58,7 +63,7 @@ class Engine:
         if changed is not None:                          # item #8a: only git-changed TUs
             touched = _git_changed(cc_path, changed)
             tus = [tu for tu in tus if os.path.realpath(tu.file) in touched]
-        ledger = self.ledger if apply else JsonlLedger(os.devnull)
+        ledger = self.ledger              # dry runs record too — see optimize()
         # item #9: ONE transaction for the whole codebase → all-or-nothing apply.
         txn = ApplyTransaction(backup=backup) if apply else None
 
@@ -120,8 +125,9 @@ class Engine:
     def _run(self, file: str, *, apply: bool, persist: bool, build: dict | None = None,
              backup: bool = False, force: bool = False) -> list[Verdict]:
         adapters = registry.resolve(file, self.config)
-        target = Target(file=file, symbol=Path(file).stem, line=0,
-                        language=registry.language_of(file), build=build or {})
+        language = registry.language_of(file)
+        target = Target(file=file, symbol=Path(file).stem, line=0, language=language,
+                        build=_own_include(file, build or {}) if language == "cpp" else (build or {}))
         ledger = self.ledger if persist else JsonlLedger(os.devnull)
         txn = ApplyTransaction(backup=backup) if apply else None    # item #9
         try:
@@ -134,6 +140,24 @@ class Engine:
         if txn is not None:
             txn.commit()
         return verdicts
+
+
+def _own_include(file: str, build: dict) -> dict:
+    """Put the source file's OWN directory on the include path (single-file mode).
+
+    The harness is a synthesized file compiled in a temp workdir, and a compiler
+    resolves a quoted include (`#include "clist.h"`) relative to the INCLUDING file
+    — i.e. the workdir, not the real source dir. So the ORIGINAL failed to build and
+    every candidate in a file with a local header came back `skipped_unverifiable`,
+    with nothing about the rewrite ever tested. Codebase mode already gets this from
+    compile_db.load()'s `own`; single-file mode only got it via `-p`, if at all.
+    """
+    own = "-I" + (os.path.dirname(os.path.abspath(file)) or ".")
+    out = dict(build)
+    for key in ("parse_flags", "compile_flags"):
+        flags = list(out.get(key) or ())
+        out[key] = flags if own in flags else [*flags, own]
+    return out
 
 
 def _dummy_evidence() -> Evidence:
