@@ -41,7 +41,10 @@ dependencies = [
 [project.optional-dependencies]
 # Contributor tooling. pytest-rerunfailures re-runs a flaky (benchmark-gated) test a couple
 # times — a real regression fails all attempts; transient CPU-contention noise clears on retry.
-dev = ["pytest>=7", "pytest-rerunfailures>=12"]
+# setuptools is NOT a runtime dep — tests/invariants/test_boundary.py imports find_packages to
+# assert the wheel can't ship boostopt_server. Python 3.12 dropped setuptools from ensurepip, so
+# it must be declared or that test fails to collect on 3.12+ while passing on 3.11.
+dev = ["pytest>=7", "pytest-rerunfailures>=12", "setuptools>=77"]
 # Hosted-model backend for `--model frontier` (optional; local Ollama needs nothing extra).
 llm-openai = ["openai>=1.0"]
 llm-anthropic = ["anthropic>=0.30"]
