@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOOSTOPT — Design &amp; Specification</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --kbd:#eef2f7; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0;
+    --th:#eef3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+      --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+      --ok:#4ade80; --bad:#f87171; --kbd:#1b232d; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2;
+      --th:#182029;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
+    --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a;
+    --ok:#0a7c3a; --bad:#c0392b; --kbd:#eef2f7; --diagram-bg:#0f1720; --diagram-fg:#d6e2f0; --th:#eef3f9;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23;
+    --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2;
+    --ok:#4ade80; --bad:#f87171; --kbd:#1b232d; --diagram-bg:#0a0f16; --diagram-fg:#cfe0f2; --th:#182029;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .layout{display:grid; grid-template-columns:290px 1fr; max-width:1240px; margin:0 auto;}
+  nav.toc{
+    position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+    border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);
+  }
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:20px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{
+    display:block; text-decoration:none; color:var(--muted); font-size:13.5px;
+    padding:5px 10px; border-radius:7px; border-left:2px solid transparent;
+  }
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:34px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:70ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{
+    font-size:24px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px;
+    border-bottom:1px solid var(--line);
+  }
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  h3{font-size:17px; margin:26px 0 8px;}
+  p{max-width:76ch;} li{max-width:74ch;}
+  a{color:var(--accent);}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.88em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:16px 18px; overflow-x:auto; font-size:13px; line-height:1.55;}
+  pre code{background:none; padding:0; font-size:13px;}
+  pre.diagram{background:var(--diagram-bg); color:var(--diagram-fg); border:none; font-size:12.5px; line-height:1.5;}
+  pre.diagram code{color:var(--diagram-fg);}
+  .scroll{overflow-x:auto;}
+  table{border-collapse:collapse; width:100%; margin:14px 0; font-size:14px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0; font-weight:600;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  .callout.win{border-left:4px solid var(--ok);}
+  .ok{color:var(--ok); font-weight:700;} .bad{color:var(--bad); font-weight:700;}
+  .metric{display:flex; gap:20px; flex-wrap:wrap; margin:18px 0;}
+  .metric .box{flex:1; min-width:150px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; text-align:center;}
+  .metric .big{font-size:30px; font-weight:800; letter-spacing:-.02em;}
+  .metric .lab{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:4px;}
+  kbd{background:var(--kbd); border:1px solid var(--line); border-bottom-width:2px; border-radius:5px; padding:1px 6px; font-family:ui-monospace,monospace; font-size:.82em;}
+  hr{border:none; border-top:1px solid var(--line); margin:40px 0;}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  .tag{display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em; padding:2px 8px; border-radius:20px; background:var(--accent-soft); color:var(--accent); vertical-align:middle; margin-left:8px;}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr;}
+    nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);}
+    main{padding:28px 20px 80px;}
+    header.doc h1{font-size:27px;}
+  }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">BOOST<span>OPT</span></div>
+    <div class="tagline">Verified Transforming Optimizer — a verified, profile-guided, source-level optimizer.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li class="num"><a href="#s1">The one-paragraph version</a></li>
+      <li class="num"><a href="#s2">What BOOSTOPT is</a></li>
+      <li class="num"><a href="#s3">Why BOOSTOPT is required</a></li>
+      <li class="num"><a href="#s4">The C++ compilation pipeline</a></li>
+      <li class="num"><a href="#s5">Where BOOSTOPT sits</a></li>
+      <li class="num"><a href="#s6">Why this layer</a></li>
+      <li class="num"><a href="#s7">The core invariant</a></li>
+      <li class="num"><a href="#s8">The engine: four-stage loop</a></li>
+      <li class="num"><a href="#s9">Verification depth: contracts &amp; ladder</a></li>
+      <li class="num"><a href="#s10">Core architecture</a></li>
+      <li class="num"><a href="#s11">Worked example (real numbers)</a></li>
+      <li class="num"><a href="#s12">The seven extension axes</a></li>
+      <li class="num"><a href="#s13">v0 scope &amp; dependencies</a></li>
+      <li class="num"><a href="#s14">Prior art</a></li>
+      <li class="num"><a href="#s15">Risks &amp; answers</a></li>
+      <li class="num"><a href="#s16">Glossary</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc">
+      <h1>BOOSTOPT — Design &amp; Specification</h1>
+      <p class="lede"><b>BOOSTOPT (Verified Transforming Optimizer)</b> — an AI system that makes existing programs measurably faster by reasoning about them the way a senior performance engineer does, and that <b>only keeps a change it has proven to be both correct and faster.</b></p>
+      <p style="color:var(--muted); font-size:14px; max-width:76ch;">Single source of truth for the project.
+Every claim about the compiler below was produced by running the real toolchain (Clang/LLVM&nbsp;19) on a real machine; the commands and outputs are shown inline so nothing must be taken on faith.</p>
+    </header>
+
+    <section id="s1">
+      <h2><span class="n">1</span>The one-paragraph version</h2>
+      <p>A compiler like Clang optimizes <em>instructions</em>: it schedules them, allocates registers, eliminates dead code.
+It does this superbly.
+But it cannot change your <em>algorithm</em>, your <em>data structure</em>, or your <em>memory strategy</em>, because those are decisions encoded in your source before the compiler ever runs — and undoing them would change what your program means, which a compiler is forbidden to do.
+Those higher-level decisions are exactly where most real-world slowness lives.
+BOOSTOPT is an AI that operates at that higher level: it reads your source and a real execution profile, reasons about <em>why</em> the code is slow, proposes a concrete rewrite, and then — the part that makes it trustworthy — it <b>refuses to keep the rewrite unless a trusted checker proves the output is unchanged and a real benchmark proves it is faster.</b> It sits <em>above</em> the compiler, feeds it better source, and learns from every measured result.</p>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>What BOOSTOPT is</h2>
+      <p><b>BOOSTOPT is a verified, profile-guided, source-level optimizer driven by an AI reasoning engine.</b> Each word is load-bearing:</p>
+      <table>
+        <tr><th>Word</th><th>Meaning</th><th>Why it matters</th></tr>
+        <tr><td><b>verified</b></td><td>Every change passes a trusted correctness check and a trusted speed check before it is kept.</td><td>The difference between an unattended tool and a toy.
+A faster-but-wrong program is worthless.</td></tr>
+        <tr><td><b>profile-guided</b></td><td>Reasons from <em>measured</em> runtime behavior, not from reading the code cold.</td><td>Optimizing what isn't hot is wasted effort; guessing is how humans lose days.</td></tr>
+        <tr><td><b>source-level</b></td><td>Output is a human-readable diff, recompiled by your normal toolchain.</td><td>Stays reviewable, never fights the compiler; the compiler still does all instruction-level work.</td></tr>
+        <tr><td><b>AI reasoning engine</b></td><td>An LLM decides <em>what</em> to try — algorithm swaps, data-structure changes, <code>reserve()</code>, parallelization.</td><td>Judgment linters cannot produce.
+But the AI never has the final say (§7).</td></tr>
+      </table>
+      <p><b>What BOOSTOPT is NOT:</b></p>
+      <ul>
+        <li>Not a replacement for GCC/Clang/LLVM — it sits <em>above</em> them.</li>
+        <li>Not a code-writing assistant like Copilot — those never measure or prove.</li>
+        <li>Not a linter like clang-tidy — those don't run your program or reason about algorithms.</li>
+        <li>Not a new IR or language.</li>
+      </ul>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>Why BOOSTOPT is required — proven, not asserted</h2>
+      <p>The usual objection: <em>"Compilers already have <code>-O3</code>.
+Isn't optimization solved?"</em> No.
+Here is the proof, run on the real toolchain.</p>
+      <h3>The experiment</h3>
+      <p>A trivial, extremely common piece of C++ — build a vector in a loop:</p>
+      <pre><code>std::vector&lt;int&gt; build(std::size_t n) {
+    std::vector&lt;int&gt; v;                       // no reserve()
+    for (std::size_t i = 0; i &lt; n; ++i)
+        v.push_back(static_cast&lt;int&gt;(i * 2)); // grows, reallocating repeatedly
+    return v;
+}</code></pre>
+      <p>Compile at <code>-O2</code> — which runs LLVM's <b>entire 107-pass pipeline</b> — and inspect:</p>
+      <pre><code>$ clang++ -O2 -S -emit-llvm sample.cpp        # after all 107 passes
+$ grep -c _M_realloc_insert sample_O2.ll
+1                                              # the reallocation call SURVIVES
+
+$ clang++ -O2 -S sample.cpp                    # final x86-64 assembly
+$ grep -Eo '_M_realloc_insert|_Znwm' sample.s
+_M_realloc_insert                              # still reallocating
+_Znwm                                          # still calling operator new in the loop</code></pre>
+      <p>The optimizer <b>cannot</b> remove the repeated reallocation, because it cannot prove how large the vector will get — <code>n</code> is a runtime value.
+Removing it would <em>change the program's meaning</em>, which a compiler may not do.</p>
+      <h3>The fix lives one level up — and it is huge</h3>
+      <p>The correct fix is a <em>source-level</em> change: reserve the space first (<code>v.reserve(n)</code>).
+Measured on this machine (i5-1135G7, pinned core, 50 reps, two runs):</p>
+      <pre><code>CORRECTNESS: identical=true  checksum_no=3999998000000 checksum_yes=3999998000000
+PERF:  no_reserve=8.264 ms   reserve=2.348 ms   speedup=3.52x  (-71.6%)
+PERF:  no_reserve=7.885 ms   reserve=2.312 ms   speedup=3.41x  (-70.7%)</code></pre>
+      <div class="metric">
+        <div class="box"><div class="big">107</div><div class="lab">optimizer passes run</div></div>
+        <div class="box"><div class="big" style="color:var(--bad)">0%</div><div class="lab">recovered by <code>-O3</code></div></div>
+        <div class="box"><div class="big" style="color:var(--ok)">3.5×</div><div class="lab">recovered by BOOSTOPT</div></div>
+        <div class="box"><div class="big" style="color:var(--ok)">−71%</div><div class="lab">time, output identical</div></div>
+      </div>
+      <div class="callout win"><b>The best C++ compiler in existence, running every optimization it has, left ~71% of the performance on the table</b> — and the recovered performance came from a one-line semantic change with <em>provably identical output</em>.
+This is not an edge case; it is one of the most common performance bugs in all of C++.
+That gap — across every hot loop, wrong container, needless copy, and serial loop in a codebase — is the reason BOOSTOPT exists.</div>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>Background: how C++ actually becomes machine code</h2>
+      <p>To say precisely <em>where</em> BOOSTOPT operates, we need the real stages Clang/LLVM runs — each demonstrated on <code>sample.cpp</code>.</p>
+      <div class="scroll"><pre class="diagram"><code>  SOURCE ─▶ 1.PRE-   ─▶ 2-3.LEX+PARSE ─▶ 3.AST   ─▶ 4.LLVM IR   ─▶ 5.LLVM OPT ─▶ 6.CODE  ─▶ 7.LINK ─▶ EXE
+  main.cpp   PROCESS      +SEMA            (typed,     (unoptimized)   (107          GEN
+             #include                       checked)                   passes)       (x86)</code></pre></div>
+      <p><b>Stage 1 — Preprocessing</b> (<code>clang -E</code>): macros, <code>#include</code> inlining.
+Measured: <code>10</code> source lines → <b>26,041</b> preprocessed lines after <code>#include &lt;vector&gt;</code>.</p>
+      <p><b>Stage 2–3 — Lex, Parse, Semantic Analysis → AST</b>: the first structured form, and BOOSTOPT's primary static input.
+For <code>build()</code>:</p>
+      <pre><code>FunctionDecl  build 'std::vector (std::size_t)'
+  `-CXXConstructExpr 'std::vector' 'void () noexcept'   // v constructed empty
+  |-ForStmt
+  |   `-CXXMemberCallExpr 'void'
+  |     |-MemberExpr .push_back                          // the growth call
+  `-CXXConstructExpr 'std::vector' 'void (vector &&)'    // return by move</code></pre>
+      <p>Everything needed to recognize "vector grown by push_back in a loop with no prior reserve" is here as <em>facts</em> — no fragile text parsing.</p>
+      <p><b>Stage 4 — IR Generation</b> (<code>clang -emit-llvm</code>): AST → LLVM IR.
+Unoptimized: <b>1057 lines</b>.</p>
+      <p><b>Stage 5 — Middle-end optimization</b> (<code>opt</code>, the <code>-O2</code>/<code>-O3</code> pipeline): <b>107 passes</b>, shrinking our IR 1057 → <b>187 lines</b>.
+Superb at instruction-level work; this is where <b>MLGO</b> plugs in.
+<b>Not where BOOSTOPT operates</b> — §3 shows why.</p>
+      <pre><code>$ opt -passes='default&lt;O2&gt;' -print-pipeline-passes | tr ',' '\n' | wc -l
+107
+# first passes: sroa, early-cse, ipsccp, globalopt, mem2reg, instcombine, simplifycfg, inline, ...</code></pre>
+      <p><b>Stage 6 — Code generation</b> (<code>llc</code>): IR → x86-64 assembly.
+<b>Stage 7 — Linking</b>: objects + libs → executable.
+Then the program <em>runs</em> — and only by running do we learn where time is spent.
+That runtime signal is BOOSTOPT's other input.</p>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>Where BOOSTOPT sits in the compilation stages</h2>
+      <p>BOOSTOPT does not live <em>inside</em> any single stage.
+It <b>wraps the whole pipeline plus execution in a feedback loop</b>, and its transformations re-enter at Stage&nbsp;0 (source):</p>
+      <div class="scroll"><pre class="diagram"><code>      ┌─────────────────────────── BOOSTOPT FEEDBACK LOOP ───────────────────────────┐
+      │                                                                          │
+      ▼                                                                          │
+ SOURCE ─▶ 1 PREPROCESS ─▶ 2-3 AST ─▶ 4 IR ─▶ 5 OPT(107) ─▶ 6 CODEGEN ─▶ 7 LINK ─▶ EXECUTABLE
+      ▲           reads AST facts ─┘                                              │        │
+      │                                                                          │        ▼
+      │                                                            reads runtime profile  RUNS
+      │                                                                          │        │
+      └──── proposes a SOURCE rewrite, VERIFIED correct+faster ◀─────────────────┴────────┘</code></pre></div>
+      <p>Reads structured facts from the <b>AST (2–3)</b>; reads where time goes from <b>post-execution profiling</b>; writes a human-reviewable diff to <b>source (0)</b>, which the <em>unchanged</em> compiler then processes.
+Contrast, by the stage each tool occupies:</p>
+      <table>
+        <tr><th>Tool</th><th>Operates at</th><th>Uses runtime?</th><th>Semantic changes?</th><th>Verifies its change?</th></tr>
+        <tr><td><code>clang -O3</code></td><td>Stage 5–6</td><td>no</td><td class="bad">no</td><td>n/a</td></tr>
+        <tr><td>MLGO</td><td>Stage 5–6</td><td>training-time</td><td>no</td><td>n/a</td></tr>
+        <tr><td>PGO / BOLT</td><td>Stage 5 / post-link</td><td>yes</td><td>no</td><td>n/a</td></tr>
+        <tr><td>clang-tidy</td><td>Stage 2–3</td><td class="bad">no</td><td>limited</td><td class="bad">no</td></tr>
+        <tr><td>Copilot / LLM</td><td>Stage 0 (text)</td><td>no</td><td>yes</td><td class="bad">no</td></tr>
+        <tr><td><b>BOOSTOPT</b></td><td><b>Stage 0, guided by 2–3 + runtime</b></td><td class="ok">yes</td><td class="ok">yes</td><td class="ok">yes</td></tr>
+      </table>
+      <p>This <em>stage placement</em> — semantic, runtime-guided, and verified — is the right one.
+But be honest: a <b>new class of AI optimizers now shares this cell</b> (Codeflash, CompilerGPT, Google's ECO — see §14).
+BOOSTOPT is <em>not</em> alone here; its differentiation lives in <b>how deeply it verifies and what it targets</b>, not in occupying the cell.</p>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">6</span>Why source-level + profile-guided is the correct layer</h2>
+      <ul>
+        <li><b>Why not operate on LLVM IR (Stage 5)?</b> The high-value information — that this is a <code>std::vector</code>, that a <code>map</code> could be an <code>unordered_map</code> — is <em>already destroyed</em> by Stage 4.
+IR sees loads, stores, and library calls, not "a vector without a reserve." You'd reason with less than the AST gives for free, on the compiler's home turf.</li>
+        <li><b>Why not generate custom LLVM passes?</b> A pass must be <em>provably</em> semantics-preserving over all inputs, forever.
+Writing one is a multi-year specialist discipline, and a wrong pass causes <em>silent miscompilation</em> — the worst failure class in computing.
+BOOSTOPT defers this (§15) and lets LLVM's already-verified passes do the unsafe part.</li>
+        <li><b>Why source, then?</b> It is where the <em>recoverable</em> decisions live (algorithm, container, memory), where the AI has the most context, where the change stays human-reviewable, and where being wrong is <em>caught cheaply</em> by re-running the program.
+Highest information, lowest blast radius.</li>
+      </ul>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">7</span>The core invariant</h2>
+      <p>Everything in BOOSTOPT is swappable — language, model, transform — except one rule, the project's identity:</p>
+      <blockquote><p>BOOSTOPT never keeps a change that is not both provably CORRECT and measurably FASTER.</p></blockquote>
+      <p>It is enforced <em>structurally</em>, by splitting the system across a hard trust boundary:</p>
+      <div class="scroll"><pre class="diagram"><code>  UNTRUSTED (intelligence)              TRUSTED (verification)
+  ┌───────────────────────┐            ┌────────────────────────────┐
+  │  LLM Proposer         │  candidate │  Correctness Oracle        │
+  │  - reads evidence     │ ─────────▶ │    (differential test)     │
+  │  - suggests a rewrite │            │  Performance Oracle        │
+  │  - may be WRONG       │            │    (real benchmark)        │
+  │  - may be SWAPPED     │            │  accept ⟺ correct ∧ faster │
+  └───────────────────────┘            └────────────────────────────┘
+       proposes, never decides               decides, cannot be fooled</code></pre></div>
+      <p><b>The LLM never decides anything — it only proposes a candidate.</b> A trusted checker it cannot influence casts the only vote.
+Consequences:</p>
+      <ul>
+        <li>LLM hallucinates a "10× speedup" → the Performance Oracle measures reality and <span class="bad">rejects</span>.</li>
+        <li>LLM's rewrite subtly changes behavior → the Correctness Oracle's differential test <span class="bad">rejects</span>.</li>
+        <li>You swap the frontier model for a weaker local one → <span class="ok">the invariant still holds</span>; at worst, fewer good proposals — never a bad accepted change.</li>
+      </ul>
+      <p>In §3 the gate is real and visible: <code>identical=true</code> (correctness) <em>and</em> <code>3.41x</code> faster (performance) → <b class="ok">ACCEPT</b>.
+Either failing → REJECT.
+The strength of the word <em>"provably"</em> depends entirely on <em>how deep</em> the correctness check goes — the subject of <b>§9</b>.</p>
+    </section>
+
+    <section id="s8">
+      <h2><span class="n">8</span>The engine: the four-stage loop, in depth</h2>
+      <div class="scroll"><pre class="diagram"><code>  ① EVIDENCE ──▶ ② PROPOSAL ──▶ ③ VERIFICATION ──▶ ④ LEARNING
+  (facts+profile) (one rewrite)  (correct ∧ faster?  (record outcome,
+       ▲                          else REJECT)        sharpen next)
+       └──────────────── re-profile & loop ──────────────┘</code></pre></div>
+      <h3>① Evidence — reason from data, never guess</h3>
+      <ul>
+        <li><b>Static facts</b> from the Clang AST — loops, calls, container types, allocations (via <code>libclang</code>).</li>
+        <li><b>Dynamic profile</b> of what's hot — <code>perf</code>, Google Benchmark, VTune, LLVM XRay.</li>
+        <li><b>Combined into a compact annotated context</b> — source plus facts like <code>// hot: 79% runtime; 17 reallocations/call</code> — handed to the Proposer.</li>
+      </ul>
+      <p class="muted" style="font-size:14px;">(Deliberately <em>not</em> a giant AST/IR JSON dump — LLMs reason better on source + concise facts.)</p>
+      <h3>② Proposal — the AI decides <em>what to try</em> (untrusted)</h3>
+      <p>The LLM emits <b>one</b> concrete candidate transform + a human rationale, e.g. <em>"insert <code>v.reserve(n)</code> before the loop; the vector reallocates 17× per call."</em> One transform at a time, never a tangled batch.</p>
+      <h3>③ Verification — the trusted gate (this is the product)</h3>
+      <ul>
+        <li><b>Correctness Oracle</b> — differential testing: original vs rewrite on many fuzzed inputs → <b>byte-identical output</b> (§3: <code>checksum_no == checksum_yes</code>).</li>
+        <li><b>Performance Oracle</b> — statistically honest benchmark: pinned core, many reps, median + variance, require a <em>significant</em> improvement (§3: 8.26 → 2.35 ms).</li>
+        <li><code>accept ⟺ Correctness.pass ∧ Performance.improved</code>.
+Fail either → <b class="bad">REJECT</b>.</li>
+      </ul>
+      <div class="callout">This stage is only as trustworthy as those two checks are deep.
+Both are stronger than "one test, one number" makes them sound — see <b>§9</b>, which turns the Correctness Oracle into a graded <em>ladder</em> backed by transform <em>contracts</em>, and the Performance Oracle into a multi-dimensional <em>vector</em>.</div>
+      <h3>④ Learning — every outcome teaches</h3>
+      <p>Each episode <code>(evidence, candidate, verdict, delta)</code> — accept <em>and</em> reject — is logged and serves priors back to the Proposer.
+Then <b>re-profile and loop</b>, because the last change moved the hotspots; re-profiling between accepts is what makes optimization <em>ordering</em> emerge from measurement instead of stale, conflicting edits.</p>
+    </section>
+
+    <section id="s9">
+      <h2><span class="n">9</span>Verification depth: contracts &amp; the correctness ladder <span class="tag">the important addition</span></h2>
+      <p>The invariant (§7) is only as strong as the word <em>"proven."</em> Today's Correctness Oracle runs a differential test — same input → same output on <b>N fuzzed inputs</b>.
+That is a <b>probabilistic</b> check wearing the costume of a proof: it says nothing about input N+1 — the empty vector, the integer overflow, the NaN, the aliased pointer, the exception thrown mid-loop, the data race.
+For C++ this gap is the <em>norm</em>, not the exception: a rewrite can match on every input you tried and still be wrong because it relies on <b>undefined behavior</b>, changes <b>floating-point reassociation</b>, or breaks under <b>concurrency</b>.
+Hardening this is the single most important thing beyond the trust split itself — the difference between "proven" as a fact and as marketing.</p>
+
+      <h3>9.1 &nbsp;Transform contracts — legality <em>before</em> the fact</h3>
+      <p>Every transform carries a <b>precondition</b> (when it is <em>legal</em>) and a <b>postcondition</b> (equivalence).
+Legality is checked <em>structurally</em>, on the AST/CFG, <b>before</b> the transform is applied — exactly how a real compiler pass stays correct.</p>
+      <pre><code>transform: insert reserve() before a push_back growth loop
+  PRECONDITION  (must hold — checked on the AST/CFG, not by testing):
+    • the loop's trip count is loop-invariant (computable before the loop runs)
+    • `v` is not aliased or observed elsewhere during the loop
+    • element construction has no order-dependent observable side effect
+    • no exception between reserve() and the loop can be observed differently
+  POSTCONDITION (checked after — the equivalence gate):
+    • output is identical to the original on all admitted inputs</code></pre>
+      <p>A transform whose precondition <b>provably holds</b> is known-safe <em>by construction</em>, not "safe because we tested it." And a verified <code>(transform, precondition)</code> pair is <b>reusable across codebases</b> — the unit the Network (§12, Axis E) actually shares.
+Without contracts, "shared learning" is just log lines; with them, it is a growing library of <em>provably-conditioned</em> transforms.</p>
+
+      <h3>9.2 &nbsp;The correctness ladder — grade the equivalence check</h3>
+      <p>The postcondition check is not one thing; it is a ladder from weakest to strongest.
+Every accepted change is <b>labelled with the rung it reached</b>, as a confidence grade.</p>
+      <table>
+        <tr><th>Rung</th><th>Check</th><th>Available on this machine?</th></tr>
+        <tr><td>0</td><td>single-run smoke test</td><td class="ok">yes</td></tr>
+        <tr><td>1</td><td>differential test on fuzzed inputs <em>(today's oracle)</em></td><td class="ok">yes</td></tr>
+        <tr><td>2</td><td>coverage-guided fuzzing focused <b>on the changed region</b> + boundary/edge generation + property-based tests</td><td class="ok">yes</td></tr>
+        <tr><td>3</td><td><b>sanitizers in the gate</b> — ASan / UBSan / TSan catch <em>introduced or exposed</em> undefined behavior &amp; data races</td><td class="ok">yes — ships with our Clang 19</td></tr>
+        <tr><td>4</td><td>formal / translation validation where tractable — <b>Alive2</b> (IR peephole), symbolic execution / bounded model checking (source)</td><td>partial</td></tr>
+      </table>
+      <p>Two policies fall out of the ladder:</p>
+      <ul>
+        <li><b>Autonomy gates on rung</b> (ties Axis B to Axis G): auto-apply only changes at <b>Rung ≥ 3</b>; merely <em>suggest</em> anything below.
+The human is only ever asked to trust what the machine could not fully prove.</li>
+        <li><b>Rung 3 is the C++ must-have.</b> UBSan catches the "equivalent under <em>this</em> compiler, but secretly relies on undefined behavior" trap that differential testing <em>structurally cannot</em> — the failure mode that makes C++ optimization dangerous.</li>
+      </ul>
+
+      <h3>9.3 &nbsp;The performance vector — the other gate is also under-specified</h3>
+      <p>"Faster" is not one number either.
+A change can win the median and <b>wreck p99 tail latency, double peak memory, bloat the binary, or lose on a different CPU.</b> So the Performance Oracle returns a <b>vector</b>, and the gate rejects <b>Pareto-losers</b>, not just median-losers:</p>
+      <pre><code>PerformanceVector = { p50, p99_tail, peak_memory, allocations, binary_size, energy, cross_ISA }
+accept(perf) ⟺ improves at least one dimension AND regresses none beyond its budget</code></pre>
+      <p>Held-out workloads and a second machine defeat <b>benchmark-overfitting</b> (Goodhart's law: an optimizer scored on one benchmark will learn to cheat that benchmark).
+Optimizing p50 while silently wrecking p99 is one of the most common ways real "optimizations" ship regressions to production.</p>
+
+      <h3>9.4 &nbsp;Consequences for the architecture</h3>
+      <p>This is a <em>refinement of the Verification stage and the Ledger</em>, not a new box bolted on:</p>
+      <ul>
+        <li><code>CorrectnessOracle.equivalent()</code> returns <code>{ rung, witness }</code>, <b>not a bool</b>.</li>
+        <li><code>PerformanceOracle.compare()</code> returns a <b>vector + Pareto verdict</b>, not a scalar delta.</li>
+        <li>The Invariant Gate's accept policy references the <b>rung</b>.</li>
+        <li>The Ledger stores <b>contracts</b>, which become the Network's currency.</li>
+        <li><b>New security requirement:</b> verification <em>runs LLM-proposed code</em>, so it must execute in a <b>sandbox</b> — resource limits, no network — or a bad proposal can do more than merely be slow.</li>
+        <li><b>New capability — prevention:</b> the same contracts, run in CI, stop new code from <em>reintroducing</em> a pattern BOOSTOPT already fixed.
+The optimizer becomes a regression <em>preventer</em>, not just a fixer.</li>
+      </ul>
+      <p>Verification depth is itself a growth dimension — you start at Rung 1 and climb — which is why it is elevated to its own extension axis (<b>Axis G: Rigor</b>, §12).</p>
+    </section>
+
+    <section id="s10">
+      <h2><span class="n">10</span>Core architecture: ports, adapters, and the trust split</h2>
+      <p>Two decisions shape the code.
+<b>(A) Thin engine, thick plugins</b> (ports &amp; adapters): the engine knows only the four-stage loop; language, domain, and model are <em>adapters</em> behind fixed <em>ports</em>.
+<b>(B) The trust split of §7</b>, made physical: the only component that can return <code>ACCEPT</code> is the Invariant Gate; it takes only <code>(original, variant)</code> and consults no model.</p>
+      <div class="scroll"><pre class="diagram"><code>┌──────────────────────────────────────────────────────────────────────┐
+│ INTERFACE     CLI (boostopt analyze | optimize | report) · CI · IDE       │
+├──────────────────────────────────────────────────────────────────────┤
+│ ENGINE CORE   Orchestrator  ·  Invariant Gate  ·  Ledger              │ ← thin, generic
+├──────────────────────────────────────────────────────────────────────┤
+│ PORTS         Sensor · Proposer · Mutator ·                           │ ← interfaces
+│               CorrectnessOracle · PerformanceOracle · Ledger          │
+├──────────────────────────────────────────────────────────────────────┤
+│ ADAPTERS      Language(C++,Py…) × Domain(Perf,DB…) × Model(API,local) │ ← thick, specific
+├──────────────────────────────────────────────────────────────────────┤
+│ EXTERNAL      Clang/libclang · perf/GoogleBench · sandbox · LLM       │
+└──────────────────────────────────────────────────────────────────────┘</code></pre></div>
+      <h3>The six ports — the entire engine↔plugin contract</h3>
+      <pre><code>Sensor              collect(target)            → Evidence{ source, facts, profile, hotspots }
+Proposer            propose(evidence, priors)  → Candidate{ transform, contract, rationale }  (UNTRUSTED)
+Mutator             apply(target, transform)   → Variant                                      (source→source)
+CorrectnessOracle   equivalent(orig, variant)  → { rung, witness }                            (TRUSTED, §9)
+PerformanceOracle   compare(orig, variant)     → { vector, pareto_verdict, samples }          (TRUSTED, §9)
+Ledger              record(episode); recall(evidence) → priors</code></pre>
+      <h3>Control flow (corrected: profiler feeds reasoning, gate can reject, cycle closes)</h3>
+      <pre><code>1. Sensor.collect(target)              → Evidence          (profile is INPUT to reasoning)
+2. Ledger.recall(evidence)             → priors
+3. Proposer.propose(evidence, priors)  → Candidate + contract  ← UNTRUSTED, one transform
+   3a. check contract PRECONDITION on the AST/CFG; if it can't be shown to hold → REJECT early
+4. Mutator.apply(target, candidate)    → Variant
+5. ─ INVARIANT GATE ─ (TRUSTED)
+     CorrectnessOracle.equivalent → rung;  rung < policy      → REJECT
+     PerformanceOracle.compare    → vector; not Pareto-better → REJECT
+     both pass → ACCEPT: variant becomes the new target
+6. Ledger.record(episode)              (accept OR reject — both teach)
+7. loop to 1 (re-profile). stop: no hotspot / N rounds no-accept / budget hit</code></pre>
+      <h3>Design rules that keep it honest</h3>
+      <ol>
+        <li>The core never imports a concrete plugin — only port interfaces.</li>
+        <li>Exactly one place returns <code>ACCEPT</code> (the Gate).
+Nothing bypasses it.</li>
+        <li>The Proposer's output is always a <em>candidate + contract</em>, never an action.</li>
+        <li>One transform per candidate; re-profile between accepts.</li>
+        <li>Reject episodes are logged too — learn from failure.</li>
+        <li>Verification runs untrusted code in a sandbox (§9.4).</li>
+        <li>Don't build a second adapter until the first domain works end-to-end.</li>
+      </ol>
+    </section>
+
+    <section id="s11">
+      <h2><span class="n">11</span>End-to-end worked example (real numbers)</h2>
+      <p>The <code>reserve()</code> case, traced through the loop with the measured data from §3:</p>
+      <table>
+        <tr><th>Stage</th><th>What happens</th><th>Real artifact</th></tr>
+        <tr><td><b>① Evidence</b></td><td>AST shows <code>build()</code> grows a vector by <code>push_back</code> in a <code>ForStmt</code> with no prior <code>reserve</code>; profile flags it hot.</td><td><code>FunctionDecl build → ForStmt → CXXMemberCallExpr .push_back</code></td></tr>
+        <tr><td><b>② Proposal</b></td><td>LLM: "Insert <code>v.reserve(n)</code>; use <code>emplace_back</code>." + contract (loop-invariant bound, no aliasing).</td><td>one candidate + contract</td></tr>
+        <tr><td><b>3a Precondition</b></td><td><code>n</code> loop-invariant; <code>v</code> not aliased in the loop → <b>legality holds</b>.</td><td>contract satisfied</td></tr>
+        <tr><td><b>③ Correctness</b></td><td>Differential test, then sanitizers (Rung 3).</td><td class="ok"><code>identical=true</code>, checksum <code>3999998000000</code> match, <b>Rung 3</b> ✓</td></tr>
+        <tr><td><b>③ Performance</b></td><td>Pinned core, 50 reps, 2 runs; vector check.</td><td class="ok"><code>8.26→2.35</code> &amp; <code>7.89→2.31</code> ms → <b>3.4–3.5×, −71%</b>, no mem/tail regression ✓</td></tr>
+        <tr><td><b>Gate</b></td><td>rung ≥ policy ∧ Pareto-better → <b class="ok">ACCEPT</b>; write the diff.</td><td>—</td></tr>
+        <tr><td><b>④ Learning</b></td><td>Log <code>(vector-grow-no-reserve → reserve, −71%, Rung 3, accepted)</code>; store the contract.</td><td>priors + shareable contract</td></tr>
+      </table>
+      <p>For contrast, the same code through <code>-O3</code> alone (all 107 passes) leaves <code>_M_realloc_insert</code> in the final assembly — <b class="bad">0% recovered</b>.
+BOOSTOPT recovers 71%, verified.</p>
+    </section>
+
+    <section id="s12">
+      <h2><span class="n">12</span>How BOOSTOPT extends: the seven axes</h2>
+      <p>The core loop stays fixed; the system grows along seven independent dimensions.</p>
+      <table>
+        <tr><th>Axis</th><th>Grows from → to</th></tr>
+        <tr><td><b>A.
+Language</b></td><td>C++ → Python → Rust / Java / Go / JS (new Language adapter each; core untouched)</td></tr>
+        <tr><td><b>B.
+Autonomy</b></td><td>suggest → auto-apply behind the gate → generate novel transforms <em>(gated on Axis G rung)</em></td></tr>
+        <tr><td><b>C.
+Evidence</b></td><td>static facts → profiler → hardware counters → production telemetry</td></tr>
+        <tr><td><b>D.
+Scope</b></td><td>local transform → function → whole-program → cross-service</td></tr>
+        <tr><td><b>E.
+Network</b></td><td>one machine → <b>shared learning: every verified <code>(transform, contract, rung)</code> anywhere sharpens the next proposal</b></td></tr>
+        <tr><td><b>F.
+Domain</b></td><td>Performance → Database / Network → Build / Test → Debugging / Security</td></tr>
+        <tr><td><b>G.
+Rigor</b> <span class="tag">new</span></td><td>Rung 1 (differential test) → Rung 2 (coverage fuzzing) → Rung 3 (sanitizers) → Rung 4 (formal / translation validation); <b>grade every change</b> (§9)</td></tr>
+      </table>
+      <h3>Axis F — one engine, many domains</h3>
+      <p>Every "AI <em>X</em> Engineer" is the <em>same</em> four-stage engine with a different sensor (Evidence) and a different success metric:</p>
+      <table>
+        <tr><th>Domain</th><th>Evidence in</th><th>Success metric</th><th>Correctness check</th></tr>
+        <tr><td><b>Performance</b> (v0)</td><td>profile</td><td>faster</td><td>same output</td></tr>
+        <tr><td>Database</td><td>query plans + stats</td><td>faster query</td><td>same result set</td></tr>
+        <tr><td>Network</td><td>pcaps + logs</td><td>fewer drops / more throughput</td><td>replay test</td></tr>
+        <tr><td>Build</td><td>build graph + logs</td><td>green / faster build</td><td>tests still pass</td></tr>
+        <tr><td>Debugging</td><td>logs + stack + git</td><td>bug gone</td><td>test red→green</td></tr>
+        <tr><td>Security</td><td>code + vuln patterns</td><td>vuln closed</td><td>exploit fails</td></tr>
+      </table>
+      <p><b>Ordering rule — provability first, market second.</b> Vertical #0 is chosen by <em>how cheaply success can be proven × unfair edge</em>, not market size.
+<b>Performance wins</b>: objective metric (time), cheap correctness gate, on the systems/C++ edge.
+Debugging/Security have the biggest markets but the fuzziest gates → they come last.
+<b>Axis E is the moat, and Axis G is what makes it real</b> — a shared network is only trustworthy if what it shares (verified <code>(transform, contract, rung)</code> tuples) is trustworthy.
+A verified-optimization data flywheel is something no static compiler can have.</p>
+    </section>
+
+    <section id="s13">
+      <h2><span class="n">13</span>v0 scope, dependencies, and build order</h2>
+      <p><b>v0 = one point on every axis</b> — the smallest thing that exercises the whole engine:</p>
+      <table>
+        <tr><th>Slot</th><th>v0 choice</th></tr>
+        <tr><td>Language</td><td><b>C++</b> — libclang for AST facts, source→source Mutator, <code>clang++</code> build</td></tr>
+        <tr><td>Domain</td><td><b>Performance</b></td></tr>
+        <tr><td>First transform</td><td><b><code>reserve()</code> before a <code>push_back</code> loop</b> (the §3 case: real, common, 71% win)</td></tr>
+        <tr><td>Sensor</td><td>Clang facts + benchmark hotspots</td></tr>
+        <tr><td>Proposer</td><td>frontier LLM (prove the idea; swap to local later)</td></tr>
+        <tr><td>Correctness Oracle</td><td>differential test <b>+ UBSan (Rung 3)</b> — N fuzzed inputs → identical output, no UB</td></tr>
+        <tr><td>Performance Oracle</td><td>Google Benchmark — pinned core, ≥30 reps, median + p99 + significance</td></tr>
+        <tr><td>Rigor (Axis G)</td><td>target <b>Rung 3</b> for auto-apply; Rung 1–2 → suggest only</td></tr>
+        <tr><td>Ledger</td><td>local append-only JSON, stores the contract</td></tr>
+        <tr><td>Interface</td><td><code>boostopt analyze</code> / <code>boostopt optimize --apply</code> / <code>boostopt report</code></td></tr>
+      </table>
+      <div class="callout">
+        <p style="margin:0 0 6px"><b class="ok">Confirmed present</b> on this machine — Clang/LLVM 19 (<code>clang++</code>, <code>opt</code>, <code>llc</code>, <code>clang-tidy</code>), Python <code>libclang</code>, CMake 3.26, Ninja, g++ 9.4. Sanitizers (ASan/UBSan/TSan) ship with Clang → <b>Rung 3 is reachable now.</b></p>
+        <p style="margin:0 0 4px"><b class="bad">Missing — install before v0</b> (stated honestly, not assumed):</p>
+        <ul style="margin:0 0 0 0">
+          <li><code>perf</code> and <code>valgrind</code> — profiling (needed for Category B).</li>
+          <li>Google Benchmark library.</li>
+          <li>A modern Python for orchestration (system Python is 3.8).</li>
+        </ul>
+      </div>
+      <h3>Build order (each step ships something runnable)</h3>
+      <ol>
+        <li><b>Trusted gate first, no AI.</b> Wire both Oracles (differential test + UBSan + perf vector) around a <em>hardcoded</em> <code>reserve()</code> rule; prove the gate accepts the §3 win and rejects a deliberately-wrong rewrite.
+The hard, novel part is the gate, not the model.</li>
+        <li><b>Add the contract check</b> (precondition on the AST/CFG) and rung labelling.</li>
+        <li><b>Add the Sensor</b> (libclang detector) so detection is automatic.</li>
+        <li><b>Add the Proposer</b> (LLM) behind the now-trusted gate.</li>
+        <li><b>Add the Ledger</b> and close the loop (re-profile, iterate).</li>
+        <li>Only then: a second transform, domain, or language.</li>
+      </ol>
+    </section>
+
+    <section id="s14">
+      <h2><span class="n">14</span>Prior art — including the tools that already do the core loop <span class="tag">honest</span></h2>
+      <div class="callout" style="border-left:4px solid var(--bad)"><b>Honest framing, up front.</b> BOOSTOPT's core loop — <em>an LLM proposes a rewrite, a trusted check verifies it is correct, a benchmark verifies it is faster, accept only if both hold</em> — is <b>not novel</b>.
+As of 2026 it is an active research area <b>and</b> a shipping commercial product.
+That is both <b>validation</b> (the mechanism works and has value) and a <b>warning</b> (it is not a moat).
+BOOSTOPT must differentiate on <em>how deeply</em> it verifies and <em>what</em> it optimizes — never on the loop itself.
+Anyone reviewing this project will run the search below; better that we did it first.</div>
+
+      <h3>14.1 &nbsp;Direct prior art — the "AI verified-optimizer" class (the real competition)</h3>
+      <table>
+        <tr><th>System</th><th>Level / language</th><th>Correctness gate</th><th>Profile-guided?</th><th>What it leaves open for BOOSTOPT</th></tr>
+        <tr><td><b>Codeflash</b> <em>(commercial: CLI, VS Code, GH Action)</em></td><td>source; <b>Python/JS/TS/Java</b></td><td>generated + existing tests — <b>no formal / no sanitizers</b> (≈ Rung 1–2)</td><td class="bad">no</td><td>not C++/systems; <b>explicitly does <em>not</em> change architecture</b> (no algorithm/data-structure swaps); no contracts/UBSan/Alive2; single-metric</td></tr>
+        <tr><td><b>CompilerGPT</b> <em>(LLNL, 2025)</em></td><td><b>C++ source</b></td><td>user-provided test harness (≈ Rung 1)</td><td class="bad">no — compiler <em>static</em> reports</td><td>up to 6.5× <b>but "not consistently"</b>; user selects regions; no contracts/formal; report-driven not profile-driven</td></tr>
+        <tr><td><b>ECO</b> <em>(Google, 2025)</em></td><td>source, <b>hyperscale production</b></td><td>verify + <b>human code review</b> + production (&gt;99.5%)</td><td class="ok">yes — fleet data + mined anti-pattern dictionary</td><td>closest to BOOSTOPT's Learning + Network <em>at scale</em>, but internal, human-in-loop, pattern-dictionary not formal contracts</td></tr>
+        <tr><td><b>"Verified Learning for Compiler Optimization"</b> <em>(2025)</em></td><td><b>LLVM IR</b> (lazification case study)</td><td><b>untrusted generator + trusted Alive2 formal check</b></td><td class="bad">no</td><td>essentially BOOSTOPT's <em>trust split + formal rung</em> — but at <b>IR level</b>, one narrow transform, not C++ source semantics</td></tr>
+        <tr><td><b>LLM-Vectorizer</b> <em>(2024)</em></td><td>C++ loops</td><td><b>Alive2 formal</b> + repair loop</td><td class="bad">no</td><td>narrow (vectorization); proves Alive2-in-the-loop is real and practical</td></tr>
+        <tr><td><b>Meta LLM Compiler</b> <em>(2024)</em></td><td>LLVM IR / compiler flags</td><td>—</td><td>—</td><td>IR &amp; flag tuning, not source-level semantic reasoning</td></tr>
+      </table>
+      <p>The field even has its own <b>benchmark</b> (<em>PerfCodeBench</em>) and its own <b>skeptics</b> (<em>"Do AI Models Dream of Faster Code?"</em>, finding many LLM-proposed "optimizations" don't hold up) — a maturing area, not a greenfield.</p>
+
+      <h3>14.2 &nbsp;Adjacent / infrastructure prior art (different layer, or not AI)</h3>
+      <table>
+        <tr><th>Work</th><th>What it does</th><th>Different from BOOSTOPT because</th></tr>
+        <tr><td><b>MLGO</b> (Google, in LLVM)</td><td>ML policy for inlining / register allocation, inside passes</td><td>Instruction-level (Stage 5–6), meaning-preserving; not source-semantic</td></tr>
+        <tr><td><b>Meta, "LLMs for Compiler Optimization" (2023)</b></td><td>LLM predicts pass ordering</td><td>Chooses among trusted passes; no source rewrite, no per-change verification</td></tr>
+        <tr><td><b>Autotuners</b> (OpenTuner, TVM/Ansor)</td><td>Search transform parameters with measurement</td><td>Parameter search, not semantic reasoning; domain-narrow</td></tr>
+        <tr><td><b>PGO / BOLT / Propeller</b></td><td>Profile-guided layout/inlining; BOLT rewrites the binary</td><td>Layout only; no algorithm/data-structure change; no gate on a <em>proposed</em> rewrite</td></tr>
+        <tr><td><b>clang-tidy / linters</b></td><td>Pattern-match AST, suggest fixes</td><td>No runtime, no measurement, no verification</td></tr>
+        <tr><td><b>AlphaDev</b> (DeepMind)</td><td>RL found faster tiny fixed sort/hash kernels at assembly</td><td><em>Weak precedent.</em> Tiny fixed branchless routines, exhaustively verifiable, brute-force RL — opposite regime; does not transfer</td></tr>
+      </table>
+
+      <h3>14.3 &nbsp;Where BOOSTOPT honestly differs — and the risk</h3>
+      <p><b>No single system found combines all five of these:</b></p>
+      <ul>
+        <li><b>(A) C++/systems, source-level.</b></li>
+        <li><b>(B) A first-class graded rigor ladder</b> — contracts (AST-level legality) + UBSan + Alive2 rungs, <em>beyond "generated tests pass."</em></li>
+        <li><b>(C) Profile-guided selection</b> of <em>what</em> to optimize.</li>
+        <li><b>(D) A multi-objective Performance Vector</b> — p99 / memory / cross-ISA, not one wall-clock number.</li>
+        <li><b>(E) A shared-verified-transform Network.</b></li>
+      </ul>
+      <p><b>But the overlaps are real — each ingredient already exists somewhere:</b></p>
+      <ul>
+        <li><b>ECO</b> already pairs a production profile with a mined anti-pattern dictionary (≈ C + E, at Google scale, human-reviewed).</li>
+        <li><b>"Verified Learning"</b> already has the untrusted-generator + Alive2 split (≈ B, at IR level).</li>
+        <li><b>CompilerGPT</b> already does C++ source rewriting (≈ A, report-driven, test-gated).</li>
+      </ul>
+      <p>So BOOSTOPT's honest claim is <b>integration, not invention.</b></p>
+      <p><b>The bet:</b> making formal rigor (contracts + rungs) the product's spine — for C++ systems code, with profile-guided selection and a verified-transform network — beats the generic loop everyone already ships.</p>
+      <p>That bet is <b>defensible but unproven — explicitly not a first-mover claim.</b> The core loop is commoditized; BOOSTOPT lives or dies on the rigor and the layer.</p>
+
+      <h3>14.4 &nbsp;Is BOOSTOPT's <em>architecture</em> different?
+Split the question honestly</h3>
+      <p><b>At the block-diagram level — no.</b> The fundamental shape — <em>untrusted LLM proposer → trusted "correct-and-faster" gate → loop</em> — is shared:</p>
+      <table>
+        <tr><th>Architectural element</th><th>BOOSTOPT</th><th>Codeflash</th><th>CompilerGPT</th><th>"Verified Learning"</th></tr>
+        <tr><td>Untrusted proposer + trusted gate + loop</td><td class="win">✅</td><td class="win">✅</td><td class="win">✅</td><td class="win">✅</td></tr>
+        <tr><td><b>Trust split</b> (LLM proposes, external oracle decides)</td><td class="win">✅</td><td class="muted">partial (tests)</td><td class="muted">partial</td><td class="win">✅ exactly this</td></tr>
+      </table>
+      <p>The "Verified Learning" paper describes <em>an untrusted generator + a trusted external formal verifier, correctness enforced as a runtime control layer</em> — BOOSTOPT's trust split, verbatim.
+Claiming "my architecture is different" at this level does not survive scrutiny.</p>
+      <p><b>At the <em>layering</em> level — yes, as a combination:</b></p>
+      <table>
+        <tr><th>Distinctive layer</th><th>BOOSTOPT</th><th>The others</th></tr>
+        <tr><td><b>Graded Correctness Ladder</b> (oracle returns <code>{rung, witness}</code>; autonomy gated on rung)</td><td class="win">✅</td><td class="muted">binary pass/fail (VL has formal, not a <em>graded</em> ladder)</td></tr>
+        <tr><td><b>Transform Contracts</b> (precondition legality on the AST <em>before</em> applying)</td><td class="win">✅</td><td class="unsafe">❌ none</td></tr>
+        <tr><td><b>Profile fed into the proposer</b> (Evidence layer)</td><td class="win">✅</td><td class="muted">Codeflash ❌, CompilerGPT ❌ (static reports), ECO ✅</td></tr>
+        <tr><td><b>Multi-objective Performance Vector</b> (p99 / memory / cross-ISA)</td><td class="win">✅</td><td class="muted">mostly single wall-clock</td></tr>
+        <tr><td><b>Ports &amp; adapters</b> (one engine, many languages/domains)</td><td class="win">✅</td><td class="muted">single-purpose tools</td></tr>
+        <tr><td><b>Network layer</b> (shared verified <code>(transform, contract, rung)</code>)</td><td class="win">✅</td><td class="muted">ECO has a mined dictionary (partial)</td></tr>
+      </table>
+      <p>No competitor assembles all of these — but every row has <em>someone</em> who does it, so the distinctiveness is the <b>stack, not any single layer</b>.</p>
+      <div class="callout"><b>The honest sentence:</b> BOOSTOPT's core architecture (proposer + trusted gate) is <b>shared</b> with the field, including a paper with the exact trust split.
+What's distinctive is the <b>layering</b> — contracts + a graded correctness ladder + profile-fed evidence + a multi-objective gate + a plugin engine + a verified-transform network — <b>as a combination no one else has assembled</b>, though each layer has prior art individually.
+Architecture is never the moat; the two hardest-to-copy layers (<b>contracts</b> and the <b>graded rigor ladder</b>) are also the most work — that is where the daylight is, and it must be <em>earned</em> on the Wedge Test, not claimed in a diagram.</div>
+    </section>
+
+    <section id="s15">
+      <h2><span class="n">15</span>Risks and how the design answers them</h2>
+      <table>
+        <tr><th>Risk</th><th>Answer built into the design</th></tr>
+        <tr><td>The LLM produces a wrong "optimization."</td><td>It has no authority.
+The trusted Correctness Oracle rejects any change that alters output. (§7)</td></tr>
+        <tr><td>"Correct" only means "correct on the inputs we tested."</td><td>The <b>Correctness Ladder</b> (§9): coverage-guided fuzzing on the changed region, <b>UBSan/TSan</b> for undefined behavior &amp; races, formal/translation validation where tractable.
+Every change carries its <b>rung</b>; auto-apply is gated on it.</td></tr>
+        <tr><td>Faster in a noisy benchmark — or wins p50 and wrecks p99.</td><td>The <b>Performance Vector</b> (§9.3): significance across pinned-core runs, and a Pareto check across p50/p99/memory/size, with held-out workloads to beat Goodhart.</td></tr>
+        <tr><td>Generating LLVM passes risks silent miscompilation.</td><td>Deferred.
+Near-term BOOSTOPT does source→source; LLVM's already-verified passes run.
+Novel-pass generation waits for a formal verifier (Alive2). (§6, §9)</td></tr>
+        <tr><td>BOOSTOPT executes LLM-proposed code to verify it.</td><td>Verification runs in a <b>sandbox</b> — resource limits, no network. (§9.4, design rule 6)</td></tr>
+        <tr><td>Optimizations interact / wrong order.</td><td>One transform per candidate, re-profile between accepts, so ordering emerges from measurement. (§8)</td></tr>
+        <tr><td>Scope explosion (10 "AI Engineers" at once).</td><td>One domain, language, transform in v0; every extension is a new adapter built only after the prior works. (§12–13)</td></tr>
+        <tr><td>Weak local model caps quality.</td><td>Prove on a frontier model first; the invariant holds regardless of model, so swapping down is safe. (§7, §13)</td></tr>
+        <tr><td>Dishonest "it works" claims.</td><td>Every claim here is real command output; missing tools (<code>perf</code>, <code>valgrind</code>) are stated, not hidden. (§3, §13)</td></tr>
+      </table>
+    </section>
+
+    <section id="s16">
+      <h2><span class="n">16</span>Glossary</h2>
+      <table>
+        <tr><td><b>AST</b></td><td>The typed, structured form of your program after parsing (Stage 2–3); BOOSTOPT's primary source of static facts.</td></tr>
+        <tr><td><b>LLVM IR</b></td><td>The compiler's target-independent instruction language (Stage 4); where <code>-O2</code>/<code>-O3</code> operate.</td></tr>
+        <tr><td><b>Pass</b></td><td>One transformation the optimizer applies to IR; <code>-O2</code> runs 107 of them.</td></tr>
+        <tr><td><b><code>_M_realloc_insert</code></b></td><td>libstdc++'s vector-growth reallocation routine — the call that survives <code>-O3</code> in §3 and that <code>reserve()</code> eliminates.</td></tr>
+        <tr><td><b>Differential testing</b></td><td>Running two versions on the same inputs and asserting identical output — Rung 1 of BOOSTOPT's correctness proof.</td></tr>
+        <tr><td><b>Transform contract</b></td><td>A transform's precondition (when it is legal) + postcondition (equivalence); legality is checked before applying. (§9.1)</td></tr>
+        <tr><td><b>Correctness ladder / rung</b></td><td>The graded strength of the equivalence check, from smoke test (0) to formal validation (4); every accepted change is labelled with the rung it reached. (§9.2)</td></tr>
+        <tr><td><b>Performance vector</b></td><td>The multi-dimensional success metric {p50, p99, memory, allocations, size, energy, cross-ISA}; the gate rejects Pareto-losers. (§9.3)</td></tr>
+        <tr><td><b>Undefined behavior (UB)</b></td><td>C++ constructs with no defined meaning; a rewrite can rely on UB and pass differential testing yet be wrong — caught at Rung 3 by UBSan.</td></tr>
+        <tr><td><b>Oracle</b></td><td>A trusted checker that returns a verdict the untrusted model cannot influence.</td></tr>
+        <tr><td><b>Adapter / Port</b></td><td>An implementation / an interface, in the hexagonal architecture that keeps the engine thin.</td></tr>
+        <tr><td><b>The invariant</b></td><td>Never keep a change that is not both provably correct and measurably faster — BOOSTOPT's identity.</td></tr>
+      </table>
+      <p class="foot">Every compiler-behavior claim here was generated by running Clang/LLVM&nbsp;19 on <code>sample.cpp</code>/<code>bench.cpp</code>; commands and outputs are shown inline so the document can be checked, not merely believed.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('boostopt-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('boostopt-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        if(map[en.target.id]) map[en.target.id].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Generate the CLI flag reference straight from the argparse parser.
 
-The parser in verto/surfaces/cli.py is the single source of truth for what flags
+The parser in boostopt/surfaces/cli.py is the single source of truth for what flags
 actually exist. This walks it and writes a standalone Markdown reference of the
 flags wired TODAY — so the reference can never claim a flag that isn't built (the
 drift we hit when flag docs lived in the hand-written design doc).
 
 Usage:
   python tools/gen_flags.py                       # print to stdout
-  python tools/gen_flags.py --write Docs/VERTO_Flags.md   # (re)write the file
+  python tools/gen_flags.py --write Docs/BOOSTOPT_Flags.md   # (re)write the file
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from verto.surfaces.cli import _parser  # noqa: E402
+from boostopt.surfaces.cli import _parser  # noqa: E402
 
 _NO_VALUE = (argparse._StoreTrueAction, argparse._StoreFalseAction,
              argparse._StoreConstAction, argparse._HelpAction,
@@ -45,21 +45,21 @@ def _subparsers(parser):
 def render() -> str:
     parser = _parser()
     out = [
-        "# VERTO — CLI Flag Reference",
+        "# BOOSTOPT — CLI Flag Reference",
         "",
-        "> **Auto-generated** from `verto --help` by `tools/gen_flags.py`. "
+        "> **Auto-generated** from `boostopt --help` by `tools/gen_flags.py`. "
         "Do not edit by hand — regenerate with:",
         "> ```",
-        "> python tools/gen_flags.py --write Docs/VERTO_Flags.md",
+        "> python tools/gen_flags.py --write Docs/BOOSTOPT_Flags.md",
         "> ```",
         "> These are the flags **actually wired today**. The design roadmap "
-        "(including planned flags) lives in `VERTO_Surfaces.md`.",
+        "(including planned flags) lives in `BOOSTOPT_Surfaces.md`.",
         "",
     ]
     glob = [a for a in parser._actions if a.option_strings
             and not isinstance(a, (argparse._HelpAction, argparse._SubParsersAction))]
     if glob:
-        out.append("## `verto` (global)")
+        out.append("## `boostopt` (global)")
         out.append("\n**options**\n")
         out.append("| flag | description |")
         out.append("|---|---|")
@@ -75,7 +75,7 @@ def render() -> str:
         groups = [(t, acts) for t, acts in groups if acts]
         if not groups:
             continue
-        out.append(f"## `verto {name}`")
+        out.append(f"## `boostopt {name}`")
         if sp.description:
             out.append(f"\n{sp.description}")
         for title, actions in groups:
@@ -90,7 +90,7 @@ def render() -> str:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="emit the verto CLI flag reference")
+    ap = argparse.ArgumentParser(description="emit the boostopt CLI flag reference")
     ap.add_argument("--write", metavar="FILE", help="write the reference to this file")
     args = ap.parse_args(argv)
     doc = render()

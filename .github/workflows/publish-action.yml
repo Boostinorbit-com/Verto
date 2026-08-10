@@ -1,5 +1,5 @@
-# Builds the VERTO GitHub Action image and pushes it to GHCR, so that
-# `uses: verto/verto@v1` (a Docker action) can resolve `runs.image` in action.yml.
+# Builds the BOOSTOPT GitHub Action image and pushes it to GHCR, so that
+# `uses: boostopt/boostopt@v1` (a Docker action) can resolve `runs.image` in action.yml.
 #
 # Fires on a version tag (v1.2.3) — publishing :v1.2.3, :v1, and :latest — or by hand.
 # Publishes to ghcr.io/<owner>/action; action.yml's `runs.image` must match that ref.

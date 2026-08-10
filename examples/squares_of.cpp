@@ -1,5 +1,5 @@
 // A DIFFERENT signature: takes a vector, returns a vector (not f(size_t)).
-// The reserve() opportunity is here; VERTO now reads the real signature via
+// The reserve() opportunity is here; BOOSTOPT now reads the real signature via
 // libclang and generates a harness for it — building a std::vector<int> input
 // and checksumming the std::vector<long> output.
 #include <vector>

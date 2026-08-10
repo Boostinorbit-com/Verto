@@ -1,19 +1,27 @@
 __pycache__/
 *.pyc
-.VERTO/
+.BOOSTOPT/
 *.egg-info/
 # build/
 dist/
 .venv/
 ledger.jsonl
 
-# cloned real-world repos used for measure-first validation (not part of VERTO)
+# cloned real-world repos used for measure-first validation (not part of BOOSTOPT)
 examples/real_world/
 
-# VERTO local performance workspace (generated state)
-.verto/
-.verto.toml
+# BOOSTOPT local performance workspace (generated state)
+.boostopt/
+.boostopt.toml
 
-# verto_server (PREMIUM) local dev account store — never commit real tokens/usage
-.verto_server/
+# boostopt_server (PREMIUM) local dev account store — never commit real tokens/usage
+.boostopt_server/
 accounts.json
+
+# Nuitka compiled-module builds (closed-source distribution — see Docs/BOOSTOPT_Packaging.md)
+dist-native/
+nuitka-out/
+*.build/
+# Nuitka drops a type stub next to the SOURCE package, not in --output-dir, so it lands in the
+# repo root. Generated, unused at build or runtime — root-anchored so a hand-written stub is safe.
+/boostopt.pyi

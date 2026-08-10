@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VERTO — The Wedge Test</title>
+<title>BOOSTOPT — The Wedge Test</title>
 <style>
   :root{
     --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc;
@@ -84,8 +84,8 @@
 <div class="layout">
 
   <nav class="toc">
-    <div class="brand">AI<span>ON</span> · Wedge Test</div>
-    <div class="tagline">A pre-registered head-to-head: where VERTO structurally beats the field — and where it doesn't.</div>
+    <div class="brand">BOOST<span>OPT</span> · Wedge Test</div>
+    <div class="tagline">A pre-registered head-to-head: where BOOSTOPT structurally beats the field — and where it doesn't.</div>
     <h2>Contents</h2>
     <ol>
       <li class="num"><a href="#s1">The hypothesis</a></li>
@@ -102,22 +102,22 @@
   <main>
     <header class="doc">
       <h1>The Wedge Test</h1>
-      <p class="lede">A <b>pre-registered, head-to-head benchmark</b> that isolates where VERTO structurally beats the existing AI code optimizers — and, honestly, where it does not.</p>
-      <p style="color:var(--muted); font-size:14px; max-width:78ch;">Companion to <a href="VERTO.md">VERTO.md</a> §14, which admits the core loop is <b>not novel</b> (Codeflash ships it, Google ECO runs it, CompilerGPT does it for C++).
-This turns VERTO's <em>claimed</em> differentiation into a <em>measured, falsifiable</em> one — or kills the claim.</p>
+      <p class="lede">A <b>pre-registered, head-to-head benchmark</b> that isolates where BOOSTOPT structurally beats the existing AI code optimizers — and, honestly, where it does not.</p>
+      <p style="color:var(--muted); font-size:14px; max-width:78ch;">Companion to <a href="BOOSTOPT.md">BOOSTOPT.md</a> §14, which admits the core loop is <b>not novel</b> (Codeflash ships it, Google ECO runs it, CompilerGPT does it for C++).
+This turns BOOSTOPT's <em>claimed</em> differentiation into a <em>measured, falsifiable</em> one — or kills the claim.</p>
       <div class="callout"><b>The rule of this document:</b> a "win" must be <b>structural</b> — something a competitor cannot do <em>even in principle</em> — not a lucky run.
-The suite deliberately includes cases VERTO should <b>tie or lose</b>, so the result is credible to a hostile reviewer.</div>
+The suite deliberately includes cases BOOSTOPT should <b>tie or lose</b>, so the result is credible to a hostile reviewer.</div>
     </header>
 
     <section id="s1">
       <h2><span class="n">1</span>The hypothesis (pre-registered, falsifiable)</h2>
-      <blockquote><p>On C++, VERTO wins specifically and only where a change requires (A) a structural/algorithmic swap, (B) knowing the true runtime hotspot, (C) rigor to be safe, or (D) trading off multiple objectives — because the competitors are structurally blind to exactly those four things.
-On everything else, VERTO ties or loses.</p></blockquote>
+      <blockquote><p>On C++, BOOSTOPT wins specifically and only where a change requires (A) a structural/algorithmic swap, (B) knowing the true runtime hotspot, (C) rigor to be safe, or (D) trading off multiple objectives — because the competitors are structurally blind to exactly those four things.
+On everything else, BOOSTOPT ties or loses.</p></blockquote>
       <h3>Falsification conditions (stated before running)</h3>
       <ul>
-        <li>If VERTO does <b>not</b> win <b>Category C (safety)</b>, the core thesis — <em>rigor is the differentiator</em> — is <b>disproven</b>.
+        <li>If BOOSTOPT does <b>not</b> win <b>Category C (safety)</b>, the core thesis — <em>rigor is the differentiator</em> — is <b>disproven</b>.
 Category C is make-or-break.</li>
-        <li>If VERTO wins any <b>Control</b> case, the harness is <b>rigged</b> and every other result is void.</li>
+        <li>If BOOSTOPT wins any <b>Control</b> case, the harness is <b>rigged</b> and every other result is void.</li>
         <li>If A/B/D wins vanish once the competitor gets its <em>best</em> configuration, the wedge is <b>narrower than claimed</b> and must be re-scoped.</li>
       </ul>
     </section>
@@ -126,19 +126,19 @@ Category C is make-or-break.</li>
       <h2><span class="n">2</span>The contestants (and an honest asymmetry)</h2>
       <table>
         <tr><th>Tool</th><th>In the ring for C++?</th><th>Structural limits under test</th></tr>
-        <tr><td><b>VERTO</b> (this project)</td><td class="win">yes</td><td>— (system under test)</td></tr>
+        <tr><td><b>BOOSTOPT</b> (this project)</td><td class="win">yes</td><td>— (system under test)</td></tr>
         <tr><td><b>CompilerGPT</b> (LLNL, open-source)</td><td class="win">yes — the real C++ rival</td><td>driven by compiler <b>static reports</b>, not a runtime profile; correctness = <b>user test harness</b> (no sanitizers, no contracts)</td></tr>
         <tr><td><b>Codeflash</b> (commercial)</td><td class="unsafe">no — Python/JS/TS/Java only</td><td>tested <em>structurally</em> on Python twins: <b>refuses to change architecture</b>; correctness = <b>tests only</b></td></tr>
         <tr><td><code>clang -O3</code></td><td>yes (baseline)</td><td>meaning-preserving; cannot make semantic changes</td></tr>
       </table>
       <p><b>Honest note:</b> because Codeflash does not do C++, its column is <em>conceptual/structural</em>, demonstrated on Python twins.
-The <b>runnable</b> head-to-head is <b>VERTO vs CompilerGPT vs <code>-O3</code></b> on C++.</p>
+The <b>runnable</b> head-to-head is <b>BOOSTOPT vs CompilerGPT vs <code>-O3</code></b> on C++.</p>
     </section>
 
     <section id="s3">
       <h2><span class="n">3</span>The judge — one harness grades everyone the same way</h2>
       <p>No tool grades its own homework.
-Every tool emits an optimized variant; the <b>judge</b> — literally VERTO's Verification stage, run neutrally — evaluates all variants identically:</p>
+Every tool emits an optimized variant; the <b>judge</b> — literally BOOSTOPT's Verification stage, run neutrally — evaluates all variants identically:</p>
       <div class="scroll"><pre class="diagram"><code>JUDGE(original, variant):
   DETECTED  = tool attempted this case                      (bookkeeping)
   CORRECT   = differential test on a HELD-OUT hard input set  ← inputs no tool saw:
@@ -155,7 +155,7 @@ Every tool emits an optimized variant; the <b>judge</b> — literally VERTO's Ve
               MISS    if not detected / no change
               SLOWER  if correct+safe but not faster</code></pre></div>
       <p>The <b class="unsafe">UNSAFE</b> verdict is the whole point of Category C: a change a tests-only tool <em>accepted</em> that the judge's held-out inputs or sanitizers <em>fail</em>.
-That is a demonstrated correctness win for VERTO's approach.</p>
+That is a demonstrated correctness win for BOOSTOPT's approach.</p>
     </section>
 
     <section id="s4">
@@ -180,36 +180,36 @@ Both are <em>algorithmic</em> — not within-structure tweaks.</p>
       <pre><code>std::vector&lt;int&gt; out;                    // THE hotspot: reallocates ~log2(N) times
 for (std::size_t i = 0; i &lt; N; ++i) out.push_back(f(i));
 // ...19 other cold loops the vectorization report loves to mention...</code></pre>
-      <p>CompilerGPT chases report-flagged (cold) loops; VERTO's profiler goes to the 80%.
+      <p>CompilerGPT chases report-flagged (cold) loops; BOOSTOPT's profiler goes to the 80%.
 <b>W-B2 — hot tiny helper</b> called 50M times that no optimization report fires on.</p>
 
       <h3>Category C — requires rigor to be SAFE <span class="tag">crown jewel</span></h3>
       <p>Each C-case ships a <b>plausible-but-wrong "optimization"</b> — the kind an LLM confidently proposes and a tests-only gate waves through.
-VERTO must <b>reject</b> it.</p>
+BOOSTOPT must <b>reject</b> it.</p>
       <p><b>W-C1 — signed-overflow UB</b> (passes small-input tests):</p>
       <pre><code>// original (correct):
 long sum = 0; for (std::size_t i = 0; i &lt; n; ++i) sum += a[i];
 // tempting "faster" rewrite:
 int  sum = 0; for (int i = 0; i &lt; (int)n; ++i)     sum += a[i];   // UB when sum &gt; INT_MAX</code></pre>
       <p>Small tests pass; judge's max-size input overflows → <b>UBSan fires</b>.
-VERTO rejects (Rung 3); rivals → <b class="unsafe">UNSAFE</b>.</p>
+BOOSTOPT rejects (Rung 3); rivals → <b class="unsafe">UNSAFE</b>.</p>
       <p><b>W-C2 — off-by-one OOB read</b> (<code>i &lt;= n</code>): benign on small tests, judge's <b>ASan</b> catches it.
-<b>W-C3 — illegal loop-invariant hoist:</b> hoisting <code>scale(cfg)</code> is legal only if <code>scale</code> is pure and <code>cfg</code> unmutated — VERTO's <b>contract precondition fails → reject</b>; a naive tool ships a bug.
+<b>W-C3 — illegal loop-invariant hoist:</b> hoisting <code>scale(cfg)</code> is legal only if <code>scale</code> is pure and <code>cfg</code> unmutated — BOOSTOPT's <b>contract precondition fails → reject</b>; a naive tool ships a bug.
 <b>W-C4 — data race</b> from naive <code>#pragma omp parallel for</code> on a shared histogram → judge's <b>TSan</b> fires.
 <b>W-C5 — float reassociation</b> that diverges on <code>NaN</code>/<code>inf</code>/cancellation inputs the tool never tested.</p>
 
       <h3>Category D — requires multi-objective judgement</h3>
       <p><b>W-D1 — memoization:</b> median −30% but peak memory 3× and p99 worse.
-Single-metric tools accept; VERTO's Performance Vector rejects the <b>Pareto-loser</b>.
+Single-metric tools accept; BOOSTOPT's Performance Vector rejects the <b>Pareto-loser</b>.
 <b>W-D2 — benchmark-local win</b> that regresses cross-ISA or bloats binary size (held-out machine + size budget catch it).</p>
 
-      <h3>Controls — VERTO must NOT uniquely win these</h3>
+      <h3>Controls — BOOSTOPT must NOT uniquely win these</h3>
       <ul>
         <li><b>W-Ctrl1 (expected TIE)</b> — within-structure micro-op (<code>std::endl</code> → <code>'\n'</code>).
 All tools should get it.</li>
         <li><b>W-Ctrl2 (expected NOBODY WINS)</b> — dead code / constant fold <code>clang -O3</code> already removes.
-Verifies VERTO doesn't take credit for the compiler.</li>
-        <li><b>W-Ctrl3 (expected VERTO LOSES)</b> — a report-driven vectorization CompilerGPT lands but VERTO's v0 doesn't target.
+Verifies BOOSTOPT doesn't take credit for the compiler.</li>
+        <li><b>W-Ctrl3 (expected BOOSTOPT LOSES)</b> — a report-driven vectorization CompilerGPT lands but BOOSTOPT's v0 doesn't target.
 Reported honestly as a loss.</li>
       </ul>
     </section>
@@ -217,7 +217,7 @@ Reported honestly as a loss.</li>
     <section id="s5">
       <h2><span class="n">5</span>Pre-registered predictions (commit before running)</h2>
       <table>
-        <tr><th>Case</th><th>VERTO</th><th>CompilerGPT</th><th>Codeflash-class</th><th><code>clang -O3</code></th></tr>
+        <tr><th>Case</th><th>BOOSTOPT</th><th>CompilerGPT</th><th>Codeflash-class</th><th><code>clang -O3</code></th></tr>
         <tr><td>W-A1 map→umap</td><td class="win">WIN</td><td class="muted">MISS</td><td class="muted">won't (arch)</td><td class="muted">can't</td></tr>
         <tr><td>W-A2 O(n²)→O(n)</td><td class="win">WIN</td><td class="muted">MISS</td><td class="muted">won't (arch)</td><td class="muted">can't</td></tr>
         <tr><td>W-A3 →binary search</td><td class="win">WIN</td><td class="muted">MISS</td><td class="muted">won't (arch)</td><td class="muted">can't</td></tr>
@@ -239,7 +239,7 @@ Reported honestly as a loss.</li>
 
     <section id="s6">
       <h2><span class="n">6</span>The headline number (what you get to claim, if earned)</h2>
-      <div class="callout crown"><b>Across the pre-registered C++ suite, VERTO produced <em>N</em> judge-verified speedups (correct ∧ safe ∧ faster) that CompilerGPT could not — <em>M</em> of them because CompilerGPT's <em>accepted</em> change failed the judge's safety gate (<span class="unsafe">UNSAFE</span>), and <em>K</em> because the fix required a structural/algorithmic change or the true hotspot the static report missed — while tying on every control and honestly losing W-Ctrl3.</b></div>
+      <div class="callout crown"><b>Across the pre-registered C++ suite, BOOSTOPT produced <em>N</em> judge-verified speedups (correct ∧ safe ∧ faster) that CompilerGPT could not — <em>M</em> of them because CompilerGPT's <em>accepted</em> change failed the judge's safety gate (<span class="unsafe">UNSAFE</span>), and <em>K</em> because the fix required a structural/algorithmic change or the true hotspot the static report missed — while tying on every control and honestly losing W-Ctrl3.</b></div>
       <p>Specific, falsifiable, and survives a reviewer re-running the search.
 Infinitely stronger than "unique and better than them all."</p>
     </section>
@@ -259,8 +259,8 @@ Beating a hobbled rival proves nothing.</li>
 
     <section id="s8">
       <h2><span class="n">8</span>How to actually run it</h2>
-      <p><b>Prerequisite — the minimum VERTO build:</b> the trusted judge/gate (differential test + ASan/UBSan/TSan + perf vector) and <b>~6 transforms</b> covering A1–A3, B1, plus the <em>rejection</em> logic for C1–C5 and D1.
-This is essentially v0 (VERTO.md §13) plus a handful of transforms — <b>building the wedge test and building VERTO's core are the same work.</b></p>
+      <p><b>Prerequisite — the minimum BOOSTOPT build:</b> the trusted judge/gate (differential test + ASan/UBSan/TSan + perf vector) and <b>~6 transforms</b> covering A1–A3, B1, plus the <em>rejection</em> logic for C1–C5 and D1.
+This is essentially v0 (BOOSTOPT.md §13) plus a handful of transforms — <b>building the wedge test and building BOOSTOPT's core are the same work.</b></p>
       <p><b>Missing tooling to install first:</b> a runtime profiler (<code>perf</code>/Google Benchmark) for Category B; sanitizers ship with Clang 19 already, so Category C is reachable now.</p>
       <ol>
         <li>Freeze the 15 cases as compilable C++ projects, each with a hidden held-out input generator.</li>
@@ -268,7 +268,7 @@ This is essentially v0 (VERTO.md §13) plus a handful of transforms — <b>build
         <li>Run the single judge over all variants → fill the verdict matrix.</li>
         <li>Compare against the §5 predictions; write up matches <em>and</em> misses.</li>
       </ol>
-      <p class="foot">This test is designed to be able to embarrass VERTO.
+      <p class="foot">This test is designed to be able to embarrass BOOSTOPT.
 That is the point: a wedge you can only pass by cheating is worthless, and a wedge you might fail is the only kind worth running.</p>
     </section>
 
@@ -276,13 +276,13 @@ That is the point: a wedge you can only pass by cheating is worthless, and a wed
 </div>
 
 <script>
-  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('verto-theme',t);}catch(e){} }
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('boostopt-theme',t);}catch(e){} }
   function toggleTheme(){
     var cur = document.documentElement.getAttribute('data-theme');
     if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
     applyTheme(cur === 'dark' ? 'light' : 'dark');
   }
-  try{ var saved = localStorage.getItem('verto-theme'); if(saved) applyTheme(saved); }catch(e){}
+  try{ var saved = localStorage.getItem('boostopt-theme'); if(saved) applyTheme(saved); }catch(e){}
   var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
   var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
   var obs = new IntersectionObserver(function(entries){

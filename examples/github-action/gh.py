@@ -1,4 +1,4 @@
-"""VERTO Action — GitHub posting (#18, step 3, the network half).
+"""BOOSTOPT Action — GitHub posting (#18, step 3, the network half).
 
 Posts/updates the summary comment and (in suggest mode) inline review suggestions,
 using only the standard library (`urllib`) so the Docker image stays minimal.
@@ -20,7 +20,7 @@ import urllib.request
 
 
 def _log(msg: str) -> None:
-    sys.stderr.write(f"verto-action: {msg}\n")
+    sys.stderr.write(f"boostopt-action: {msg}\n")
 
 
 def _env(*names: str) -> str:

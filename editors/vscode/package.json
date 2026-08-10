@@ -1,14 +1,14 @@
 {
-  "name": "verto-vscode",
-  "displayName": "VERTO — verified C++ optimizations",
+  "name": "boostopt-vscode",
+  "displayName": "BOOSTOPT — verified C++ optimizations",
   "description": "Verified, correct-and-faster C++ optimizations in your editor. Every suggestion is proven behavior-identical before it is ever shown.",
   "version": "0.2.1",
-  "publisher": "verto",
+  "publisher": "boostopt",
   "private": true,
   "license": "SEE LICENSE IN ../../LICENSE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Boostinorbit-com/Verto",
+    "url": "https://github.com/Boostinorbit-com/Boostopt",
     "directory": "editors/vscode"
   },
   "engines": {
@@ -24,36 +24,36 @@
   "contributes": {
     "commands": [
       {
-        "command": "verto.openPanel",
-        "title": "VERTO: Open Pair-Optimizer Panel"
+        "command": "boostopt.openPanel",
+        "title": "BOOSTOPT: Open Pair-Optimizer Panel"
       },
       {
-        "command": "verto.optimizeFile",
-        "title": "VERTO: Verify & Optimize Current File"
+        "command": "boostopt.optimizeFile",
+        "title": "BOOSTOPT: Verify & Optimize Current File"
       },
       {
-        "command": "verto.pickProfile",
-        "title": "VERTO: Select Optimization Profile"
+        "command": "boostopt.pickProfile",
+        "title": "BOOSTOPT: Select Optimization Profile"
       }
     ],
     "configuration": {
-      "title": "VERTO",
+      "title": "BOOSTOPT",
       "properties": {
-        "verto.command": {
+        "boostopt.command": {
           "type": "string",
-          "default": "verto",
-          "description": "Command to run the verto CLI. Use 'verto' if installed, or e.g. 'python3 -m verto.surfaces.cli' to run from a checkout."
+          "default": "boostopt",
+          "description": "Command to run the boostopt CLI. Use 'boostopt' if installed, or e.g. 'python3 -m boostopt.surfaces.cli' to run from a checkout."
         },
-        "verto.args": {
+        "boostopt.args": {
           "type": "array",
           "items": { "type": "string" },
           "default": [],
-          "markdownDescription": "Extra flags passed to `verto optimize`, your choice. Anything from `verto optimize --help` works, e.g.:\n\n```json\n[\"--model\", \"local\", \"--min-rung\", \"1\", \"--metamorphic\", \"--fuzz\", \"5000\", \"--budget\", \"$1\"]\n```\n\nProject policy is best kept in `.verto.toml` (shared with the CLI & CI); use this for editor-specific overrides. The extension always adds `--json`."
+          "markdownDescription": "Extra flags passed to `boostopt optimize`, your choice. Anything from `boostopt optimize --help` works, e.g.:\n\n```json\n[\"--model\", \"local\", \"--min-rung\", \"1\", \"--metamorphic\", \"--fuzz\", \"5000\", \"--budget\", \"$1\"]\n```\n\nProject policy is best kept in `.boostopt.toml` (shared with the CLI & CI); use this for editor-specific overrides. The extension always adds `--json`."
         },
-        "verto.compileCommands": {
+        "boostopt.compileCommands": {
           "type": "string",
           "default": "",
-          "description": "Convenience for the common `-p` flag: path to compile_commands.json (optional; or just put '-p <path>' in verto.args)."
+          "description": "Convenience for the common `-p` flag: path to compile_commands.json (optional; or just put '-p <path>' in boostopt.args)."
         }
       }
     }

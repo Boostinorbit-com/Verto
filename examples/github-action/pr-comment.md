@@ -1,11 +1,11 @@
-# VERTO — the PR / MR comment layout
+# BOOSTOPT — the PR / MR comment layout
 
 This is the *design* surface of the Action: the comment a developer actually sees. It's plain **Markdown** (both GitHub PR comments and GitLab MR notes render it), so this file doubles as the spec *and* previews roughly how it looks.
 
 > **Implemented (#18 step 3).** This layout is now produced by real code: [`comment.py`](comment.py) renders the summary + suggestions (pure, unit-tested), and [`gh.py`](gh.py) posts them to GitHub (`urllib`-only, self-guarding). This file remains the human-readable spec.
 
 **Design goals**, in priority order:
-1. **Trust first.** VERTO's whole pitch is *verified* — lead with the proof (behavior-identical + sanitizers), not just a number.
+1. **Trust first.** BOOSTOPT's whole pitch is *verified* — lead with the proof (behavior-identical + sanitizers), not just a number.
 2. **Scannable in 3 seconds.** A summary table up top; details collapsed.
 3. **Honest about the number.** The speed-up is measured on the runner (toolchain-dependent) — say so.
 4. **Low-noise.** One comment per PR, *updated* on each push (never a new comment each time). Skips are disclosed but quiet.
@@ -14,7 +14,7 @@ This is the *design* surface of the Action: the comment a developer actually see
 
 ## 1. The summary comment (posted once, updated on each push)
 
-> ### ⚡ VERTO — 2 verified optimizations
+> ### ⚡ BOOSTOPT — 2 verified optimizations
 >
 > Both changes are **proven behavior-identical** (differential test + ASan / UBSan / TSan) and **measurably faster** on the files this PR touched. Nothing is applied automatically.
 >
@@ -54,7 +54,7 @@ This is the *design* surface of the Action: the comment a developer actually see
 > </details>
 >
 > ---
-> <sub>🔎 2 functions skipped (couldn't synthesize inputs). VERTO proves every change **correct-and-faster** before suggesting it — a weak model produces *fewer* suggestions, never an unsafe one. Tune in `.verto.toml`.</sub>
+> <sub>🔎 2 functions skipped (couldn't synthesize inputs). BOOSTOPT proves every change **correct-and-faster** before suggesting it — a weak model produces *fewer* suggestions, never an unsafe one. Tune in `.boostopt.toml`.</sub>
 
 **Notes**
 - The header count and the table are the 3-second read. Everything heavy is behind `<details>` so the comment stays short.
@@ -67,7 +67,7 @@ This is the *design* surface of the Action: the comment a developer actually see
 
 Posted as a review comment on the changed lines, so the reviewer gets an **Apply** button:
 
-> **VERTO** · verified **−53%**, Rung 3, behavior-identical. Apply to pre-size the vector:
+> **BOOSTOPT** · verified **−53%**, Rung 3, behavior-identical. Apply to pre-size the vector:
 >
 > ````
 > ```suggestion
@@ -86,7 +86,7 @@ Posted as a review comment on the changed lines, so the reviewer gets an **Apply
 
 Don't spam a big comment when there's nothing to suggest. Either update the existing comment to a one-liner, or post nothing and just set a neutral check status:
 
-> ### VERTO — no verified optimizations
+> ### BOOSTOPT — no verified optimizations
 > Checked 3 changed files; nothing cleared the correct-and-faster bar this run. <sub>(2 skipped — couldn't synthesize inputs.)</sub>
 
 *(Recommended: collapse or minimize this so a clean PR isn't cluttered.)*
@@ -97,7 +97,7 @@ Don't spam a big comment when there's nothing to suggest. Either update the exis
 
 Same findings as §1, but the check goes **red**: there's a verified, correct-and-faster change on the table and the PR hasn't taken it. The comment stays identical — only the check status and the closing line change:
 
-> ### ❌ VERTO — 2 verified optimizations left unapplied
+> ### ❌ BOOSTOPT — 2 verified optimizations left unapplied
 >
 > *(the same summary table + suggestion folds as §1)*
 >
@@ -105,7 +105,7 @@ Same findings as §1, but the check goes **red**: there's a verified, correct-an
 
 *Prevent is `fail-on: any` today. A **planned** `fail-on: regression` variant will instead fail when the PR is slower than a saved baseline — a "guard against losses" gate that needs the baseline-diff feature (roadmap). Sketch of that future comment:*
 
-> ### ❌ VERTO — performance regression *(planned — needs baselines)*
+> ### ❌ BOOSTOPT — performance regression *(planned — needs baselines)*
 >
 > `parse.cpp · tokenize()` is **+18% slower** (p50) than the baseline on `main`. Behavior is unchanged (differential test passed) — purely a speed regression.
 
@@ -113,7 +113,7 @@ Same findings as §1, but the check goes **red**: there's a verified, correct-an
 
 ## Mechanics the implementer needs
 
-- **One comment, updated in place.** Tag the comment with a hidden marker (e.g. `<!-- verto:summary -->`) so the next push *edits* it instead of adding a new one. Inline suggestions are re-posted only for lines that still apply.
-- **Everything comes from `--json`.** The Action runs `verto optimize --changed … --json`, then this layout is pure rendering of that payload — identical logic for GitHub and GitLab; only the *post* call and the suggestion fence differ.
+- **One comment, updated in place.** Tag the comment with a hidden marker (e.g. `<!-- boostopt:summary -->`) so the next push *edits* it instead of adding a new one. Inline suggestions are re-posted only for lines that still apply.
+- **Everything comes from `--json`.** The Action runs `boostopt optimize --changed … --json`, then this layout is pure rendering of that payload — identical logic for GitHub and GitLab; only the *post* call and the suggestion fence differ.
 - **Diffs** use ` ```diff ` (universal). **Suggestions** use the platform fence above.
 - **Tone:** state correctness as fact, speed-up with the runner caveat. Never oversell the number — the proof is the product.

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Check how the VERTO GitHub Action behaves — locally, without GitHub.
+# Check how the BOOSTOPT GitHub Action behaves — locally, without GitHub.
 #
 # A Docker action is just: GitHub sets INPUT_* env vars, runs the entrypoint, then
 # reads $GITHUB_OUTPUT and the exit code. This script reproduces that contract, so
-# you see the whole pipeline (inputs -> verto -> outputs -> exit code -> the comment
+# you see the whole pipeline (inputs -> boostopt -> outputs -> exit code -> the comment
 # it WOULD post). The only thing it can't do locally is the actual PR post, which
 # self-skips with no token — exactly as it would off a PR event.
 #
@@ -20,9 +20,9 @@ DB="${1:-examples/linked/compile_commands.json}"
 FAIL_ON="${2:-any}"
 MODE="${3:-suggest}"
 
-# Use an installed `verto`, else run the package in place.
-if command -v verto >/dev/null 2>&1; then VERTO_BIN="verto";
-else VERTO_BIN="python3 -m verto.surfaces.cli"; fi
+# Use an installed `boostopt`, else run the package in place.
+if command -v boostopt >/dev/null 2>&1; then BOOSTOPT_BIN="boostopt";
+else BOOSTOPT_BIN="python3 -m boostopt.surfaces.cli"; fi
 
 TMP="$(mktemp -d)"; GH_OUT="$TMP/github_output.txt"; : > "$GH_OUT"
 trap 'rm -rf "$TMP"' EXIT
@@ -36,7 +36,7 @@ echo "────────────────────────�
 # so the demo actually runs even with no real PR diff.
 set +e
 env \
-  VERTO_BIN="$VERTO_BIN" \
+  BOOSTOPT_BIN="$BOOSTOPT_BIN" \
   GITHUB_WORKSPACE="$REPO" \
   RUNNER_TEMP="$TMP" \
   GITHUB_OUTPUT="$GH_OUT" \

@@ -1,10 +1,10 @@
-verto_server: port 8724 busy — freeing it and taking over (dev)…
-verto_server (PRIVATE — never publish)
+boostopt_server: port 8724 busy — freeing it and taking over (dev)…
+boostopt_server (PRIVATE — never publish)
   listening on   127.0.0.1:8724   →   http://127.0.0.1:8724
   endpoints      GET /healthz   ·   POST /v1/optimize
   ── request log (→ received, ← responded) ──────────────────────
 [23:20:46] → 127.0.0.1       POST /v1/optimize  (received, working…)
-[23:21:04] ← 127.0.0.1       POST /v1/optimize  200  plan=pro engine='verto2.5-coder:7b (local AI)' results=1 accepted=1  (17978ms)
+[23:21:04] ← 127.0.0.1       POST /v1/optimize  200  plan=pro engine='boostopt2.5-coder:7b (local AI)' results=1 accepted=1  (17978ms)
 [23:21:06] → 127.0.0.1       POST /v1/optimize  (received, working…)
 [23:21:09] ← 127.0.0.1       POST /v1/optimize  200  plan=hosted-trial engine='rules (dev stand-in — no AI)' results=1 accepted=1  (2284ms)
 [00:13:42] → 127.0.0.1       POST /v1/optimize  (received, working…)

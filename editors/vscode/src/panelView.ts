@@ -1,7 +1,7 @@
-// VERTO hybrid panel — the docked WebviewViewProvider (the locked UX direction).
+// BOOSTOPT hybrid panel — the docked WebviewViewProvider (the locked UX direction).
 // A conversational surface with full console power: natural-language requests OR
-// `/`-prefixed raw commands, VERTO replies with the AI-propose → gate-filter pipeline
-// and a verified result card, Apply / Show-diff inline. Drives the `verto` CLI; all
+// `/`-prefixed raw commands, BOOSTOPT replies with the AI-propose → gate-filter pipeline
+// and a verified result card, Apply / Show-diff inline. Drives the `boostopt` CLI; all
 // verification is the engine, this is one more renderer of the same Verdict.
 import * as cp from 'child_process';
 import * as fs from 'fs';
@@ -36,38 +36,38 @@ export function registerAfterProvider(context: vscode.ExtensionContext): void {
   rememberCpp(vscode.window.activeTextEditor);
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(rememberCpp),
-    vscode.workspace.registerTextDocumentContentProvider('verto-pdiff', {
+    vscode.workspace.registerTextDocumentContentProvider('boostopt-pdiff', {
       provideTextDocumentContent: (uri) => afterDocs.get(uri.toString()) ?? '',
     }),
   );
 }
 
-export class VertoPanel {
-  private static current?: VertoPanel;
+export class BoostoptPanel {
+  private static current?: BoostoptPanel;
   private findings: core.Verdict[] = [];
   private targetUri?: vscode.Uri;
 
   /** Open (or reveal) the panel in the editor column to the RIGHT of the code. */
   static createOrShow(extensionUri: vscode.Uri): void {
     const column = vscode.ViewColumn.Beside;
-    if (VertoPanel.current) {
-      VertoPanel.current.panel.reveal(column, true);
+    if (BoostoptPanel.current) {
+      BoostoptPanel.current.panel.reveal(column, true);
       return;
     }
     const panel = vscode.window.createWebviewPanel(
-      'verto.panel',
-      'VERTO — Pair-optimizer',
+      'boostopt.panel',
+      'BOOSTOPT — Pair-optimizer',
       { viewColumn: column, preserveFocus: true },
       { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [extensionUri] },
     );
-    panel.iconPath = vscode.Uri.joinPath(extensionUri, 'media', 'verto.svg');
-    VertoPanel.current = new VertoPanel(panel);
+    panel.iconPath = vscode.Uri.joinPath(extensionUri, 'media', 'boostopt.svg');
+    BoostoptPanel.current = new BoostoptPanel(panel);
   }
 
   private constructor(private readonly panel: vscode.WebviewPanel) {
     panel.webview.html = HTML;
     panel.onDidDispose(() => {
-      VertoPanel.current = undefined;
+      BoostoptPanel.current = undefined;
     });
     panel.webview.onDidReceiveMessage(async (msg: { type: string; text?: string; index?: number }) => {
       if (msg.type === 'run' && msg.text) {
@@ -86,13 +86,13 @@ export class VertoPanel {
     const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (folder) {
       try {
-        const cfg = core.parseProfiles(fs.readFileSync(path.join(folder, '.verto.json'), 'utf8'));
+        const cfg = core.parseProfiles(fs.readFileSync(path.join(folder, '.boostopt.json'), 'utf8'));
         const keys = Object.keys(cfg.profiles);
         if (keys.length > 0) {
           return cfg.default && cfg.profiles[cfg.default] ? cfg.default : keys[0];
         }
       } catch {
-        /* no .verto.json */
+        /* no .boostopt.json */
       }
     }
     return 'default';
@@ -103,12 +103,12 @@ export class VertoPanel {
   }
 
   private profileArgs(uri: vscode.Uri): string[] {
-    const cfg = vscode.workspace.getConfiguration('verto');
+    const cfg = vscode.workspace.getConfiguration('boostopt');
     const folder = vscode.workspace.getWorkspaceFolder(uri)?.uri.fsPath;
     let profiles: core.ProfileConfig | undefined;
     if (folder) {
       try {
-        profiles = core.parseProfiles(fs.readFileSync(path.join(folder, '.verto.json'), 'utf8'));
+        profiles = core.parseProfiles(fs.readFileSync(path.join(folder, '.boostopt.json'), 'utf8'));
       } catch {
         profiles = undefined;
       }
@@ -127,8 +127,8 @@ export class VertoPanel {
     this.post({ type: 'user', text });
     this.post({ type: 'thinking' });
 
-    const cfg = vscode.workspace.getConfiguration('verto');
-    const command = cfg.get<string>('command', 'verto');
+    const cfg = vscode.workspace.getConfiguration('boostopt');
+    const command = cfg.get<string>('command', 'boostopt');
     const raw = text.trim().startsWith('/');
     const extra = raw
       ? text.trim().slice(1).trim().split(/\s+/).filter(Boolean) // /-command: raw flags
@@ -214,9 +214,9 @@ export class VertoPanel {
       return;
     }
     const after = core.applyUdiff(doc.getText(), v.udiff || v.diff || '');
-    const afterUri = doc.uri.with({ scheme: 'verto-pdiff', query: `v${diffSeq++}` });
+    const afterUri = doc.uri.with({ scheme: 'boostopt-pdiff', query: `v${diffSeq++}` });
     afterDocs.set(afterUri.toString(), after);
-    const title = `${doc.uri.path.split('/').pop()} ↔ VERTO (${core.speedupLabel(v)})`;
+    const title = `${doc.uri.path.split('/').pop()} ↔ BOOSTOPT (${core.speedupLabel(v)})`;
     await vscode.commands.executeCommand('vscode.diff', doc.uri, afterUri, title, { preview: true });
   }
 }
@@ -232,7 +232,7 @@ function rejectReason(v: core.Verdict): string {
   return r.replace(/_/g, ' ');
 }
 
-// The webview UI — the VERTO console panel (matches Figma node 7-2): a command line,
+// The webview UI — the BOOSTOPT console panel (matches Figma node 7-2): a command line,
 // the AI-propose -> gate-filter pipeline, a verified result card with a colored diff,
 // and a terminal-style input bar. Same run/apply/showDiff protocol as before.
 const HTML = /* html */ `<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -277,7 +277,7 @@ const HTML = /* html */ `<!DOCTYPE html><html><head><meta charset="utf-8">
 </style></head>
 <body>
   <div class="head">
-    <div class="brand"><span class="zap">⚡</span>VERTO</div>
+    <div class="brand"><span class="zap">⚡</span>BOOSTOPT</div>
     <div class="hspacer"></div>
     <div class="pchip" id="prof">profile: default ▾</div>
   </div>
@@ -292,7 +292,7 @@ const HTML = /* html */ `<!DOCTYPE html><html><head><meta charset="utf-8">
   const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   let thinkEl = null;
   function add(html){ const d=document.createElement('div'); d.innerHTML=html; out.appendChild(d); out.scrollTop=out.scrollHeight; return d; }
-  function cmdLine(t){ add('<div class="cmd"><span class="p">verto ▸</span> <span class="c">'+esc(t)+'</span></div>'); }
+  function cmdLine(t){ add('<div class="cmd"><span class="p">boostopt ▸</span> <span class="c">'+esc(t)+'</span></div>'); }
   function think(){ thinkEl = add('<div class="dim">proposing &amp; verifying…</div>'); }
   function clearThink(){ if(thinkEl){ thinkEl.remove(); thinkEl=null; } }
 

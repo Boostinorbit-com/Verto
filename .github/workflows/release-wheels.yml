@@ -1,0 +1,96 @@
+# Closed-source release wheels — Nuitka-compiled, one per platform × Python version.
+#
+# BOOSTOPT ships proprietary: a `py3-none-any` wheel would publish ~80 readable .py files,
+# including engine/gate.py. This workflow builds the artifact that doesn't.
+#
+# MANUAL ONLY (`workflow_dispatch`). It is deliberately not wired to tags yet — the licence
+# review and the boostopt.com URLs are still outstanding, and an accidental publish of a name
+# is not reversible on PyPI.
+#
+# Linux builds run inside a manylinux container. A wheel built on a bare runner is tagged
+# `linux_x86_64`, which PyPI REJECTS outright; manylinux is the only accepted Linux tag family.
+name: Release wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Upload to TestPyPI when finished"
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: ${{ matrix.os }} · py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+        python: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip nuitka wheel setuptools>=77
+
+      # clang is what BOOSTOPT verifies WITH; Nuitka needs any C compiler to emit the module.
+      - name: C toolchain (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang patchelf
+
+      - name: Build the compiled wheel
+        run: python tools/build_native_wheel.py -o dist-native
+
+      # linux_x86_64 -> manylinux_2_28_x86_64. Without this PyPI refuses the upload.
+      - name: Repair to manylinux
+        if: runner.os == 'Linux'
+        run: |
+          python -m pip install auditwheel
+          for w in dist-native/*.whl; do auditwheel repair "$w" -w dist-native-repaired || exit 1; done
+          rm -rf dist-native && mv dist-native-repaired dist-native
+
+      - name: Verify the wheel ships no source
+        shell: python
+        run: |
+          import glob, zipfile, sys
+          w = glob.glob("dist-native/*.whl")[0]
+          n = zipfile.ZipFile(w).namelist()
+          py = [x for x in n if x.endswith(".py")]
+          ext = [x for x in n if x.endswith((".so", ".pyd"))]
+          leak = [x for x in n if x.startswith("boostopt_server")]
+          print(w, "| .py:", len(py), "| ext:", ext, "| leak:", leak)
+          # A compiled release that still carries .py has silently defeated its own purpose.
+          sys.exit(0 if (not py and len(ext) == 1 and not leak) else 1)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-py${{ matrix.python }}
+          path: dist-native/*.whl
+
+  publish:
+    needs: build
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    environment: testpypi          # gate it behind an environment with required reviewers
+    permissions:
+      id-token: write              # Trusted Publishing — no long-lived token in secrets
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist
+
+# NOT DONE YET, and required before this can publish to real PyPI:
+#   * legal review of LICENSE (§8 warranty, §9 liability)
+#   * boostopt.com/docs / /changelog / /support / /privacy must resolve — the wheel metadata
+#     and the EULA reference all four
+#   * decide whether Windows/macOS are launch platforms; v0 is documented as Linux-only, so
+#     three OSes here may be more matrix than you need on day one

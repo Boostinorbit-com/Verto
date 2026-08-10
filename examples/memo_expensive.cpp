@@ -1,7 +1,7 @@
 // Category D (multi-objective) baseline.
 // Expensive per-element work over only 500k distinct inputs → lots of recomputation.
 // A memoized variant is CORRECT and FASTER, but keeps a big table resident, so it
-// regresses peak memory. VERTO should ACCEPT it under a lenient memory budget but
+// regresses peak memory. BOOSTOPT should ACCEPT it under a lenient memory budget but
 // REJECT it under a strict one — "faster" is not the whole story.
 #include <vector>
 #include <cstddef>

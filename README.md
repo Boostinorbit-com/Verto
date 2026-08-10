@@ -1,17 +1,16 @@
-# VERTO — the verified C++ optimizer
+# BOOSTOPT — the verified C++ optimizer
 
-**VERTO proposes an optimization to your C++ and applies it *only* after proving the change is byte-identical in behavior AND measurably faster.** An untrusted proposer (a local LLM, or deterministic rules) suggests changes; a trusted gate re-compiles, differential-tests, runs sanitizers, and benchmarks each one — and keeps only what passes.
+**BOOSTOPT proposes an optimization to your C++ and applies it *only* after proving the change is byte-identical in behavior AND measurably faster.** An untrusted proposer (a local LLM, or deterministic rules) suggests changes; a trusted gate re-compiles, differential-tests, runs sanitizers, and benchmarks each one — and keeps only what passes.
 
-> **VERTO proves your code on *your* machine — the source never leaves your box.**
+> **BOOSTOPT proves your code on *your* machine — the source never leaves your box.**
 
-[![CI](https://github.com/Boostinorbit-com/Verto/actions/workflows/ci.yml/badge.svg)](https://github.com/Boostinorbit-com/Verto/actions/workflows/ci.yml)
-&nbsp;License: Proprietary (all rights reserved) &nbsp;·&nbsp; Status: beta (v0, C++)
+[**boostopt.com**](https://boostopt.com) &nbsp;·&nbsp; [Docs](https://boostopt.com/docs) &nbsp;·&nbsp; License: Commercial EULA — free tier, unlimited local + CI use &nbsp;·&nbsp; Status: beta (v0, C++)
 
 ---
 
 ## The one invariant
 
-VERTO accepts a change **if and only if**:
+BOOSTOPT accepts a change **if and only if**:
 
 ```
 correctness.rung ≥ min_rung   AND   performance.pareto_pass
@@ -27,10 +26,14 @@ The proposer can be wrong, slow, or adversarial — a bad suggestion is a *rejec
 Requires **`clang++`** with sanitizers (that's the one real system dependency — `libclang` ships with the pip package).
 
 ```bash
-pip install verto-optimizer          # installs the `verto` command
+# One command — installs the tool, Ollama, and the local model:
+curl -fsSL https://boostopt.com/install.sh | sh
 
-# Optimize a file: really compiles, differential-tests, runs ASan/UBSan, and benchmarks.
-verto optimize examples/packet_stats.cpp --offline
+# Or just the Python tool (CI, containers, or bring your own model):
+pip install boostopt          # installs the `boostopt` command
+
+# Prove it on a bundled sample: really compiles, differential-tests, runs ASan/UBSan, benchmarks.
+boostopt demo
 ```
 
 Output (numbers vary by machine — the *acceptance* is what's guaranteed):
@@ -45,8 +48,34 @@ Output (numbers vary by machine — the *acceptance* is what's guaranteed):
 `--offline` uses the deterministic rule proposer (no model, no key). To use a **local LLM** instead — free, private, nothing leaves your machine:
 
 ```bash
-verto optimize hot.cpp --model local        # via a local Ollama (e.g. qwen3)
+boostopt init --pull                           # one-time: build the local model (see below)
+boostopt optimize hot.cpp --model local        # via a local Ollama
 ```
+
+### The local model
+
+BOOSTOPT's default local model is **`boostopt2.5-coder:7b`** — [`qwen2.5-coder:7b`](https://ollama.com/library/qwen2.5-coder) (Apache-2.0) re-tagged with our optimize system prompt and sampling baked in. It is *not* a second download: `ollama create` re-labels weights Ollama already has, so only the base model crosses the wire.
+
+`pip install boostopt` **does not** touch Ollama — Python wheels run no install-time code, and a 2-second install shouldn't become a multi-gigabyte one. The model is built by `boostopt init`, which needs [Ollama](https://ollama.com) installed:
+
+- `boostopt init` — if the base is already pulled, it re-tags immediately (seconds, no download).
+- `boostopt init --pull` — pulls the base first (~4 GB), then re-tags.
+- `boostopt init --pull --install-ollama` — installs Ollama too, if it's missing. It shows the exact command, asks first, and needs sudo (Ollama runs as a system service). Opt-in by design: a plain `--pull` never escalates, and a non-interactive shell — CI, a pipe, a hook — is always treated as "no".
+- Neither is possible (no Ollama, no base, a failed pull)? `init` says so and records the plain `qwen2.5-coder:7b` in `.boostopt/model` — the git-ignored note of what this machine actually has. The committed `.boostopt.toml` still asks for `boostopt2.5-coder:7b`, because a shared config records the project's intent, not one laptop's state. Re-run `boostopt init --pull` once Ollama is available and the pointer catches up.
+
+The recipe — and its Apache-2.0 attribution to Qwen — ships in the wheel at `boostopt/runtime/models/boostopt2.5-coder.Modelfile`. Any other model works too: `--llm-model llama3:8b` is pulled by name, unmodified.
+
+### Removing BOOSTOPT
+
+`pip uninstall boostopt` deletes the Python package and nothing else — wheels have no uninstall hook, the same reason pip can't install Ollama. Use the command that ships alongside it:
+
+```bash
+boostopt-uninstall                          # dry run: prints exactly what would go
+boostopt-uninstall --yes                    # models we built, workspace, config, then the package
+boostopt-uninstall --yes --remove-ollama    # also tears down Ollama, if WE installed it
+```
+
+Every install is recorded in `~/.local/state/boostopt/installed.json`, and uninstall removes **only what that receipt claims as ours**. An Ollama that was already on your machine, or a `qwen2.5-coder:7b` you pulled for your own work, is listed as *left alone* and never touched. The Ollama teardown needs sudo, so it prints the commands and asks first — and the model store is left in place, since it's gigabytes a reinstall picks straight back up.
 
 ## What you get
 
@@ -56,41 +85,40 @@ verto optimize hot.cpp --model local        # via a local Ollama (e.g. qwen3)
 - **Beyond a compiler's reach** — data-structure swaps, signature changes, container-type changes.
 - **Inspectable** — read the diff and the proof; untrusted binaries run in a sandbox.
 
-VERTO's built-in **wedge test** — 14 pre-registered cases — shows it **accepts** real wins (reserve, `map`→`unordered_map`, `list`→`vector`, pass-by-const-ref…) **and rejects** deliberately-broken ones (an out-of-bounds write that passes the diff test but ASan catches; a memoization that's faster but blows the memory budget). Run it yourself: `python -m wedge.run`.
+BOOSTOPT's built-in **wedge test** — 14 pre-registered cases — shows it **accepts** real wins (reserve, `map`→`unordered_map`, `list`→`vector`, pass-by-const-ref…) **and rejects** deliberately-broken ones (an out-of-bounds write that passes the diff test but ASan catches; a memoization that's faster but blows the memory budget). Run it yourself: `python -m wedge.run`.
 
 ## Commands
 
 ```bash
-verto init                       # set up a .verto/ workspace (like `git init`) + prep the local model
-verto analyze  foo.cpp           # non-destructive: what would you optimize, and why
-verto optimize foo.cpp --apply   # verify, then write the accepted change (transactional, sound-only)
-verto optimize -p build/ --all   # whole codebase (a compile_commands.json)
-verto report                     # the ledger — every accept/reject, its rung, its measured Δ
+boostopt demo                       # prove it on a bundled sample — no setup, no model
+boostopt init                       # set up a .boostopt/ workspace (like `git init`) + prep the local model
+boostopt analyze  foo.cpp           # non-destructive: what would you optimize, and why
+boostopt optimize foo.cpp --apply   # verify, then write the accepted change (transactional, sound-only)
+boostopt optimize -p build/ --all   # whole codebase (a compile_commands.json)
+boostopt report                     # the ledger — every accept/reject, its rung, its measured Δ
+boostopt-uninstall                  # remove the models/workspace/config we created, then the package
 ```
 
-Key flags: `--offline` (rules) · `--model local|frontier` (LLM) · `--min-rung N` · `--metamorphic` · `--diff` · `--json` · `--jobs N`. Full reference: [`Docs/VERTO_Flags.md`](Docs/VERTO_Flags.md).
+Key flags: `--offline` (rules) · `--model local|frontier` (LLM) · `--min-rung N` · `--metamorphic` · `--diff` · `--json` · `--jobs N`. Full reference: <https://boostopt.com/docs/flags>.
 
 ## Install
 
 **From PyPI** (recommended):
 ```bash
-pip install verto-optimizer
+pip install boostopt
 ```
 
-**From source** (Python 3.11+):
+**One command** (installs the tool, Ollama, and the local model):
 ```bash
-git clone https://github.com/Boostinorbit-com/Verto && cd Verto
-pip install -e '.[dev]'
-verto analyze --verify-setup     # checks clang, sanitizers, ccache, linker
+curl -fsSL https://boostopt.com/install.sh | sh
 ```
 
-**Docker** (zero setup — bundles clang + sanitizers):
+**Check your toolchain** — `clang++` with sanitizers is the one hard requirement:
 ```bash
-docker build -t verto .
-docker run --rm -v "$PWD:/src" -w /src verto optimize examples/packet_stats.cpp --offline
+boostopt analyze --verify-setup     # checks clang, sanitizers, ccache, linker
 ```
 
-Optional extras: a **local LLM** via [Ollama](https://ollama.com) (`--model local`); **bubblewrap** for network/filesystem sandboxing of untrusted binaries; **ccache** for faster repeat runs. `verto analyze --verify-setup` reports what's present.
+Optional extras: a **local LLM** via [Ollama](https://ollama.com) (`--model local`); **bubblewrap** for network/filesystem sandboxing of untrusted binaries; **ccache** for faster repeat runs. `boostopt analyze --verify-setup` reports what's present.
 
 ## How it works
 
@@ -111,7 +139,7 @@ Untrusted binaries run in a **bubblewrap sandbox** (no network, read-only filesy
 
 - ✅ Trusted gate (differential + ASan/UBSan/TSan; Pareto vector; opt-in metamorphic)
 - ✅ LLM proposer (local Ollama or any OpenAI-compatible host), best-of-N, cost cap, sandbox
-- ✅ `verto init` workspace, codebase mode, patch export, CI
+- ✅ `boostopt init` workspace, codebase mode, patch export, CI
 - ⬜ Next: more languages (Axis A), formal verification (Alive2), hosted/CI product surfaces
 
 **Scope:** v0 is **C++** and **Linux**. Multi-language (Python → Rust / Java / Go / JS) is designed for but not built.
@@ -120,13 +148,15 @@ Untrusted binaries run in a **bubblewrap sandbox** (no network, read-only filesy
 
 | Doc | For |
 |---|---|
-| [VERTO.md](Docs/VERTO.md) | the idea, the invariant, prior art — *why it's sound* |
-| [VERTO_Architecture.md](Docs/VERTO_Architecture.md) | the engine + the C++ instance — *how it's built* |
-| [VERTO_Surfaces.md](Docs/VERTO_Surfaces.md) | CLI / CI / IDE / config — *what you run* |
-| [VERTO_Roadmap.md](Docs/VERTO_Roadmap.md) | what's done, what's next |
-
-Every `.md` has a styled `.html` twin for reading in a browser.
+| [Overview](https://boostopt.com/docs/overview) | the idea, the invariant, prior art — *why it's sound* |
+| [Architecture](https://boostopt.com/docs/architecture) | the engine + the C++ instance — *how it's built* |
+| [Surfaces](https://boostopt.com/docs/surfaces) | CLI / CI / IDE / config — *what you run* |
+| [Flags](https://boostopt.com/docs/flags) | the complete, generated flag reference |
 
 ## License
 
-**Proprietary — all rights reserved** (see [LICENSE](LICENSE)). Pre-release software under active development; not licensed for use, copying, or distribution. The licensing terms for any future public release are reserved and will be decided at that time.
+**Commercial licence** — see the `LICENSE` file included in the distribution, or <https://boostopt.com/license>.
+
+The **free tier** is licensed for use on any number of machines you own or control, including internal commercial use and CI. What it does *not* grant is redistribution, modification, or reverse engineering. **Premium features** (the hosted optimization service) require a subscription key.
+
+BOOSTOPT is proprietary: the source is not published, and the package you install is licensed, not sold.

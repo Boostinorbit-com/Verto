@@ -1,4 +1,4 @@
-# VERTO's OWN CI (roadmap #15) — runs the test suite + the wedge on every push/PR, so a
+# BOOSTOPT's OWN CI (roadmap #15) — runs the test suite + the wedge on every push/PR, so a
 # change can't silently break the tool. (This is NOT the user-facing GitHub Action — that's
 # the #18 product surface, a separate workflow packaged for a C++ team's own repo.)
 name: CI
@@ -52,15 +52,21 @@ jobs:
           restore-keys: |
             ccache-${{ runner.os }}-py${{ matrix.python-version }}-
 
-      - name: Install VERTO (editable + dev extras)
+      - name: Install BOOSTOPT (editable + dev extras)
         run: pip install -e '.[dev]'
 
       - name: Toolchain report (non-blocking)
-        run: verto analyze --verify-setup || true
+        run: boostopt analyze --verify-setup || true
 
-      # Live-LLM tests are opt-in (VERTO_LIVE_LLM unset) → no Ollama needed, and no CPU
-      # contention from a loaded model. --reruns absorbs transient benchmark noise on the
-      # shared runner: a real regression fails all 3 attempts; noise clears on a retry.
+      # Fast gate first: everything that doesn't touch clang++ (see the `toolchain` marker in
+      # pyproject). Seconds, no reruns — a failure here is unambiguous, and it fails the build
+      # before the runner spends four minutes compiling.
+      - name: Unit tests (no toolchain)
+        run: pytest -q -m "not toolchain"
+
+      # Then the full suite. Live-LLM tests are opt-in (BOOSTOPT_LIVE_LLM unset) → no Ollama
+      # needed, and no CPU contention from a loaded model. --reruns absorbs transient benchmark
+      # noise on the shared runner: a real regression fails all 3 attempts; noise clears on a retry.
       - name: Run the test suite
         env:
           CCACHE_DIR: ~/.cache/ccache
@@ -78,3 +84,26 @@ jobs:
           done
           echo "::error::wedge failed after 3 attempts"
           exit 1
+
+  # install.sh is a HOSTED artifact — people pipe it straight into a shell from boostopt.com,
+  # so a syntax slip or an unquoted path is a broken install for everyone, not a local bug.
+  # Its own job: seconds, no toolchain, and it reports independently of the 5-minute test matrix.
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shellcheck the shipped scripts
+        # ShellCheck is preinstalled on the ubuntu runner images; install it if that ever changes.
+        # `-s sh` matters: install.sh has a `#!/bin/sh` shebang, and checking it as bash would
+        # let bashisms through that break on dash (Debian/Ubuntu's /bin/sh).
+        run: |
+          # NOT `shellcheck --version || apt-get update && apt-get install …` — that parses as
+          # `(A || B) && C`, so the install runs even when shellcheck is already there.
+          if ! shellcheck --version >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends shellcheck
+          fi
+          shellcheck --version
+          shellcheck -s sh install.sh
+          shellcheck check.sh

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(verto_2a_fixture CXX)
+project(boostopt_2a_fixture CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,7 +15,7 @@ target_link_libraries(stats_test PRIVATE stats)
 add_executable(stats_bench stats_bench.cpp)
 target_link_libraries(stats_bench PRIVATE stats)
 
-# An unrelated TU + test — must NOT be selected when VERTO targets stats.cpp (2A-1).
+# An unrelated TU + test — must NOT be selected when BOOSTOPT targets stats.cpp (2A-1).
 add_library(other STATIC other.cpp)
 add_executable(other_test other_test.cpp)
 target_link_libraries(other_test PRIVATE other)

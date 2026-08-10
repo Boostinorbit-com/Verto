@@ -2,8 +2,8 @@
 **/__pycache__
 *.egg-info
 .venv
-.verto
-.verto.toml
+.boostopt
+.boostopt.toml
 ledger.jsonl
 examples/real_world
 .pytest_cache

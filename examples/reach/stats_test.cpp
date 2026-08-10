@@ -2,7 +2,7 @@
 #include <vector>
 
 // The project's OWN test: exit 0 iff scaled behaves as expected. This is 2A's correctness
-// oracle — it verifies the reserve() change VERTO can't reach with a synthetic harness.
+// oracle — it verifies the reserve() change BOOSTOPT can't reach with a synthetic harness.
 std::vector<long> scaled(const std::map<int, long>& m, int n);
 
 int main() {

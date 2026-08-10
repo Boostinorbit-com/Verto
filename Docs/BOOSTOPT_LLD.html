@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOOSTOPT — Low-Level Design (LLD)</title>
+<style>
+  :root{ --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc; --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a; --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --th:#eef3f9; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23; --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --th:#182029; } }
+  :root[data-theme="light"]{ --bg:#ffffff; --fg:#1a1d21; --muted:#5b6570; --line:#e3e8ee; --card:#f7f9fc; --accent:#2563eb; --accent-soft:#e8f0fe; --code-bg:#f4f6fa; --code-fg:#0f172a; --ok:#0a7c3a; --bad:#c0392b; --warn:#b45309; --th:#eef3f9; }
+  :root[data-theme="dark"]{ --bg:#0e1116; --fg:#e6edf3; --muted:#9aa7b4; --line:#232a33; --card:#151b23; --accent:#6ea8fe; --accent-soft:#152238; --code-bg:#111820; --code-fg:#dbe6f2; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --th:#182029; }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .layout{display:grid; grid-template-columns:290px 1fr; max-width:1300px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; border-right:1px solid var(--line); padding:24px 18px 60px; background:var(--bg);}
+  nav.toc h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  .brand{font-weight:800; font-size:19px; letter-spacing:-.01em; margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .tagline{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.45;}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s;}
+  nav.toc li{margin:1px 0;}
+  nav.toc a{display:block; text-decoration:none; color:var(--muted); font-size:13.5px; padding:5px 10px; border-radius:7px; border-left:2px solid transparent;}
+  nav.toc a:hover{color:var(--fg); background:var(--card);}
+  nav.toc a.active{color:var(--accent); background:var(--accent-soft); border-left-color:var(--accent); font-weight:600;}
+  nav.toc li.num a::before{counter-increment:s; content:counter(s) ".  "; color:var(--muted); font-variant-numeric:tabular-nums;}
+  main{padding:40px 52px 120px; min-width:0;}
+  header.doc{border-bottom:1px solid var(--line); padding-bottom:26px; margin-bottom:36px;}
+  header.doc h1{font-size:32px; line-height:1.15; letter-spacing:-.02em; margin:0 0 12px;}
+  header.doc .lede{font-size:17px; color:var(--fg); max-width:80ch;}
+  header.doc .lede b{color:var(--accent);}
+  section{scroll-margin-top:20px; padding-top:14px; margin-top:26px;}
+  section > h2{font-size:23px; letter-spacing:-.01em; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  section > h2 .n{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:10px;}
+  h3{font-size:16px; margin:24px 0 8px; color:var(--accent);}
+  p{max-width:86ch;} li{max-width:86ch; margin:6px 0;}
+  a{color:var(--accent);}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.84em; background:var(--code-bg); color:var(--code-fg); padding:.1em .4em; border-radius:5px;}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.55;}
+  table{border-collapse:collapse; width:100%; margin:14px 0; font-size:13.5px; display:block; overflow-x:auto;}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top;}
+  th{background:var(--th); font-weight:650;}
+  tr:nth-child(even) td{background:var(--card);}
+  blockquote{margin:18px 0; padding:14px 20px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 8px 8px 0;}
+  blockquote p{margin:0; font-weight:600;}
+  .callout{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:18px 0;}
+  .ok{color:var(--ok); font-weight:700;} .muted{color:var(--muted);} .bad{color:var(--bad); font-weight:700;} .warn{color:var(--warn); font-weight:700;}
+  .theme-btn{position:fixed; top:14px; right:18px; z-index:20; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .foot{margin-top:60px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px;}
+  @media (max-width:900px){ .layout{grid-template-columns:1fr;} nav.toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);} main{padding:28px 20px 80px;} header.doc h1{font-size:25px;} }
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">◐ Theme</button>
+<div class="layout">
+
+  <nav class="toc">
+    <div class="brand">BOOST<span>OPT</span> · LLD</div>
+    <div class="tagline">A code-mapped walkthrough of how BOOSTOPT is built — read alongside the source.</div>
+    <h2>Contents</h2>
+    <ol>
+      <li class="num"><a href="#s1">60-second mental model</a></li>
+      <li class="num"><a href="#s2">Layers &amp; dependency rule</a></li>
+      <li class="num"><a href="#s3">The data model</a></li>
+      <li class="num"><a href="#s4">End-to-end trace</a></li>
+      <li class="num"><a href="#s5">Engine core</a></li>
+      <li class="num"><a href="#s6">Stage 1 — Sensor</a></li>
+      <li class="num"><a href="#s7">Stage 2 — Proposer + Mutator</a></li>
+      <li class="num"><a href="#s8">Stage 4a — Correctness</a></li>
+      <li class="num"><a href="#s9">Stage 4b — Performance</a></li>
+      <li class="num"><a href="#s10">Surfaces &amp; runtime</a></li>
+      <li class="num"><a href="#s11">Cross-cutting patterns</a></li>
+      <li class="num"><a href="#s12">Extension points</a></li>
+      <li class="num"><a href="#s13">Full file index</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc">
+      <h1>BOOSTOPT — Low-Level Design (LLD)</h1>
+      <p class="lede"><b>A code-mapped walkthrough of how BOOSTOPT is actually built</b> — read this alongside the source to navigate the ~5,250-LOC <code>boostopt/</code> package.</p>
+      <p class="muted" style="font-size:14px;">Companion to <code>BOOSTOPT.md</code> (concept — <em>why</em>), <code>BOOSTOPT_Architecture.md</code> (blueprint — <em>what</em>), <code>BOOSTOPT_Surfaces.md</code>/<code>BOOSTOPT_Flags.md</code> (CLI), <code>BOOSTOPT_Roadmap.md</code> (state &amp; plan). <b>This doc is the <em>how</em> — the file/class/function map.</b> Every reference is <code>path — symbol</code>.</p>
+    </header>
+
+    <section id="s1">
+      <h2><span class="n">1</span>The 60-second mental model</h2>
+      <p>BOOSTOPT takes one function, proposes a change, and <b>accepts it only if a trusted gate proves it is byte-identical in behavior AND measurably faster.</b> Everything is organized around one invariant, enforced in exactly one place (<code>engine/gate.py — InvariantGate.decide</code>):</p>
+      <pre><code>accept  ⟺  correctness.rung ≥ policy.min_rung   AND   performance.pareto_pass</code></pre>
+      <p>The whole system is a <b>four-stage loop</b> driven by <code>engine/orchestrator.py — Orchestrator.run</code>:</p>
+      <pre><code>  ┌─────────── one round, per function ───────────────────────────────────┐
+  │  1. EVIDENCE   sensor.collect(target) → Evidence   (facts + hotspot)   │
+  │  2. PROPOSAL   proposer.propose(ev)   → Candidate  (UNTRUSTED)         │
+  │  3. MUTATE     mutator.apply(...)     → Variant    (real source diff)  │
+  │  4. VERIFY     gate.decide(...)       → Verdict    (TRUSTED: the gate) │
+  │     └─ learn:  ledger.record(episode)                                  │
+  └───────────────────────────────────────────────────────────────────────┘</code></pre>
+      <div class="callout"><b>The one idea that makes it safe:</b> stages 1–3 are <b>untrusted</b> (a rule set today, an LLM later — they're allowed to be wrong); stage 4 is the <b>trusted gate</b> that re-runs real code to catch every mistake. Get the gate right once and the proposer can be as dumb or as clever as you like.</div>
+    </section>
+
+    <section id="s2">
+      <h2><span class="n">2</span>Layered architecture &amp; the dependency rule</h2>
+      <p>Four layers, <b>strict inward dependency</b> — <code>engine</code> knows nothing about C++, clang, or the CLI:</p>
+      <pre><code>  surfaces/   CLI · daemon · patch-emitter        (talk to engine.api only)
+      │  depends on
+      ▼
+  engine/     Orchestrator · Gate · Ports · Models · Ledger   ← the trusted core
+      ▲  implements the Ports (Protocols)
+      │
+  adapters/   language/cpp · domain/performance · proposer     (the pluggable parts)
+      │  uses
+      ▼
+  runtime/    sandbox · bench_runner · fs         (OS-level primitives)</code></pre>
+      <ul>
+        <li><b><code>engine/</code></b> defines <em>interfaces</em> (<code>engine/ports.py</code>, Python <code>Protocol</code>s) and owns the loop + the gate. It imports <b>no</b> adapter.</li>
+        <li><b><code>adapters/</code></b> <em>implement</em> those interfaces (a <code>CppSensor</code>, a <code>PerfCorrectnessOracle</code>, …). All language/domain specifics live here.</li>
+        <li><b><code>engine/registry.py — resolve()</code></b> is the <b>only</b> wiring point: given a file, it picks adapters and hands the orchestrator an <code>AdapterSet</code>.</li>
+        <li><b><code>surfaces/</code></b> are thin clients of <code>engine/api.py — Engine</code>.</li>
+      </ul>
+      <h3>Directory map (LOC)</h3>
+      <table>
+        <tr><th>Path</th><th>LOC</th><th>Role</th></tr>
+        <tr><td><code>engine/</code></td><td>~740</td><td>the trusted core: loop, gate, models, ports, ledger, config, apply</td></tr>
+        <tr><td><code>adapters/language/cpp/</code></td><td>~1,900</td><td>everything C++: sensing, parsing, transforms, building, linking</td></tr>
+        <tr><td><code>adapters/domain/performance/</code></td><td>~800</td><td>the correctness + performance oracles (the two halves of the gate)</td></tr>
+        <tr><td><code>adapters/proposer/</code></td><td>~70</td><td>rule proposer (offline) + frontier-LLM stub</td></tr>
+        <tr><td><code>surfaces/</code></td><td>~730</td><td>CLI, daemon, patch series</td></tr>
+        <tr><td><code>runtime/</code></td><td>~120</td><td>sandbox, benchmark runner, temp-file naming</td></tr>
+      </table>
+    </section>
+
+    <section id="s3">
+      <h2><span class="n">3</span>The data model — <code>engine/models.py</code></h2>
+      <p>These plain dataclasses are the <b>only</b> things that cross layer boundaries. Learn these and the call flow reads itself.</p>
+      <table>
+        <tr><th>Type</th><th>Key fields</th><th>Produced → consumed</th></tr>
+        <tr><td><code>Target</code></td><td><code>file, symbol, line, build, verify_mode</code></td><td>CLI/api → sensor. <code>verify_mode</code> = <code>"harness"</code> | <code>"tests"</code> (2A)</td></tr>
+        <tr><td><code>Evidence</code></td><td><code>target, source, facts, profile, skips</code></td><td><code>sensor.collect</code> → proposer; reasoning input + honest skip list</td></tr>
+        <tr><td><code>Skip</code></td><td><code>func, reason, stage</code></td><td>sensor → surfaces; a site seen but not optimized, with <em>why</em></td></tr>
+        <tr><td><code>Candidate</code></td><td><code>transform, contract, rationale</code></td><td><code>proposer.propose</code> → mutator/gate; <b>UNTRUSTED</b></td></tr>
+        <tr><td><code>Variant</code></td><td><code>target, patch, source_after</code></td><td><code>mutator.apply</code> → gate; the compilable artifact</td></tr>
+        <tr><td><code>CorrectnessVerdict</code></td><td><code>rung, passed, witness</code></td><td>correctness oracle → gate; <code>rung</code> = highest ladder level passed</td></tr>
+        <tr><td><code>PerfVerdict</code></td><td><code>vector{p50,p99,peak_memory,…}, pareto_pass, reason</code></td><td>performance oracle → gate</td></tr>
+        <tr><td><code>Verdict</code></td><td><code>accepted, correctness, performance, reason, diff, udiff, applied, via, metamorphic</code></td><td><b>gate → every surface</b>; the one payload all UIs render</td></tr>
+        <tr><td><code>Episode</code></td><td><code>evidence, candidate, verdict</code></td><td>orchestrator → ledger (learning log)</td></tr>
+        <tr><td><code>Priors</code></td><td><code>accepted_transforms, rejected_transforms</code></td><td>ledger → proposer (recall)</td></tr>
+        <tr><td><code>VerifyCtx</code></td><td><code>workdir, cache, extra_cflags, link_inputs, opt_flags</code></td><td>gate → both oracles; <b>shared build cache</b> (compile once, reuse)</td></tr>
+      </table>
+    </section>
+
+    <section id="s4">
+      <h2><span class="n">4</span>End-to-end trace: <code>boostopt optimize foo.cpp</code></h2>
+      <p>Follow one command through the code:</p>
+      <pre><code>surfaces/cli/__main__.py                         entrypoint
+ └─ surfaces/cli/main.py — main() → handle_argv() → _run_command()
+     ├─ parser.py — _parser()          parse argv
+     ├─ config_build.py — _build_config()   argv → Config
+     ├─ (daemon.py — try_client()       hand off to a warm daemon if running)
+     └─ engine/api.py — Engine.optimize(file)
+         └─ Engine._run()
+             ├─ registry.py — resolve(file, cfg) → AdapterSet   (pick + wire adapters)
+             ├─ Orchestrator(adapters, ledger).run(target)      ← THE LOOP
+             │   ├─ 1. adapters.sensor.collect(target)  → Evidence
+             │   ├─ 2. ledger.recall(ev)                → Priors
+             │   ├─ 3. adapters.proposer.propose(ev)    → Candidate
+             │   ├─    _precondition_holds(cand, ev)    (legality pre-check)
+             │   ├─ 4. adapters.mutator.apply(...)      → Variant
+             │   ├─ 5. adapters.gate.decide(...)        → Verdict   ← TRUSTED
+             │   ├─ 6. ledger.record(Episode)
+             │   └─ 7. if accepted &amp; apply: txn.write(...)   (ApplyTransaction)
+             └─ returns list[Verdict]
+     └─ render.py — _render_human()/_render_json()     print the verdicts</code></pre>
+      <p>Codebase mode (<code>--all</code> / <code>-p</code>) is the same loop wrapped by <code>Engine.optimize_codebase</code> (parallel over TUs via <code>--jobs</code>, one shared <code>ApplyTransaction</code>).</p>
+    </section>
+
+    <section id="s5">
+      <h2><span class="n">5</span>Engine core — <code>engine/</code></h2>
+      <h3><code>gate.py — InvariantGate</code> (the single ACCEPT decision)</h3>
+      <p>The <b>only</b> place <code>accepted=True</code> is returned. <code>decide()</code>:</p>
+      <ol>
+        <li>Builds a <code>VerifyCtx</code> (one workdir + build cache shared by both oracles).</li>
+        <li>If <code>orig.verify_mode == "tests"</code> → <code>_decide_via_tests()</code> (the 2A path; correctness = project tests, perf = project bench).</li>
+        <li>Else <code>correctness.equivalent()</code> — reject if not <code>passed</code> (build fail vs <code>changed_output</code>) or <code>rung &lt; min_rung</code> (<code>"unsafe"</code>).</li>
+        <li><code>performance.compare()</code> — reject if <code>not pareto_pass</code> (<code>"slower"</code>).</li>
+        <li><b>2D</b> (opt-in): <code>metamorphic.check()</code> — reject if a property the original had is broken.</li>
+        <li><b>#3</b> (opt-in): <code>reuse.confirm()</code> — the project's own tests re-confirm.</li>
+        <li>Return <code>Verdict(accepted=True, reason="accepted")</code>.</li>
+      </ol>
+      <h3>The rest</h3>
+      <table>
+        <tr><th>File — symbol</th><th>Responsibility</th></tr>
+        <tr><td><code>api.py — Engine</code></td><td>public API: <code>analyze</code> / <code>optimize</code> / <code>optimize_codebase</code> / <code>report</code>. <code>_git_changed()</code> powers <code>--changed</code>; <code>optimize_codebase(on_done=…)</code> fires a per-TU progress callback. Reads its ledger from <code>workspace.ledger_path()</code></td></tr>
+        <tr><td><code>workspace.py</code></td><td>the <code>.boostopt/</code> per-project workspace (<code>boostopt init</code>): <code>find()</code>/<code>ledger_path()</code> (git-style walk-up), <code>init()</code>, <code>gitignore_add()</code>, <code>write_starter_config()</code>, <code>write_global_config()</code> (XDG). Model <em>pointer</em> only — weights stay in Ollama</td></tr>
+        <tr><td><code>orchestrator.py — Orchestrator.run</code></td><td>iteration, in-run dedup, stop conditions, transactional apply, re-profile. <code>_unified_diff()</code> → <code>Verdict.udiff</code> (2C)</td></tr>
+        <tr><td><code>registry.py — resolve()</code></td><td>the wiring point: file → <code>AdapterSet</code>. Injects <code>reuse</code> (#3) + <code>metamorphic</code> (2D) into the gate</td></tr>
+        <tr><td><code>ports.py</code></td><td>the 6 <code>Protocol</code>s: <code>Sensor, Proposer, Mutator, CorrectnessOracle, PerformanceOracle, Ledger</code></td></tr>
+        <tr><td><code>ledger.py — JsonlLedger</code></td><td>append-only <code>record()</code> + <code>recall()</code> (priors) — the learning log</td></tr>
+        <tr><td><code>apply_txn.py — ApplyTransaction</code></td><td>atomic <code>--apply</code>: snapshot → <code>os.replace</code> → <code>rollback()</code>/<code>commit()</code>; refuses a stale file (#9)</td></tr>
+        <tr><td><code>config.py — Config</code></td><td>gate policy + all knobs; <code>Config.load()</code> <b>layers</b> global <code>~/.config/boostopt/config.toml</code> (XDG) under the project <code>.boostopt.toml</code> (precedence: project &gt; global &gt; defaults)</td></tr>
+      </table>
+    </section>
+
+    <section id="s6">
+      <h2><span class="n">6</span>Stage 1 — Sensor / Evidence <span class="muted" style="font-size:14px;font-weight:400">(<code>adapters/language/cpp/</code>)</span></h2>
+      <h3><code>sensor.py — CppSensor.collect</code> (generic over transforms)</h3>
+      <p>The key design: the sensor does <b>not</b> hardcode detectors. Candidate functions are the <b>union of every transform's <code>candidates(source)</code></b>:</p>
+      <pre><code>candidates = set()
+for t in ALL:                # ALL = the transform registry
+    candidates.update(t.candidates(source))</code></pre>
+      <p>Then a <b>skip cascade</b> keeps only what it can verify, recording <em>why</em> for the rest: <code>harness.unsupported_reason</code> (signature — else route to 2A test-mode) · <code>detect_side_effect_reason</code> (#1c) · <code>detect_parse_errors</code> · <code>detect_template_candidates</code> (#1d). Finally <b>profile-guided selection</b> (<code>profile.py</code>/<code>profiler.py</code>) picks the hot candidate and sets <code>target.symbol</code>.</p>
+      <h3>AST analysis — <code>analysis/</code> (libclang)</h3>
+      <table>
+        <tr><th>File</th><th>Owns</th></tr>
+        <tr><td><code>analysis/parse.py</code></td><td>libclang TU creation, <b>thread-local</b> parse flags (<code>set_parse_args</code>), <code>_infile_funcs</code>, <code>parse_errors</code></td></tr>
+        <tr><td><code>analysis/detect.py</code></td><td>every <b>site detector</b>: <code>all_growth</code>, <code>all_string_growth</code>, <code>all_map</code>, <code>all_umap_growth</code>, <code>all_list</code>, <code>all_fuse</code>, <code>byval_params</code> — each returns a <code>*Site</code> with source offsets</td></tr>
+        <tr><td><code>analysis/types.py</code></td><td><code>signature()</code>, <code>aggregate_fields()</code> (POD-struct input synthesis)</td></tr>
+        <tr><td><code>analysis/safety.py</code></td><td><code>side_effect_reason()</code> (#1c), <code>template_candidates()</code> (#1d)</td></tr>
+        <tr><td><code>regex_detect.py</code></td><td>the <b>public detector API</b> (<code>detect_*</code>) + the <code>*Site</code> dataclasses. AST-first with a regex fallback</td></tr>
+      </table>
+      <h3>Codebase-mode plumbing</h3>
+      <table>
+        <tr><th>File</th><th>Owns</th></tr>
+        <tr><td><code>compile_db.py</code></td><td>parse <code>compile_commands.json</code> → <code>TU</code> list; extract <code>-I/-D/-std</code> + <code>-O/-march</code></td></tr>
+        <tr><td><code>link.py — project_archive</code></td><td>compile the <em>other</em> TUs into a cached static archive so the harness links real dependencies (#1)</td></tr>
+        <tr><td><code>cmake_ctest.py — discover_ctest</code></td><td><b>2A-1</b>: enumerate ctest, <code>nm</code>-map which tests exercise the target TU, derive test/bench commands</td></tr>
+      </table>
+    </section>
+
+    <section id="s7">
+      <h2><span class="n">7</span>Stage 2 — Proposer + Mutator</h2>
+      <h3>Proposer <span class="muted" style="font-size:14px;font-weight:400">(<code>adapters/proposer/</code>) — UNTRUSTED</span></h3>
+      <table>
+        <tr><th>File — class</th><th>What</th></tr>
+        <tr><td><code>rules.py — RuleProposer</code></td><td>the <code>--offline</code> path: offer the first registered transform whose pattern <code>matches()</code>. Deterministic</td></tr>
+        <tr><td><code>frontier.py — FrontierProposer</code></td><td>the LLM backend — a <b>stub today</b> (<code>NotImplementedError</code>); Phase 3 fills <code>_render_context</code> + <code>_parse_candidate</code></td></tr>
+      </table>
+      <h3>Transforms <span class="muted" style="font-size:14px;font-weight:400">(<code>adapters/language/cpp/transforms/</code>)</span></h3>
+      <p>Each transform is self-contained. <code>base.py — Transform</code> defines the contract: <code>candidates(source)</code> (the sensor unions these) · <code>bind(func)</code> · <code>matches(source)</code> · <code>rewrite(source) → (new_source, patch)</code> · <code>contract()</code>. The <b>7 shipped transforms</b> (registered in <code>transforms/__init__.py — ALL</code>):</p>
+      <table>
+        <tr><th>Transform</th><th>File</th><th>Rewrite</th></tr>
+        <tr><td><code>reserve_before_pushback</code></td><td><code>reserve.py</code></td><td>insert <code>v.reserve(n)</code> before a push_back loop</td></tr>
+        <tr><td><code>reserve_string</code></td><td><code>reserve.py</code></td><td>insert <code>s.reserve(n)</code> before a <code>+=</code> loop</td></tr>
+        <tr><td><code>reserve_unordered_map</code></td><td><code>reserve.py</code></td><td>insert <code>m.reserve(n)</code> before an insert loop</td></tr>
+        <tr><td><code>map_to_unordered_map</code></td><td><code>map_to_unordered_map.py</code></td><td><code>std::map</code> → <code>std::unordered_map</code></td></tr>
+        <tr><td><code>list_to_vector</code></td><td><code>list_to_vector.py</code></td><td><code>std::list</code> → <code>std::vector</code> (refuses <code>push_front</code>/<code>splice</code>)</td></tr>
+        <tr><td><code>fuse_map_lookup</code></td><td><code>fuse_map_lookup.py</code></td><td><code>if(m.count(k)) …m.at(k)</code> → one <code>find(k)</code></td></tr>
+        <tr><td><code>pass_by_const_ref</code></td><td><code>pass_by_const_ref.py</code></td><td>heavy value param → <code>const&amp;</code></td></tr>
+      </table>
+      <p><b><code>mutator.py — CppMutator.apply</code></b> is generic: it calls <code>transform.rewrite(source)</code> and wraps the result in a <code>Variant</code>. No transform logic lives here.</p>
+    </section>
+
+    <section id="s8">
+      <h2><span class="n">8</span>Stage 4a — Correctness oracle</h2>
+      <p><code>correctness.py — PerfCorrectnessOracle.equivalent</code> orchestrates the <b>correctness ladder</b> (higher rung = stronger proof):</p>
+      <table>
+        <tr><th>Rung</th><th>Check</th><th>Code</th></tr>
+        <tr><td><b>1</b></td><td><b>differential test</b> — run original + variant on held-out + fuzzed inputs (<code>check</code> mode), compare outputs</td><td><code>harness/</code> + <code>compare.py</code> + <code>inputs.py</code></td></tr>
+        <tr><td><b>3</b></td><td><b>sanitizers</b> — rebuild with ASan/UBSan (+ TSan <code>race</code> mode, #1a) and run; any diagnostic → fail</td><td><code>sanitizers.py</code> + <code>build/toolchain.py</code></td></tr>
+        <tr><td><b>2</b></td><td><em>(2D)</em> <b>metamorphic</b> property (permutation invariance) — opt-in, rejects-only</td><td><code>metamorphic.py</code></td></tr>
+      </table>
+      <table>
+        <tr><th>File — symbol</th><th>Role</th></tr>
+        <tr><td><code>harness/template.py — generate</code></td><td>assemble the self-contained C++ program (<code>check</code>/<code>race</code>/<code>bench</code> modes). <code>_neutralize_main</code> renames a real file's own <code>main()</code> so it doesn't collide with the driver</td></tr>
+        <tr><td><code>harness/synth.py</code></td><td><b>input synthesis</b> — primitives, <code>vector&lt;primitive&gt;</code>, <code>string</code>, simple aggregates; <code>unsupported_reason</code> reports what it can't build</td></tr>
+        <tr><td><code>sanitizers.py</code></td><td><code>submit_builds</code>/<code>evaluate</code> — compile + run the sanitizer builds, summarize diagnostics</td></tr>
+        <tr><td><code>compare.py — _outputs_match</code></td><td>output equality (with <code>--fp-tolerance</code>, #1b) + <code>_first_diff</code> witness</td></tr>
+        <tr><td><code>inputs.py — HeldOutInputs</code></td><td>fixed edge cases + seeded fuzzed sizes (<code>--fuzz</code>/<code>--seed</code>, #7)</td></tr>
+        <tr><td><code>reuse.py — TestReuseOracle</code></td><td><b>2A</b>: <code>confirm()</code> runs the project's own tests; <code>bench()</code> + <code>_pareto()</code> = the project-level perf gate (p50/p99/peak)</td></tr>
+        <tr><td><code>metamorphic.py — MetamorphicOracle</code></td><td><b>2D</b>: driver that checks <code>f(v) == f(shuffle(v))</code> on orig vs variant</td></tr>
+      </table>
+    </section>
+
+    <section id="s9">
+      <h2><span class="n">9</span>Stage 4b — Performance oracle</h2>
+      <p><code>performance.py — PerformanceOracleImpl.compare</code>:</p>
+      <ol>
+        <li><code>_verify.py — get_or_build_pair</code> — build (or <b>reuse from <code>VerifyCtx.cache</code></b>) the orig + variant binaries.</li>
+        <li><code>runtime/bench_runner.py — measure</code> — warmup + adaptive reps, core-pinned, capture <code>{p50, p99, peak_memory (VmHWM), binary_size}</code>.</li>
+        <li><code>_pareto()</code> — <b>≥1 objective improves past <code>min_speedup</code> AND none regresses past its budget</b> (<code>allow_regression</code>).</li>
+      </ol>
+      <h3>Build subsystem — <code>adapters/language/cpp/build/</code></h3>
+      <table>
+        <tr><th>File — symbol</th><th>Role</th></tr>
+        <tr><td><code>compile.py — compile_program</code></td><td>compile a program; <b>content-addressed exe cache</b> + <code>ccache</code> + a fast linker (<code>mold</code>/<code>lld</code>/<code>gold</code>) — a repeat build is a hardlink</td></tr>
+        <tr><td><code>compile.py — compile_pair</code></td><td>build orig + variant together</td></tr>
+        <tr><td><code>toolchain.py</code></td><td>probe a working ASan/UBSan/TSan/MSan toolchain (verify-or-skip)</td></tr>
+      </table>
+    </section>
+
+    <section id="s10">
+      <h2><span class="n">10</span>Surfaces &amp; runtime</h2>
+      <h3><code>surfaces/</code></h3>
+      <table>
+        <tr><th>File — symbol</th><th>Role</th></tr>
+        <tr><td><code>cli/main.py — main/_run_command</code></td><td>dispatch: report / analyze / optimize / serve / list-transforms / verify-setup</td></tr>
+        <tr><td><code>cli/parser.py — _parser</code></td><td>argparse spec (all flags); generates the help cheatsheet</td></tr>
+        <tr><td><code>cli/config_build.py — _build_config</code></td><td>argv → <code>Config</code> (incl. <code>--ctest-dir</code> discovery wiring)</td></tr>
+        <tr><td><code>cli/render.py</code></td><td><code>_render_human</code> (the verification box) / <code>_render_json</code> / <code>_render_codebase</code> / exit codes</td></tr>
+        <tr><td><code>daemon.py — serve/try_client</code></td><td>a warm background process (Python + libclang loaded once) over a unix socket — skips startup cost</td></tr>
+        <tr><td><code>patches.py — emit_patches</code></td><td><b>2C</b>: ranked <code>REPORT.md</code> + numbered git-apply-able <code>.patch</code> series</td></tr>
+      </table>
+      <h3><code>runtime/</code></h3>
+      <table>
+        <tr><th>File — symbol</th><th>Role</th></tr>
+        <tr><td><code>bench_runner.py — measure</code></td><td>timing harness: core-pin, warmup, reps, p50/p99, peak RSS</td></tr>
+        <tr><td><code>sandbox.py — run</code></td><td>subprocess + <code>RLIMIT_CPU</code> + wall-timeout (Phase 3 #13 hardens: fs/net isolation, memory cap)</td></tr>
+        <tr><td><code>fs.py — unique_tmp</code></td><td>collision-free temp names (pid + thread id) for <code>--jobs</code> safety</td></tr>
+      </table>
+    </section>
+
+    <section id="s11">
+      <h2><span class="n">11</span>Cross-cutting patterns (worth internalizing)</h2>
+      <ul>
+        <li><b>The trust boundary.</b> Untrusted: <code>sensor</code>, <code>proposer</code>, <code>mutator</code>, all transforms. Trusted: <code>gate</code> + both oracles + <code>ledger</code> + <code>apply_txn</code>. A bug in an untrusted part yields a <em>rejected</em> proposal, never a wrong accept.</li>
+        <li><b><code>VerifyCtx</code> build cache.</b> The gate compiles the orig/variant <b>once</b> and both oracles reuse the binaries (<code>_verify.get_or_build_pair</code>).</li>
+        <li><b>Generic sensor.</b> Adding a transform touches ~1 file: a detector in <code>analysis/detect.py</code>, a subclass in <code>transforms/</code>, a line in <code>ALL</code>. The sensor is untouched because it unions <code>candidates()</code>.</li>
+        <li><b>Package-with-reexport.</b> Big modules were split into packages (<code>analysis/</code>, <code>build/</code>, <code>harness/</code>, <code>cli/</code>) whose <code>__init__</code> re-exports the public names.</li>
+        <li><b>AST-first, regex-fallback.</b> <code>regex_detect.py</code> prefers the libclang detectors but degrades to regex, so the tool runs without a perfect libclang.</li>
+      </ul>
+    </section>
+
+    <section id="s12">
+      <h2><span class="n">12</span>Extension points — where to add things</h2>
+      <table>
+        <tr><th>To add…</th><th>Touch</th></tr>
+        <tr><td><b>a transform</b></td><td><code>analysis/detect.py</code> (detector) + <code>regex_detect.py</code> (public <code>detect_*</code>) + <code>transforms/&lt;name&gt;.py</code> (a <code>Transform</code>) + <code>transforms/__init__.py</code> (<code>ALL</code>). Sensor/gate untouched</td></tr>
+        <tr><td><b>a language</b></td><td>a new <code>adapters/language/&lt;lang&gt;/</code> implementing <code>Sensor</code> + <code>Mutator</code> + a domain oracle pair; wire in <code>registry.py</code></td></tr>
+        <tr><td><b>a correctness rung</b></td><td>extend <code>correctness.py — equivalent</code> + a checker module; set <code>CorrectnessVerdict.rung</code></td></tr>
+        <tr><td><b>a surface</b></td><td>a thin client of <code>engine/api.py — Engine</code>; render the <code>Verdict</code>. No engine change</td></tr>
+      </table>
+    </section>
+
+    <section id="s13">
+      <h2><span class="n">13</span>Full file index (one line each)</h2>
+      <p><b>engine/</b> — <code>api.py</code> public Engine · <code>orchestrator.py</code> the loop · <code>gate.py</code> the ACCEPT decision · <code>models.py</code> data schemas · <code>ports.py</code> interfaces · <code>registry.py</code> wiring · <code>ledger.py</code> learning log · <code>apply_txn.py</code> atomic apply · <code>config.py</code> policy/knobs.</p>
+      <p><b>adapters/language/cpp/</b> — <code>sensor.py</code> Evidence · <code>mutator.py</code> apply transform · <code>regex_detect.py</code> public detectors + Site types · <code>compile_db.py</code> compile_commands · <code>link.py</code> project archive · <code>cmake_ctest.py</code> 2A-1 discovery · <code>profile.py</code>/<code>profiler.py</code> hotspot selection · <code>analysis/</code> (parse·detect·types·safety) · <code>build/</code> (compile·toolchain) · <code>transforms/</code> (base + 7).</p>
+      <p><b>adapters/domain/performance/</b> — <code>correctness.py</code> the ladder · <code>performance.py</code> the Pareto gate · <code>harness/</code> (template·synth) · <code>sanitizers.py</code> · <code>compare.py</code> · <code>inputs.py</code> · <code>reuse.py</code> 2A · <code>metamorphic.py</code> 2D · <code>_verify.py</code> build-cache.</p>
+      <p><b>adapters/proposer/</b> — <code>rules.py</code> offline · <code>frontier.py</code> LLM stub.</p>
+      <p><b>surfaces/</b> — <code>cli/</code> (main·parser·config_build·render) · <code>daemon.py</code> · <code>patches.py</code> 2C · <code>_help.py</code>.</p>
+      <p><b>runtime/</b> — <code>bench_runner.py</code> · <code>sandbox.py</code> · <code>fs.py</code>.</p>
+      <div class="foot">This LLD maps the code as built; the <em>why</em> lives in <code>BOOSTOPT.md</code>, the <em>what</em> in <code>BOOSTOPT_Architecture.md</code>. When the code and this doc disagree, the code wins — grep the symbol and update this map.</div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{localStorage.setItem('boostopt-theme',t);}catch(e){} }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    if(!cur){ cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
+  try{ var saved = localStorage.getItem('boostopt-theme'); if(saved) applyTheme(saved); }catch(e){}
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {}; links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if(en.isIntersecting){ links.forEach(function(l){ l.classList.remove('active'); }); if(map[en.target.id]) map[en.target.id].classList.add('active'); } });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>

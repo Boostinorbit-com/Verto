@@ -1,36 +1,36 @@
-// VERTO VS Code extension — the editor glue. Implements the design note's §5 surfaces:
+// BOOSTOPT VS Code extension — the editor glue. Implements the design note's §5 surfaces:
 //   • an "optimize this file" CodeLens that resolves to "verified −X%" (two-state)
 //   • the command + a right-click code action (the 💡 lightbulb)
 //   • proof-on-hover, Apply, and Show diff
 //   • honest silence: what was tried and why it didn't make the cut, in an output channel
-// All verification is the `verto` CLI; this file only renders its `--json` Verdicts.
+// All verification is the `boostopt` CLI; this file only renders its `--json` Verdicts.
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as core from './core';
 import * as panel from './panel';
-import { VertoPanel, registerAfterProvider } from './panelView';
+import { BoostoptPanel, registerAfterProvider } from './panelView';
 
-// Virtual "after" documents for the native side-by-side diff (verto-after: scheme).
+// Virtual "after" documents for the native side-by-side diff (boostopt-after: scheme).
 const afterDocs = new Map<string, string>();
 let diffSeq = 0;
 
-// Selected run-profile (from .verto.json), and the status-bar item that shows it.
+// Selected run-profile (from .boostopt.json), and the status-bar item that shows it.
 let activeProfile: string | undefined;
 let statusItem: vscode.StatusBarItem;
 
-/** Read the project's .verto.json (team-shared run profiles), or undefined. */
+/** Read the project's .boostopt.json (team-shared run profiles), or undefined. */
 function loadProfiles(uri: vscode.Uri): core.ProfileConfig | undefined {
   const folder = vscode.workspace.getWorkspaceFolder(uri)?.uri.fsPath;
   if (!folder) {
     return undefined;
   }
-  const file = path.join(folder, '.verto.json');
+  const file = path.join(folder, '.boostopt.json');
   try {
     return core.parseProfiles(fs.readFileSync(file, 'utf8'));
   } catch {
-    return undefined; // absent or malformed → fall back to the verto.args setting
+    return undefined; // absent or malformed → fall back to the boostopt.args setting
   }
 }
 
@@ -39,8 +39,8 @@ function updateStatus(): void {
   const cfg = uri ? loadProfiles(uri) : undefined;
   if (cfg && Object.keys(cfg.profiles).length > 0) {
     const name = activeProfile && cfg.profiles[activeProfile] ? activeProfile : cfg.default ?? Object.keys(cfg.profiles)[0];
-    statusItem.text = `$(zap) VERTO: ${name}`;
-    statusItem.tooltip = 'VERTO run profile (from .verto.json) — click to switch';
+    statusItem.text = `$(zap) BOOSTOPT: ${name}`;
+    statusItem.tooltip = 'BOOSTOPT run profile (from .boostopt.json) — click to switch';
     statusItem.show();
   } else {
     statusItem.hide();
@@ -56,15 +56,15 @@ const lensChanged = new vscode.EventEmitter<void>();
 let output: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext): void {
-  output = vscode.window.createOutputChannel('VERTO');
+  output = vscode.window.createOutputChannel('BOOSTOPT');
   statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusItem.command = 'verto.pickProfile';
+  statusItem.command = 'boostopt.pickProfile';
 
   // Always-visible launcher for the right-side panel (there's no activity-bar icon).
   const panelItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  panelItem.text = '$(zap) VERTO';
-  panelItem.tooltip = 'Open the VERTO Pair-Optimizer panel';
-  panelItem.command = 'verto.openPanel';
+  panelItem.text = '$(zap) BOOSTOPT';
+  panelItem.tooltip = 'Open the BOOSTOPT Pair-Optimizer panel';
+  panelItem.command = 'boostopt.openPanel';
   panelItem.show();
   const cpp: vscode.DocumentSelector = { language: 'cpp', scheme: 'file' };
   const afterProvider: vscode.TextDocumentContentProvider = {
@@ -74,16 +74,16 @@ export function activate(context: vscode.ExtensionContext): void {
     output,
     statusItem,
     panelItem,
-    vscode.workspace.registerTextDocumentContentProvider('verto-after', afterProvider),
-    vscode.commands.registerCommand('verto.optimizeFile', runOptimize),
-    vscode.commands.registerCommand('verto.pickProfile', pickProfile),
-    vscode.commands.registerCommand('verto.apply', applyFinding),
-    vscode.commands.registerCommand('verto.showDiff', showDiff),
-    vscode.commands.registerCommand('verto.showProof', showProof),
+    vscode.workspace.registerTextDocumentContentProvider('boostopt-after', afterProvider),
+    vscode.commands.registerCommand('boostopt.optimizeFile', runOptimize),
+    vscode.commands.registerCommand('boostopt.pickProfile', pickProfile),
+    vscode.commands.registerCommand('boostopt.apply', applyFinding),
+    vscode.commands.registerCommand('boostopt.showDiff', showDiff),
+    vscode.commands.registerCommand('boostopt.showProof', showProof),
     vscode.window.onDidChangeActiveTextEditor(updateStatus),
-    vscode.languages.registerCodeLensProvider(cpp, new VertoCodeLensProvider()),
-    vscode.languages.registerHoverProvider(cpp, new VertoHoverProvider()),
-    vscode.languages.registerCodeActionsProvider(cpp, new VertoCodeActionProvider(), {
+    vscode.languages.registerCodeLensProvider(cpp, new BoostoptCodeLensProvider()),
+    vscode.languages.registerHoverProvider(cpp, new BoostoptHoverProvider()),
+    vscode.languages.registerCodeActionsProvider(cpp, new BoostoptCodeActionProvider(), {
       providedCodeActionKinds: [vscode.CodeActionKind.RefactorRewrite],
     }),
   );
@@ -92,9 +92,9 @@ export function activate(context: vscode.ExtensionContext): void {
   // in the editor column to the RIGHT of the code, and can be reopened by command.
   registerAfterProvider(context);
   context.subscriptions.push(
-    vscode.commands.registerCommand('verto.openPanel', () => VertoPanel.createOrShow(context.extensionUri)),
+    vscode.commands.registerCommand('boostopt.openPanel', () => BoostoptPanel.createOrShow(context.extensionUri)),
   );
-  VertoPanel.createOrShow(context.extensionUri); // auto-open on the right
+  BoostoptPanel.createOrShow(context.extensionUri); // auto-open on the right
 
   updateStatus();
 }
@@ -106,17 +106,17 @@ export function deactivate(): void {
 async function runOptimize(): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor || editor.document.languageId !== 'cpp') {
-    vscode.window.showWarningMessage('VERTO: open a C++ file first.');
+    vscode.window.showWarningMessage('BOOSTOPT: open a C++ file first.');
     return;
   }
   const uri = editor.document.uri;
-  const cfg = vscode.workspace.getConfiguration('verto');
-  const command = cfg.get<string>('command', 'verto');
+  const cfg = vscode.workspace.getConfiguration('boostopt');
+  const command = cfg.get<string>('command', 'boostopt');
   const compileCommands = cfg.get<string>('compileCommands', '');
 
-  // Flags come from the chosen .verto.json profile; the verto.args setting is the
+  // Flags come from the chosen .boostopt.json profile; the boostopt.args setting is the
   // fallback when there's no profile. Structural flags (--json) are always added,
-  // and unset policy still falls through to .verto.toml.
+  // and unset policy still falls through to .boostopt.toml.
   const profiles = loadProfiles(uri);
   const userArgs = core.profileArgs(profiles, activeProfile, cfg.get<string[]>('args', []));
   const args = ['optimize', uri.fsPath, '--json', '--no-daemon', ...userArgs];
@@ -125,7 +125,7 @@ async function runOptimize(): Promise<void> {
   }
 
   await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: 'VERTO: verifying…', cancellable: false },
+    { location: vscode.ProgressLocation.Notification, title: 'BOOSTOPT: verifying…', cancellable: false },
     async () => {
       try {
         const stdout = await run(command, args, uri);
@@ -137,23 +137,23 @@ async function runOptimize(): Promise<void> {
         lensChanged.fire();
         vscode.window.showInformationMessage(
           findings.length > 0
-            ? `VERTO — ${findings.length} verified optimization(s). Hover a ⚡ lens for the proof.`
-            : 'VERTO — nothing cleared the correct-and-faster bar. See the VERTO output for what was tried.',
+            ? `BOOSTOPT — ${findings.length} verified optimization(s). Hover a ⚡ lens for the proof.`
+            : 'BOOSTOPT — nothing cleared the correct-and-faster bar. See the BOOSTOPT output for what was tried.',
         );
       } catch (err) {
-        vscode.window.showErrorMessage(`VERTO failed: ${err instanceof Error ? err.message : String(err)}`);
+        vscode.window.showErrorMessage(`BOOSTOPT failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
   );
 }
 
-/** Pick a run profile from .verto.json (the team-shared flag-sets). */
+/** Pick a run profile from .boostopt.json (the team-shared flag-sets). */
 async function pickProfile(): Promise<void> {
   const uri = vscode.window.activeTextEditor?.document.uri;
   const cfg = uri ? loadProfiles(uri) : undefined;
   if (!cfg || Object.keys(cfg.profiles).length === 0) {
     vscode.window.showInformationMessage(
-      'VERTO: no .verto.json profiles found. Add one at the repo root to define flag-sets.',
+      'BOOSTOPT: no .boostopt.json profiles found. Add one at the repo root to define flag-sets.',
     );
     return;
   }
@@ -162,18 +162,18 @@ async function pickProfile(): Promise<void> {
     description: name === cfg.default ? '(default)' : '',
     detail: p.description ?? p.args.join(' '),
   }));
-  const chosen = await vscode.window.showQuickPick(items, { placeHolder: 'VERTO: select an optimization profile' });
+  const chosen = await vscode.window.showQuickPick(items, { placeHolder: 'BOOSTOPT: select an optimization profile' });
   if (chosen) {
     activeProfile = chosen.label;
     updateStatus();
-    vscode.window.showInformationMessage(`VERTO — profile "${chosen.label}" selected. Run "Verify & Optimize" to use it.`);
+    vscode.window.showInformationMessage(`BOOSTOPT — profile "${chosen.label}" selected. Run "Verify & Optimize" to use it.`);
   }
 }
 
 /** Honest silence: log accepted + everything that didn't make the cut, and why. */
 function report(uri: vscode.Uri, verdicts: core.Verdict[]): void {
   const rel = vscode.workspace.asRelativePath(uri);
-  output.appendLine(`── VERTO · ${rel} ──`);
+  output.appendLine(`── BOOSTOPT · ${rel} ──`);
   const accepted = core.acceptedFindings(verdicts);
   output.appendLine(`  ${accepted.length} verified optimization(s):`);
   for (const v of accepted) {
@@ -189,7 +189,7 @@ function report(uri: vscode.Uri, verdicts: core.Verdict[]): void {
   output.appendLine('');
 }
 
-/** Spawn the verto CLI and resolve its stdout (the --json payload). */
+/** Spawn the boostopt CLI and resolve its stdout (the --json payload). */
 function run(command: string, args: string[], uri: vscode.Uri): Promise<string> {
   return new Promise((resolve, reject) => {
     const parts = command.trim().split(/\s+/);
@@ -201,7 +201,7 @@ function run(command: string, args: string[], uri: vscode.Uri): Promise<string> 
     proc.stdout.on('data', (d) => (out += d.toString()));
     proc.stderr.on('data', (d) => (err += d.toString()));
     proc.on('error', reject);
-    // verto exits 0/1/3 (found/none/rejected) — a non-zero code is normal, so we
+    // boostopt exits 0/1/3 (found/none/rejected) — a non-zero code is normal, so we
     // key on getting a JSON payload, not the exit code.
     proc.on('close', () => (out.trim() ? resolve(out) : reject(new Error(err.trim() || 'no output'))));
   });
@@ -223,7 +223,7 @@ async function applyFinding(v: core.Verdict): Promise<void> {
   }
   const hunks = core.parseHunks(v.udiff || v.diff || '').sort((a, b) => b.oldStart - a.oldStart);
   if (hunks.length === 0) {
-    vscode.window.showWarningMessage('VERTO: no diff to apply for this finding.');
+    vscode.window.showWarningMessage('BOOSTOPT: no diff to apply for this finding.');
     return;
   }
   const edit = new vscode.WorkspaceEdit();
@@ -236,7 +236,7 @@ async function applyFinding(v: core.Verdict): Promise<void> {
     findings = findings.filter((f) => f !== v);
     lensChanged.fire();
     vscode.window.showInformationMessage(
-      `VERTO — applied ${core.speedupLabel(v)} (${v.candidate?.transform ?? 'change'}).`,
+      `BOOSTOPT — applied ${core.speedupLabel(v)} (${v.candidate?.transform ?? 'change'}).`,
     );
   }
 }
@@ -249,21 +249,21 @@ function showProof(v: core.Verdict): void {
   panel.showProof(v, vscode.Uri.parse(resultUri), { apply: applyFinding, showDiff });
 }
 
-/** Native side-by-side diff: current file vs the VERTO-applied version. */
+/** Native side-by-side diff: current file vs the BOOSTOPT-applied version. */
 async function showDiff(v: core.Verdict): Promise<void> {
   const doc = await targetDoc();
   if (!doc) {
     return;
   }
   const after = core.applyUdiff(doc.getText(), v.udiff || v.diff || '');
-  // A verto-after: URI whose path keeps the .cpp extension → C++ highlighting on the right.
-  const afterUri = doc.uri.with({ scheme: 'verto-after', query: `v${diffSeq++}` });
+  // A boostopt-after: URI whose path keeps the .cpp extension → C++ highlighting on the right.
+  const afterUri = doc.uri.with({ scheme: 'boostopt-after', query: `v${diffSeq++}` });
   afterDocs.set(afterUri.toString(), after);
-  const title = `${doc.uri.path.split('/').pop()} ↔ VERTO (${core.speedupLabel(v)})`;
+  const title = `${doc.uri.path.split('/').pop()} ↔ BOOSTOPT (${core.speedupLabel(v)})`;
   await vscode.commands.executeCommand('vscode.diff', doc.uri, afterUri, title, { preview: true });
 }
 
-class VertoCodeLensProvider implements vscode.CodeLensProvider {
+class BoostoptCodeLensProvider implements vscode.CodeLensProvider {
   readonly onDidChangeCodeLenses = lensChanged.event;
 
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
@@ -273,9 +273,9 @@ class VertoCodeLensProvider implements vscode.CodeLensProvider {
     // Two-state: before results (or after a no-win run) show the invitation lens.
     if (key !== resultUri || findings.length === 0) {
       const title = ran.has(key)
-        ? '⚡ VERTO — no verified win last run · re-verify this file'
-        : '⚡ VERTO — verify & optimize this file';
-      return [new vscode.CodeLens(top, { title, command: 'verto.optimizeFile' })];
+        ? '⚡ BOOSTOPT — no verified win last run · re-verify this file'
+        : '⚡ BOOSTOPT — verify & optimize this file';
+      return [new vscode.CodeLens(top, { title, command: 'boostopt.optimizeFile' })];
     }
 
     // After results: a verified verdict per finding, each with Apply + Show diff.
@@ -286,19 +286,19 @@ class VertoCodeLensProvider implements vscode.CodeLensProvider {
       const rung = v.correctness?.rung ?? '?';
       lenses.push(
         new vscode.CodeLens(range, {
-          title: `⚡ VERTO — verified ${core.speedupLabel(v)} · Rung ${rung}`,
-          command: 'verto.showProof',
+          title: `⚡ BOOSTOPT — verified ${core.speedupLabel(v)} · Rung ${rung}`,
+          command: 'boostopt.showProof',
           arguments: [v],
         }),
-        new vscode.CodeLens(range, { title: 'Apply', command: 'verto.apply', arguments: [v] }),
-        new vscode.CodeLens(range, { title: 'Diff', command: 'verto.showDiff', arguments: [v] }),
+        new vscode.CodeLens(range, { title: 'Apply', command: 'boostopt.apply', arguments: [v] }),
+        new vscode.CodeLens(range, { title: 'Diff', command: 'boostopt.showDiff', arguments: [v] }),
       );
     }
     return lenses;
   }
 }
 
-class VertoHoverProvider implements vscode.HoverProvider {
+class BoostoptHoverProvider implements vscode.HoverProvider {
   provideHover(document: vscode.TextDocument, position: vscode.Position): vscode.Hover | undefined {
     if (document.uri.toString() !== resultUri) {
       return undefined;
@@ -313,10 +313,10 @@ class VertoHoverProvider implements vscode.HoverProvider {
   }
 }
 
-class VertoCodeActionProvider implements vscode.CodeActionProvider {
+class BoostoptCodeActionProvider implements vscode.CodeActionProvider {
   provideCodeActions(): vscode.CodeAction[] {
-    const action = new vscode.CodeAction('VERTO: Verify & Optimize this file', vscode.CodeActionKind.RefactorRewrite);
-    action.command = { command: 'verto.optimizeFile', title: 'VERTO: Verify & Optimize Current File' };
+    const action = new vscode.CodeAction('BOOSTOPT: Verify & Optimize this file', vscode.CodeActionKind.RefactorRewrite);
+    action.command = { command: 'boostopt.optimizeFile', title: 'BOOSTOPT: Verify & Optimize Current File' };
     return [action];
   }
 }

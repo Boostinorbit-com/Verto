@@ -1,22 +1,26 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]   # >=77 for PEP 639 (license = SPDX expression)
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "verto-optimizer"           # PyPI distribution name; the import + CLI stay `verto`
+name = "boostopt"           # PyPI distribution name; the import + CLI stay `boostopt`
 version = "0.1.0"
 description = "A verified C++ optimizer — proposes optimizations and applies them only after proving each is byte-identical in behavior AND measurably faster."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Proprietary" }   # pre-release; all rights reserved (see LICENSE). NOT for public/PyPI release.
+# PEP 639 SPDX expression. `LicenseRef-` is the form for a licence with no public SPDX id —
+# here, BOOSTOPT's own commercial EULA in LICENSE. Proprietary packages are fine on PyPI; what
+# is NOT fine is shipping a licence that grants no rights at all, because dependency scanners
+# then block installation and users have no right to run what they downloaded.
+license = "LicenseRef-BoostOpt-EULA"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Nafis Ayaz", email = "sir.nafis47@gmail.com" }]
 keywords = ["optimization", "performance", "compiler", "c++", "clang", "llm",
             "verification", "sanitizers", "benchmark", "code-optimization"]
 classifiers = [
     "Development Status :: 4 - Beta",
+    "Intended Audience :: Information Technology",
     "Intended Audience :: Developers",
-    "License :: Other/Proprietary License",
-    "Private :: Do Not Upload",
     "Topic :: Software Development :: Compilers",
     "Topic :: Software Development :: Code Generators",
     "Programming Language :: Python :: 3",
@@ -29,14 +33,18 @@ dependencies = [
     # detection (a regex fallback exists, but AST is the intended path). The PyPI package
     # bundles a native libclang, so a fresh venv is self-contained.
     "libclang>=16",
-    # .verto.toml parsing: tomllib is stdlib on 3.11+; tomli backports it for older interpreters.
-    "tomli>=1.1; python_version < '3.11'",
+    # NOTE: no tomli backport — `requires-python = ">=3.11"` guarantees stdlib tomllib, so a
+    # `python_version < '3.11'` marker could never fire. (config.py still falls back to tomli if
+    # it happens to be importable, which covers a vendored/older interpreter.)
 ]
 
 [project.optional-dependencies]
 # Contributor tooling. pytest-rerunfailures re-runs a flaky (benchmark-gated) test a couple
 # times — a real regression fails all attempts; transient CPU-contention noise clears on retry.
-dev = ["pytest>=7", "pytest-rerunfailures>=12"]
+# setuptools is NOT a runtime dep — tests/invariants/test_boundary.py imports find_packages to
+# assert the wheel can't ship boostopt_server. Python 3.12 dropped setuptools from ensurepip, so
+# it must be declared or that test fails to collect on 3.12+ while passing on 3.11.
+dev = ["pytest>=7", "pytest-rerunfailures>=12", "setuptools>=77"]
 # Hosted-model backend for `--model frontier` (optional; local Ollama needs nothing extra).
 llm-openai = ["openai>=1.0"]
 llm-anthropic = ["anthropic>=0.30"]
@@ -44,16 +52,42 @@ llm-anthropic = ["anthropic>=0.30"]
 keychain = ["keyring>=23"]
 
 [project.urls]
-Homepage = "https://github.com/Boostinorbit-com/Verto"
-Repository = "https://github.com/Boostinorbit-com/Verto"
-Issues = "https://github.com/Boostinorbit-com/Verto/issues"
+# The PyPI sidebar links. All boostopt.com — there is deliberately NO `Repository` entry: the
+# source is closed, and a private GitHub URL would 404 for every visitor to the project page.
+Homepage = "https://boostopt.com"
+Documentation = "https://boostopt.com/docs"
+Changelog = "https://boostopt.com/changelog"
+Support = "https://boostopt.com/support"
 
 [project.scripts]
-verto = "verto.surfaces.cli:main"
+boostopt = "boostopt.surfaces.cli:main"
+# A SECOND command, not a `boostopt` subcommand: it removes the package that provides it, so it
+# has to be able to outlive the CLI's own dispatch. pip runs no code on uninstall — this is the
+# only place the teardown can live. See boostopt/surfaces/uninstall.py.
+boostopt-uninstall = "boostopt.surfaces.uninstall:main"
+
+[tool.pytest.ini_options]
+# Layout: tests/ mirrors boostopt/'s layers (engine, adapters, runtime, surfaces) so a new test
+# has an obvious home. COST is orthogonal to layer — the expensive tests are scattered, and some
+# files hold both a 25s compile-and-benchmark test and a 3ms one — so cost is expressed as
+# MARKERS, not folders. `pytest -m "not toolchain"` is the fast inner loop.
+testpaths = ["tests"]
+markers = [
+    "toolchain: drives the real clang++/g++ toolchain (compile + sanitize + benchmark). Measured at 0.5s or more; the slowest is ~44s.",
+    "bench: timing-sensitive (a benchmark decides pass/fail); can flake under CPU contention.",
+    "live: needs a running Ollama serving the local model; opt in with BOOSTOPT_LIVE_LLM.",
+    "premium: exercises boostopt_server, the proprietary hosted tier (never in the public wheel).",
+]
+
+# NOTE: no [tool.setuptools.package-data]. The Modelfile and the demo sample are Python string
+# constants (boostopt/runtime/models/, boostopt/examples/) rather than data files, because a
+# compiled build has no filesystem package for importlib.resources to read. That also removes a
+# whole class of packaging bug: there is no glob to forget, and nothing that can exist in a
+# checkout but vanish from the wheel.
 
 [tool.setuptools.packages.find]
-include = ["verto*"]
-# `verto_server` is the PROPRIETARY hosted tier — it must NEVER ship in the public wheel.
-# Without this, the "verto*" glob would bundle it (one-way boundary: verto_server imports
-# verto, never the reverse). See Docs/VERTO_Premium.md and the open-core invariant.
-exclude = ["verto_server*"]
+include = ["boostopt*"]
+# `boostopt_server` is the PROPRIETARY hosted tier — it must NEVER ship in the public wheel.
+# Without this, the "boostopt*" glob would bundle it (one-way boundary: boostopt_server imports
+# boostopt, never the reverse). See Docs/BOOSTOPT_Premium.md and the open-core invariant.
+exclude = ["boostopt_server*"]

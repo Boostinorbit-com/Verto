@@ -1,9 +1,9 @@
 """Pre-registered Wedge cases (WEDGE_TEST.md). Committed BEFORE running.
 
 Two kinds:
-  - "pipeline": run `verto optimize <file>` and check the verdict (does VERTO find
+  - "pipeline": run `boostopt optimize <file>` and check the verdict (does BOOSTOPT find
     and verify the optimization, or correctly find nothing / reject it?).
-  - "gate": feed VERTO's trusted gate an (original, plausible-but-wrong variant)
+  - "gate": feed BOOSTOPT's trusted gate an (original, plausible-but-wrong variant)
     pair — the kind a tests-only tool would accept — and check it REJECTS.
   - "pending": a category the engine doesn't implement yet; shown honestly.
 """
@@ -26,7 +26,7 @@ class Case:
     symbol: str = ""          # gate cases: function under test
     variant: str = ""         # gate cases: the bad-optimization source
     reason: str = ""          # expected reject-reason substring
-    expect_symbol: str = ""   # pipeline: the function VERTO should choose (profile-guided)
+    expect_symbol: str = ""   # pipeline: the function BOOSTOPT should choose (profile-guided)
     note: str = ""            # pending cases
 
 
@@ -100,9 +100,9 @@ CASES: list[Case] = [
          file=f"{EX}/packet_stats.cpp", symbol="build_histogram", variant=_UB_WRITE,
          reason="unsafe"),
 
-    # ---- Controls: VERTO must NOT win ----
+    # ---- Controls: BOOSTOPT must NOT win ----
     Case("Ctrl-optimal", "Control", "pipeline", "none",
-         "already optimal (unordered_map + reserved) — VERTO must claim NO win (no false positive)",
+         "already optimal (unordered_map + reserved) — BOOSTOPT must claim NO win (no false positive)",
          file=f"{WD}/already_optimal.cpp"),
 
     # ---- Category B: profile-guided selection ----

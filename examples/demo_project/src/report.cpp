@@ -1,6 +1,6 @@
 // A second TU with a growth site (out.push_back in a loop, no reserve) — BUT it
-// returns std::vector<Bucket>, a custom project type VERTO's harness generator
-// cannot build/checksum. So VERTO detects the site and HONESTLY SKIPS it
+// returns std::vector<Bucket>, a custom project type BOOSTOPT's harness generator
+// cannot build/checksum. So BOOSTOPT detects the site and HONESTLY SKIPS it
 // (verify-or-skip) rather than optimize what it can't verify. No false positive.
 #include "stats.h"
 
